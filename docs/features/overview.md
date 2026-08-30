@@ -4,7 +4,7 @@ icon: chart-simple
 order: 9
 ---
 
-VanBlog 具有三个数据看板。
+ZweiBlog 具有三个数据看板。
 
 <!-- more -->
 

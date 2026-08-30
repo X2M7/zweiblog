@@ -1,13 +1,10 @@
-import convert from 'ansi-to-html';
-const ansiToHtml = new convert();
+import { convertAnsiLinesToHtml } from './ansi';
+
 export default function ({ content }: { content: string }) {
   return (
     <code
       dangerouslySetInnerHTML={{
-        __html: content
-          .split('\n')
-          .map((s) => ansiToHtml.toHtml(s))
-          .join('<br/>'),
+        __html: convertAnsiLinesToHtml(content),
       }}
     />
   );

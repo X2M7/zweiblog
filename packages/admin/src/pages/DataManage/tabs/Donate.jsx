@@ -1,4 +1,4 @@
-import { deleteDonate, getDonate, updateDonate } from '@/services/van-blog/api';
+import { deleteDonate, getDonate, updateDonate } from '@/services/zwei-blog/api';
 import { EditableProTable } from '@ant-design/pro-components';
 import { Modal, Spin } from 'antd';
 import { useRef, useState } from 'react';

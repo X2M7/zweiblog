@@ -3,13 +3,18 @@ import { StaticType, StoragePath } from 'src/types/setting.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from 'src/config';
-import { imageSize } from 'image-size';
 import { formatBytes } from 'src/utils/size';
 import { PicGo } from 'picgo';
 import { ImgMeta } from 'src/types/img';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SettingDocument } from 'src/scheme/setting.schema';
+import { readSafeImageMetadata } from 'src/utils/imageMetadata';
+import {
+  parsePicgoPluginSetting,
+  summarizePicgoInstallResult,
+  validatePicgoPluginNames,
+} from './picgo.security';
 @Injectable()
 export class PicgoProvider {
   picgo: PicGo;
@@ -19,7 +24,9 @@ export class PicgoProvider {
     private settingModel: Model<SettingDocument>,
   ) {
     this.picgo = new PicGo();
-    this.initDriver();
+    void this.initDriver().catch((error) => {
+      this.logger.error(`PicGo initialization failed: ${(error as Error)?.message || 'unknown error'}`);
+    });
   }
   async getSetting(): Promise<any> {
     const res = await this.settingModel.findOne({ type: 'static' }).exec();
@@ -36,24 +43,45 @@ export class PicgoProvider {
       this.picgo.setConfig(picgoConfig);
     }
     if (plugins) {
-      this.installPlugins(plugins.split(','));
+      if (!config.picgo.allowUnsafePluginInstall) {
+        this.logger.warn(
+          'Skipped PicGo runtime plugin installation (picgo.allowUnsafePluginInstall=false)',
+        );
+        return;
+      }
+      await this.installPlugins(parsePicgoPluginSetting(plugins));
     }
   }
   async installPlugins(plugins: string[]) {
-    if (plugins && plugins.length > 0) {
-      this.logger.log(`尝试安装 picgo 插件：${plugins}`);
-      const res = this.picgo.pluginHandler.install(plugins);
-      res.then((result) => {
-        if (result.success) {
-          this.logger.log(`picgo 安装插件成功！${result.body}`);
-        } else {
-          this.logger.error(`picgo 插件安装失败！${result.body}`);
-        }
-      });
+    if (!config.picgo.allowUnsafePluginInstall) {
+      this.logger.warn('Rejected PicGo runtime plugin installation because the safety switch is off');
+      return null;
     }
+    const safePlugins = validatePicgoPluginNames(plugins);
+    if (safePlugins.length === 0) return null;
+
+    this.logger.log(`Installing ${safePlugins.length} PicGo plugin(s)`);
+    let result;
+    try {
+      result = await this.picgo.pluginHandler.install(safePlugins);
+    } catch (error) {
+      this.logger.error(
+        `PicGo plugin installation rejected or failed: ${summarizePicgoInstallResult(
+          (error as Error)?.message || error,
+        )}`,
+      );
+      throw error;
+    }
+    const summary = summarizePicgoInstallResult(result.body);
+    if (result.success) {
+      this.logger.log(`PicGo plugin installation succeeded: ${summary}`);
+    } else {
+      this.logger.error(`PicGo plugin installation failed: ${summary}`);
+    }
+    return result;
   }
   async saveFile(fileName: string, buffer: Buffer, type: StaticType) {
-    const result = imageSize(buffer);
+    const result = readSafeImageMetadata(buffer);
     const byteLength = buffer.byteLength;
 
     const meta: ImgMeta = { ...result, size: formatBytes(byteLength) };

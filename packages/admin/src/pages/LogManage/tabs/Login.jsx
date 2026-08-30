@@ -1,4 +1,4 @@
-import { getLog } from '@/services/van-blog/api';
+import { getLog } from '@/services/zwei-blog/api';
 import { ProTable } from '@ant-design/pro-components';
 import { Tag } from 'antd';
 import { useRef } from 'react';

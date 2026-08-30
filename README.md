@@ -2,7 +2,7 @@
 	<img src="/img/logo.svg" style="width: 200px"></img>
 </p>
 <p align="center">
-	<strong>VanBlog是一款简洁、实用、优雅的个人博客系统，支持全自动按需申请HTTPS证书、黑暗模式、移动端自适应和评论功能。它内置了流量统计和图床，并集成了评论系统。此外，VanBlog还具有无限的可扩展性，提供完备的后台管理面板，支持黑暗模式、移动端、一键上传剪贴板图片到图床，并带有强大的编辑器。</strong>
+	<strong>ZweiBlog是一款简洁、实用、优雅的个人博客系统，支持全自动按需申请HTTPS证书、黑暗模式、移动端自适应和评论功能。它内置了流量统计和图床，并集成了评论系统。此外，ZweiBlog还具有无限的可扩展性，提供完备的后台管理面板，支持黑暗模式、移动端、一键上传剪贴板图片到图床，并带有强大的编辑器。</strong>
 </p>
 <p align="center">
   <img src="https://img.shields.io/github/v/release/mereithhh/van-blog?display_name=tag" />
@@ -59,13 +59,13 @@
 ### 一键脚本部署
 
 ```bash
-curl -L https://vanblog.mereith.com/vanblog.sh -o vanblog.sh && chmod +x vanblog.sh && ./vanblog.sh
+curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
 ```
 
 将来如果需要再次运行脚本，可以运行：
 
 ```bash
-./vanblog.sh
+./zweiblog.sh
 ```
 
 ### 其他部署方式
@@ -106,7 +106,7 @@ curl -L https://vanblog.mereith.com/vanblog.sh -o vanblog.sh && chmod +x vanblog
 
 ## 交流群
 
-- [VanBlog 交流群](https://jq.qq.com/?_wv=1027&k=5NRyK2Sw)
+- [ZweiBlog 交流群](https://jq.qq.com/?_wv=1027&k=5NRyK2Sw)
 
 ## 说明与文档
 

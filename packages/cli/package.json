@@ -1,5 +1,5 @@
 {
-  "name": "vanblog-cli",
+  "name": "zweiblog-cli",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mongodb": "^5.9.1"
+    "mongodb": "^5.9.2"
   }
 }

@@ -9,7 +9,7 @@ import {
   getPipelineById,
   updatePipelineById,
   getPipelineConfig,
-} from '@/services/van-blog/api';
+} from '@/services/zwei-blog/api';
 import { DownOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-layout';
 import { Button, Dropdown, Menu, message, Modal, Space, Spin, Tag, Tree } from 'antd';

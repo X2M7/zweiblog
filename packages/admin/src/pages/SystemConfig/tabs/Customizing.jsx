@@ -1,13 +1,14 @@
 import CodeEditor from '@/components/CodeEditor';
-import { getLayoutConfig, updateLayoutConfig } from '@/services/van-blog/api';
-import { useTab } from '@/services/van-blog/useTab';
+import { getLayoutConfig, updateLayoutConfig } from '@/services/zwei-blog/api';
+import { useTab } from '@/services/zwei-blog/useTab';
 import { Button, Card, message, Modal, Spin } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 const helpMap = {
   css: '自定义 css 会把您写入的 css 代码作为 <style> 标签插入到前台页面中的 <head> 中。',
-  script: '自定义 script 会把您写入的 script 代码作为 <script> 标签插入到前台页面的最下方。',
-  html: '自定义 html 会把您写入的 html 代码插入到前台页面 body 标签中的下方。是静态化的，首屏源代码即存在。',
-  head: '自定义 html 会把您写入的 html 代码插入到前台页面的 head 标签中的下方。是静态化的，首屏源代码即存在，可以用于网站所有权验证。',
+  script:
+    '安全起见，自定义 script 默认不会执行。仅在构建前台时显式设置 NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE=true 才会启用。',
+  html: '自定义 html 会经安全清洗后插入前台页面 body 下方，危险标签、事件属性和危险 URL 会被移除。',
+  head: '自定义 head 仅支持安全的 meta、link 和 title；script、base、页面刷新及危险 URL 会被移除。',
 };
 export default function () {
   const [tab, setTab] = useTab('css', 'customTab');

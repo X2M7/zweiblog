@@ -1,6 +1,6 @@
 {
-  "name": "VanBlog",
-  "short_name": "VanBlog",
+  "name": "ZweiBlog",
+  "short_name": "ZweiBlog",
   "display": "standalone",
   "start_url": "/admin",
   "theme_color": "#002140",

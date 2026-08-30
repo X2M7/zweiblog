@@ -1,6 +1,6 @@
 import { ModalForm, ProFormSelect, ProFormSwitch, ProFormText } from '@ant-design/pro-form';
 
-import { getPipelineConfig, createPipeline, updatePipelineById } from '@/services/van-blog/api';
+import { getPipelineConfig, createPipeline, updatePipelineById } from '@/services/zwei-blog/api';
 import { useEffect, useState } from 'react';
 import { Form, message } from 'antd';
 export default function ({

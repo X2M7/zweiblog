@@ -14,7 +14,7 @@ const client = new MongoClient(url);
 
 async function run() {
   try {
-    const database = client.db('vanBlog');
+    const database = client.db('zweiBlog');
     const collection = database.collection('articles');
 
     // Query for a movie that has the title 'Back to the Future'

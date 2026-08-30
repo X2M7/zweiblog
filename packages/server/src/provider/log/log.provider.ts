@@ -13,8 +13,8 @@ import { CodeResult } from '../pipeline/pipeline.provider';
 @Injectable()
 export class LogProvider {
   logger = null;
-  logPath = path.join(config.log, 'vanblog-event.log');
-  systemLogPath = path.join('/var/log/', 'vanblog-stdio.log');
+  logPath = path.join(config.log, 'zweiblog-event.log');
+  systemLogPath = path.join(config.log, 'zweiblog-stdio.log');
   constructor() {
     checkOrCreate(config.log);
     const streams = [

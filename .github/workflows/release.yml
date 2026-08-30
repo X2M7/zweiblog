@@ -57,8 +57,8 @@ jobs:
           context: .
           file: ./Dockerfile
           build-args: |
-            VAN_BLOG_BUILD_SERVER=http://localhost:3000
-            VAN_BLOG_VERSIONS=${{ steps.get_version.outputs.VERSION }}
+            ZWEI_BLOG_BUILD_SERVER=http://localhost:3000
+            ZWEI_BLOG_VERSIONS=${{ steps.get_version.outputs.VERSION }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
@@ -92,10 +92,10 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with: # defaults to latest kubectl binary version
           config: ${{ secrets.K8S_CONFIG_DATA }}
-          command: set image  deployment/van-blog van-blog=docker.io/mereith/van-blog:${{ steps.get_version.outputs.VERSION }}
+          command: set image  deployment/zwei-blog zwei-blog=docker.io/mereith/van-blog:${{ steps.get_version.outputs.VERSION }}
 
       - name: 部署 demo 到集群
         uses: steebchen/kubectl@v2.0.0
         with: # defaults to latest kubectl binary version
           config: ${{ secrets.K8S_CONFIG_DATA }}
-          command: set image  deployment/blog-demo van-blog=docker.io/mereith/van-blog:${{ steps.get_version.outputs.VERSION }}
+          command: set image  deployment/blog-demo zwei-blog=docker.io/mereith/van-blog:${{ steps.get_version.outputs.VERSION }}

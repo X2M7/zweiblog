@@ -5,6 +5,7 @@ import {
   Get,
   Post,
   Body,
+  BadRequestException,
   Put,
   Delete,
   Query,
@@ -19,6 +20,7 @@ import { CustomPageProvider } from 'src/provider/customPage/customPage.provider'
 import { StaticProvider } from 'src/provider/static/static.provider';
 import { ApiToken } from 'src/provider/swagger/token';
 import { CustomPage } from 'src/scheme/customPage.schema';
+import { customPageUploadOptions } from 'src/utils/uploadLimits';
 
 @ApiTags('customPage')
 @UseGuards(...AdminGuard)
@@ -31,12 +33,21 @@ export class CustomPageController {
     private readonly staticProvider: StaticProvider,
   ) {}
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', customPageUploadOptions))
   async upload(
     @UploadedFile() file: any,
     @Query('path') path: string,
     @Query('name') name: string,
   ) {
+    if (
+      !file ||
+      typeof name !== 'string' ||
+      !name ||
+      name.length > 255 ||
+      /[\u0000-\u001f\u007f]/.test(name)
+    ) {
+      throw new BadRequestException('A valid file name is required');
+    }
     this.logger.log(`上传自定义页面文件：${path}\t ${name}`);
     file.originalname = name;
     const res = await this.staticProvider.upload(file, 'customPage', false, path);

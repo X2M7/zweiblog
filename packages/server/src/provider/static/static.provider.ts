@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, NotImplementedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotImplementedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SearchStaticOption, StaticType, StorageType } from 'src/types/setting.dto';
@@ -8,7 +14,6 @@ import { ArticleProvider } from '../article/article.provider';
 import { SettingProvider } from '../setting/setting.provider';
 import { LocalProvider } from './local.provider';
 import { PicgoProvider } from './picgo.provider';
-import { imageSize } from 'image-size';
 import { ImgMeta } from 'src/types/img';
 import { formatBytes } from 'src/utils/size';
 import axios from 'axios';
@@ -16,6 +21,8 @@ import { UploadConfig } from 'src/types/upload';
 import { addWaterMarkToIMG } from 'src/utils/watermark';
 import { checkTrue } from 'src/utils/checkTrue';
 import { compressImgToWebp } from 'src/utils/webp';
+import { readSafeImageMetadata } from 'src/utils/imageMetadata';
+import { createPinnedHttpAgents } from 'src/utils/safeRemoteUrl';
 @Injectable()
 export class StaticProvider {
   constructor(
@@ -43,23 +50,27 @@ export class StaticProvider {
     customPathname?: string,
     updateConfig?: UploadConfig,
   ) {
+    if (!file || !Buffer.isBuffer(file.buffer)) {
+      throw new BadRequestException('A file is required');
+    }
     const { buffer } = file;
     const arr = file.originalname.split('.');
     const fileType = arr[arr.length - 1];
     let buf = buffer;
     let currentSign = encryptFileMD5(buf);
+    let imageMetadata = type === 'img' ? readSafeImageMetadata(buf) : null;
     const staticConfigInDB = await this.settingProvider.getStaticSetting();
-    let compressSuccess = true;
     if (type == 'img') {
       try {
         // 用加过水印的 buf 做计算，看看是不是有文件的。
-        if (updateConfig && updateConfig.withWaterMark && fileType != 'gif') {
+        if (updateConfig && updateConfig.withWaterMark && imageMetadata?.type !== 'gif') {
           // 双保险，只有这里开启水印并且设置中也开启了才有效。
           const waterMarkConfigInDB = staticConfigInDB;
           if (waterMarkConfigInDB && checkTrue(waterMarkConfigInDB?.enableWaterMark)) {
             const waterMarkText = updateConfig.waterMarkText || waterMarkConfigInDB.waterMarkText;
             if (waterMarkText && waterMarkText.trim() !== '') {
               buf = await addWaterMarkToIMG(buffer, waterMarkText);
+              imageMetadata = readSafeImageMetadata(buf);
               currentSign = encryptFileMD5(buf);
             }
           }
@@ -71,10 +82,10 @@ export class StaticProvider {
       if (checkTrue(staticConfigInDB.enableWebp)) {
         try {
           buf = await compressImgToWebp(buf);
+          imageMetadata = readSafeImageMetadata(buf);
           currentSign = encryptFileMD5(buf);
         } catch (err) {
-          // console.log(err);
-          compressSuccess = false;
+          throw new HttpException('Image conversion failed', HttpStatus.UNPROCESSABLE_ENTITY);
         }
       }
 
@@ -88,17 +99,17 @@ export class StaticProvider {
       }
     }
 
-    const pureFileName = arr.slice(0, arr.length - 1).join('.');
-    let fileName = currentSign + '.' + file.originalname;
+    const detectedFileType = imageMetadata?.type || fileType;
+    let fileName = `${currentSign}.${detectedFileType}`;
     if (type == 'customPage') {
       fileName = customPathname + '/' + file.originalname;
     }
-    if (type == 'img' && checkTrue(staticConfigInDB.enableWebp) && compressSuccess) {
-      fileName = currentSign + '.' + pureFileName + '.webp';
+    if (type == 'img' && checkTrue(staticConfigInDB.enableWebp)) {
+      fileName = `${currentSign}.webp`;
     }
     const realPath = await this.saveFile(
-      fileType,
-      isFavicon ? `favicon.${fileType}` : fileName,
+      detectedFileType,
+      isFavicon ? `favicon.${detectedFileType}` : fileName,
       buf,
       type,
       currentSign,
@@ -124,15 +135,25 @@ export class StaticProvider {
   }
   async fetchImg(link: string): Promise<Buffer | null> {
     try {
+      const { url, httpAgent, httpsAgent } = await createPinnedHttpAgents(link);
       const res = await axios({
         method: 'GET',
-        url: encodeURI(link),
+        url,
         responseType: 'arraybuffer',
+        timeout: 8_000,
+        maxRedirects: 0,
+        maxContentLength: 10 * 1024 * 1024,
+        maxBodyLength: 10 * 1024 * 1024,
+        httpAgent,
+        httpsAgent,
+        proxy: false,
+        validateStatus: (status) => status >= 200 && status < 300,
       });
-
-      return res.data;
-    } catch (err) {
-      console.log(err);
+      if (!String(res.headers['content-type'] || '').toLowerCase().startsWith('image/')) {
+        return null;
+      }
+      return Buffer.from(res.data);
+    } catch {
       return null;
     }
   }
@@ -141,7 +162,7 @@ export class StaticProvider {
     if (!buffer) {
       return null;
     }
-    const result = imageSize(buffer);
+    const result = readSafeImageMetadata(buffer);
     const meta: ImgMeta = { ...result, size: formatBytes(buffer.byteLength) };
     const filename = link.split('/').pop();
     const fileType = filename?.split('.')?.pop() || '';

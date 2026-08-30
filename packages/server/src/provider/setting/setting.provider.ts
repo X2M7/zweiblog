@@ -9,7 +9,9 @@ import {
   MenuSetting,
   StaticSetting,
   VersionSetting,
-  WalineSetting,
+  CommentSetting,
+  defaultCommentSetting,
+  defaultLoginSetting,
   defaultStaticSetting,
 } from 'src/types/setting.dto';
 import { SettingDocument } from 'src/scheme/setting.schema';
@@ -18,6 +20,7 @@ import { encode } from 'js-base64';
 import { defaultMenu, MenuItem } from 'src/types/menu.dto';
 import { MetaProvider } from '../meta/meta.provider';
 import { parseHtmlToHeadTagArr } from 'src/utils/htmlParser';
+import { normalizeCommentSetting } from 'src/utils/comment';
 @Injectable()
 export class SettingProvider {
   logger = new Logger(SettingProvider.name);
@@ -96,9 +99,12 @@ export class SettingProvider {
     return res;
   }
   async importSetting(setting: any) {
+    if (!setting || typeof setting !== 'object' || Array.isArray(setting)) return;
     for (const [k, v] of Object.entries(setting)) {
       if (k == 'static') {
         await this.importStaticSetting(v as any);
+      } else if (k === 'comment') {
+        await this.updateCommentSetting(v as Partial<CommentSetting>);
       }
     }
   }
@@ -122,16 +128,14 @@ export class SettingProvider {
   async getLoginSetting(): Promise<LoginSetting> {
     const res = await this.settingModel.findOne({ type: 'login' }).exec();
     if (res) {
-      return (
-        (res?.value as any) || {
-          enableMaxLoginRetry: false,
-          maxRetryTimes: 3,
-          durationSeconds: 60,
-          expiresIn: 3600 * 24 * 7,
-        }
-      );
+      return { ...defaultLoginSetting, ...((res?.value as any) || {}) };
     }
-    return null;
+    await this.settingModel.updateOne(
+      { type: 'login' },
+      { $setOnInsert: { type: 'login', value: defaultLoginSetting } },
+      { upsert: true },
+    );
+    return { ...defaultLoginSetting };
   }
   encodeLayoutSetting(dto: LayoutSetting) {
     if (!dto) {
@@ -147,19 +151,50 @@ export class SettingProvider {
     }
     return res;
   }
-  async getWalineSetting(): Promise<WalineSetting> {
-    const res = await this.settingModel.findOne({ type: 'waline' }).exec();
-    if (res) {
-      return (
-        (res?.value as any) || {
-          email: process.env.EMAIL || undefined,
-          'smtp.enabled': false,
-          forceLoginComment: false,
+  async getCommentSetting(): Promise<CommentSetting> {
+    const res = await this.settingModel.findOne({ type: 'comment' }).lean().exec();
+    const value = res?.value;
+    if (value) {
+      try {
+        const normalized = normalizeCommentSetting(value, defaultCommentSetting);
+        // Comment bodies and administrator replies intentionally share one
+        // fixed 50k limit. Repair older 5k/10k records so restoring or
+        // upgrading an existing database cannot silently re-enable the old
+        // restriction.
+        if (normalized.maxLength !== defaultCommentSetting.maxLength) {
+          normalized.maxLength = defaultCommentSetting.maxLength;
+          await this.settingModel
+            .updateOne({ type: 'comment' }, { $set: { value: normalized } })
+            .exec();
         }
-      );
+        return normalized;
+      } catch {
+        this.logger.warn('评论设置无效，已使用安全默认值。');
+        return { ...defaultCommentSetting };
+      }
     }
-    return null;
+    await this.settingModel.updateOne(
+      { type: 'comment' },
+      { $setOnInsert: { type: 'comment', value: defaultCommentSetting } },
+      { upsert: true },
+    );
+    return { ...defaultCommentSetting };
   }
+
+  async updateCommentSetting(dto: Partial<CommentSetting>): Promise<CommentSetting> {
+    const oldValue = await this.getCommentSetting();
+    const newValue = {
+      ...normalizeCommentSetting(dto, oldValue),
+      maxLength: defaultCommentSetting.maxLength,
+    };
+    await this.settingModel.updateOne(
+      { type: 'comment' },
+      { $set: { type: 'comment', value: newValue } },
+      { upsert: true },
+    );
+    return newValue;
+  }
+
   async updateLoginSetting(dto: LoginSetting) {
     const oldValue = await this.getLoginSetting();
     const newValue = { ...oldValue, ...dto };
@@ -185,18 +220,6 @@ export class SettingProvider {
     return res;
   }
 
-  async updateWalineSetting(dto: WalineSetting) {
-    const oldValue = await this.getWalineSetting();
-    const newValue = { ...oldValue, ...dto };
-    if (!oldValue) {
-      return await this.settingModel.create({
-        type: 'waline',
-        value: newValue,
-      });
-    }
-    const res = await this.settingModel.updateOne({ type: 'waline' }, { value: newValue });
-    return res;
-  }
   async updateLayoutSetting(dto: LayoutSetting) {
     const oldValue = await this.getLayoutSetting();
     const newValue = { ...oldValue, ...dto };

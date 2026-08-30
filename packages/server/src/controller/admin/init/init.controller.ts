@@ -5,6 +5,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -14,6 +15,8 @@ import { InitProvider } from 'src/provider/init/init.provider';
 import { ISRProvider } from 'src/provider/isr/isr.provider';
 import { StaticProvider } from 'src/provider/static/static.provider';
 import { ApiToken } from 'src/provider/swagger/token';
+import { NotInitializedGuard } from 'src/provider/auth/notInitialized.guard';
+import { imageUploadOptions } from 'src/utils/uploadLimits';
 
 @ApiTags('init')
 @ApiToken
@@ -26,6 +29,7 @@ export class InitController {
   ) {}
 
   @Post('/init')
+  @UseGuards(NotInitializedGuard)
   async initSystem(@Body() initDto: InitDto) {
     const hasInit = await this.initProvider.checkHasInited();
     if (hasInit) {
@@ -42,7 +46,8 @@ export class InitController {
   }
 
   @Post('/init/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(NotInitializedGuard)
+  @UseInterceptors(FileInterceptor('file', imageUploadOptions))
   async uploadImg(@UploadedFile() file: any, @Query('favicon') favicon: string) {
     const hasInit = await this.initProvider.checkHasInited();
     if (hasInit) {

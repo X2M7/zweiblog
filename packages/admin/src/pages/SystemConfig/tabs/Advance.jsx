@@ -4,18 +4,26 @@ import {
   getLoginConfig,
   updateISRConfig,
   updateLoginConfig,
-} from '@/services/van-blog/api';
+} from '@/services/zwei-blog/api';
 import { ProForm, ProFormDigit, ProFormSelect } from '@ant-design/pro-components';
 import { Alert, Button, Card, message, Modal } from 'antd';
 import { useState } from 'react';
+
+const defaultLoginConfig = {
+  enableMaxLoginRetry: true,
+  maxRetryTimes: 5,
+  durationSeconds: 15 * 60,
+  expiresIn: 7 * 24 * 60 * 60,
+};
+
 export default function (props) {
   const [isrLoading, setIsrLoading] = useState(false);
   return (
     <>
       <Card title="登录安全策略">
         <Alert
-          type="warning"
-          message="开启最大登录失败次数限制目前还不稳定！暂时先不可配置，稳定后开放。"
+          type="info"
+          message="默认同一来源 IP 与用户名在 15 分钟内最多登录失败 5 次；登录成功后会清除失败记录。"
           style={{ marginBottom: 8 }}
         />
         <ProForm
@@ -24,10 +32,10 @@ export default function (props) {
           request={async (params) => {
             try {
               const { data } = await getLoginConfig();
-              return data || { enableMaxLoginRetry: false };
+              return { ...defaultLoginConfig, ...(data || {}) };
             } catch (err) {
               console.log(err);
-              return { enableMaxLoginRetry: false };
+              return defaultLoginConfig;
             }
           }}
           syncToInitialValues={true}
@@ -41,7 +49,6 @@ export default function (props) {
           }}
         >
           <ProFormSelect
-            disabled={true}
             name={'enableMaxLoginRetry'}
             label="开启最大登录失败次数限制"
             fieldProps={{
@@ -56,12 +63,29 @@ export default function (props) {
                 },
               ],
             }}
-            placeholder="关闭"
-            tooltip={'默认关闭，开启后同一 ip 登录失败次数过多后需等一分钟后才能再次登录'}
+            placeholder="开启"
+            tooltip={'默认开启，按来源 IP 与规范化用户名共同计数'}
           ></ProFormSelect>
+          <ProFormDigit
+            name={'maxRetryTimes'}
+            label="最大登录失败次数"
+            min={1}
+            max={100}
+            placeholder={'默认为 5 次'}
+            tooltip="达到该次数后，在限制窗口结束前拒绝新的登录尝试。"
+          />
+          <ProFormDigit
+            name={'durationSeconds'}
+            label="登录失败限制窗口(秒)"
+            min={1}
+            max={86400}
+            placeholder={'默认为 900 秒（15 分钟）'}
+            tooltip="失败计数的有效时间，默认为 900 秒。"
+          />
           <ProFormDigit
             name={'expiresIn'}
             label="登录凭证(Token)有效期(秒)"
+            min={60}
             placeholder={'默认为 7 天'}
             tooltip="默认为 7 天"
           />

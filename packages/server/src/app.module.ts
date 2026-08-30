@@ -55,7 +55,6 @@ import { CaddyProvider } from './provider/caddy/caddy.provider';
 import { LogProvider } from './provider/log/log.provider';
 import { LogController } from './controller/admin/log/log.controller';
 import { ISRProvider } from './provider/isr/isr.provider';
-import { WalineProvider } from './provider/waline/waline.provider';
 import { CacheProvider } from './provider/cache/cache.provider';
 import { LoginGuard } from './provider/auth/login.guard';
 import { AccessGuard } from './provider/access/access.guard';
@@ -82,6 +81,22 @@ import { PipelineProvider } from './provider/pipeline/pipeline.provider';
 import { PipelineController } from './controller/admin/pipeline/pipeline.controller';
 import { TokenController } from './controller/admin/token/token.controller';
 import { initJwt } from './utils/initJwt';
+import { NotInitializedGuard } from './provider/auth/notInitialized.guard';
+import { Comment, CommentSchema } from './scheme/comment.schema';
+import { CommentProvider } from './provider/comment/comment.provider';
+import { PublicCommentController } from './controller/comment/comment.controller';
+import { AdminCommentController } from './controller/admin/comment/comment.controller';
+import { AdminCommentPurgeController } from './controller/admin/comment/comment.purge.controller';
+import { RateLimit, RateLimitSchema } from './scheme/rateLimit.schema';
+import { RateLimitProvider } from './provider/rateLimit/rateLimit.provider';
+import {
+  CommentMigrationTombstone,
+  CommentMigrationTombstoneSchema,
+} from './scheme/commentMigrationTombstone.schema';
+import { CommentMaintenanceProvider } from './provider/comment/commentMaintenance.provider';
+import { CommentReaction, CommentReactionSchema } from './scheme/commentReaction.schema';
+import { CommentClientInfoProvider } from './provider/comment/clientInfo.provider';
+import { CommentImageProvider } from './provider/comment/commentImage.provider';
 
 @Module({
   imports: [
@@ -101,6 +116,10 @@ import { initJwt } from './utils/initJwt';
       { name: Token.name, schema: TokenSchema },
       { name: Category.name, schema: CategorySchema },
       { name: Pipeline.name, schema: PipelineSchema },
+      { name: Comment.name, schema: CommentSchema },
+      { name: CommentReaction.name, schema: CommentReactionSchema },
+      { name: CommentMigrationTombstone.name, schema: CommentMigrationTombstoneSchema },
+      { name: RateLimit.name, schema: RateLimitSchema },
     ]),
     JwtModule.registerAsync({
       useFactory: async () => {
@@ -143,6 +162,9 @@ import { initJwt } from './utils/initJwt';
     PublicOldCustomPageRedirectController,
     PipelineController,
     TokenController,
+    PublicCommentController,
+    AdminCommentController,
+    AdminCommentPurgeController,
   ],
   providers: [
     AppService,
@@ -167,7 +189,6 @@ import { initJwt } from './utils/initJwt';
     CaddyProvider,
     LogProvider,
     ISRProvider,
-    WalineProvider,
     CacheProvider,
     LoginGuard,
     AccessGuard,
@@ -180,6 +201,12 @@ import { initJwt } from './utils/initJwt';
     TokenGuard,
     WebsiteProvider,
     PipelineProvider,
+    NotInitializedGuard,
+    CommentProvider,
+    CommentClientInfoProvider,
+    CommentImageProvider,
+    CommentMaintenanceProvider,
+    RateLimitProvider,
   ],
 })
 export class AppModule implements NestModule {
@@ -192,7 +219,7 @@ export class AppModule implements NestModule {
         { path: '/api/admin/caddy/ask', method: RequestMethod.GET },
       )
       .forRoutes({
-        path: '*',
+        path: '{*splat}',
         method: RequestMethod.ALL,
       });
   }

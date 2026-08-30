@@ -18,17 +18,17 @@ order: 2
 
 ::: info 提示
 
-VanBlog 自 `v0.42.0` 已舍弃 `VAN_BLOG_ALLOW_DOMAINS` 环境变量，如果出现这个问题，推荐升级到最新版本以解决问题。
+ZweiBlog 自 `v0.42.0` 已舍弃 `ZWEI_BLOG_ALLOW_DOMAINS` 环境变量，如果出现这个问题，推荐升级到最新版本以解决问题。
 
 - [升级指南](../guide/update.md)
 
 :::
 
-可能是没正确设置 `VAN_BLOG_ALLOW_DOMAINS` 这个环境变量导致的。
+可能是没正确设置 `ZWEI_BLOG_ALLOW_DOMAINS` 这个环境变量导致的。
 
 作者 logo 用了 next.js 的图片缓存技术，需要显式指明安全的域名。
 
-比如用了 `xyx.com` 这个域名访问访问，那需要设置 `VAN_BLOG_ALLOW_DOMAINS` 为 `xyz.com`，比如用了 `localhost` 访问，那需要设置为 `localhost`，如果多个域名用英文逗号分隔，不支持通配符。
+比如用了 `xyx.com` 这个域名访问访问，那需要设置 `ZWEI_BLOG_ALLOW_DOMAINS` 为 `xyz.com`，比如用了 `localhost` 访问，那需要设置为 `localhost`，如果多个域名用英文逗号分隔，不支持通配符。
 
 请参考 [启动配置](../reference/env.md#环境变量)
 
@@ -45,11 +45,11 @@ VanBlog 自 `v0.42.0` 已舍弃 `VAN_BLOG_ALLOW_DOMAINS` 环境变量，如果�
 如果你是用的一件脚本安装的，那么重新加载一遍最新版脚本，在里面选择重置 https 设置即可。
 
 ```bash
-curl -L https://vanblog.mereith.com/vanblog.sh -o vanblog.sh && chmod +x vanblog.sh && ./vanblog.sh
+curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
 ```
 
 如果你是自己用 docker 部署的运行下面的命令即可：
 
 ```bash
-docker exec -it <vanblog容器名> node /app/cli/resetHttps.js
+docker exec -it <zweiblog容器名> node /app/cli/resetHttps.js
 ```

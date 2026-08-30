@@ -117,7 +117,7 @@ order: 1
 
 ## 交流群
 
-- [VanBlog 交流群](https://jq.qq.com/?_wv=1027&k=5NRyK2Sw)
+- [ZweiBlog 交流群](https://jq.qq.com/?_wv=1027&k=5NRyK2Sw)
 
 ## 打赏
 

@@ -8,9 +8,8 @@ import { config as globalConfig } from './config/index';
 import { checkOrCreate } from './utils/checkFolder';
 import * as path from 'path';
 import { ISRProvider } from './provider/isr/isr.provider';
-import { WalineProvider } from './provider/waline/waline.provider';
 import { InitProvider } from './provider/init/init.provider';
-import { json } from 'express';
+import { json, NextFunction, Request, Response } from 'express';
 import { UserProvider } from './provider/user/user.provider';
 import { SettingProvider } from './provider/setting/setting.provider';
 import { WebsiteProvider } from './provider/website/website.provider';
@@ -21,7 +20,35 @@ async function bootstrap() {
   global.jwtSecret = jwtSecret;
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.use(json({ limit: '50mb' }));
+  // The bundled Caddy and the local Next development proxy connect over
+  // loopback. Trusting whole private/link-local ranges would let any client
+  // that can reach port 3000 spoof X-Forwarded-For and bypass IP rate limits.
+  // External proxy deployments must opt in to their exact address/subnet.
+  app.set('trust proxy', process.env.ZWEI_BLOG_TRUST_PROXY?.trim() || 'loopback');
+  app.disable('x-powered-by');
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    if (req.secure) {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
+    if (req.path.startsWith('/api/')) {
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      );
+    }
+    next();
+  });
+
+  // Public comments are at most 50k characters. Parse them with a tight limit
+  // before the broader admin/backup JSON parser so oversized anonymous bodies
+  // are rejected without allocating the global 5 MB allowance.
+  // 256 KiB accommodates 50k CJK characters plus JSON/profile metadata.
+  app.use('/api/public/comment', json({ limit: '256kb' }));
+  app.use(json({ limit: '5mb' }));
 
   app.useStaticAssets(globalConfig.staticPath, {
     prefix: '/static/',
@@ -49,22 +76,32 @@ async function bootstrap() {
     prefix: '/sitemap/',
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('VanBlog API Reference')
-    .setDescription('API Token 请在后台设置页面获取，请添加到请求头的 token 字段中进行鉴权。')
-    .setVersion('1.0')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('swagger', app, document);
-  await app.listen(3000);
+  if (process.env.NODE_ENV !== 'production' || process.env.ZWEI_BLOG_ENABLE_SWAGGER === 'true') {
+    const config = new DocumentBuilder()
+      .setTitle('ZweiBlog API Reference')
+      .setDescription('API Token 请在后台设置页面获取，请添加到请求头的 token 字段中进行鉴权。')
+      .setVersion('1.0')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('swagger', app, document);
+  }
+  // Containers keep the historic all-interface default. Native development
+  // can opt into loopback-only binding so the admin API is not exposed to the
+  // local network merely by starting the project.
+  await app.listen(3000, process.env.ZWEI_BLOG_HOST?.trim() || '0.0.0.0');
 
   const websiteProvider = app.get(WebsiteProvider);
 
-  websiteProvider.init();
+  await websiteProvider.init();
+  process.on('SIGINT', async () => {
+    await websiteProvider.stop();
+    console.log('检测到关闭信号，优雅退出！');
+    process.exit();
+  });
 
   const initProvider = app.get(InitProvider);
-  initProvider.initVersion();
-  initProvider.initRestoreKey();
+  await initProvider.initVersion();
+  await initProvider.initRestoreKey();
   if (await initProvider.checkHasInited()) {
     // 新版本自动启动图床压缩功能
     await initProvider.washStaticSetting();
@@ -74,20 +111,12 @@ async function bootstrap() {
     await initProvider.washCategory();
     const userProvider = app.get(UserProvider);
     // 老版本没加盐的用户数据洗一下。
-    userProvider.washUserWithSalt();
+    await userProvider.washUserWithSalt();
     const settingProvider = app.get(SettingProvider);
     // 老版本菜单数据洗一下。
-    settingProvider.washDefaultMenu();
+    await settingProvider.washDefaultMenu();
     const metaProvider = app.get(MetaProvider);
-    metaProvider.updateTotalWords('首次启动');
-    const walineProvider = app.get(WalineProvider);
-    walineProvider.init();
-    process.on('SIGINT', async () => {
-      await walineProvider.stop();
-      await websiteProvider.stop();
-      console.log('检测到关闭信号，优雅退出！');
-      process.exit();
-    });
+    await metaProvider.updateTotalWords('首次启动');
     // 触发增量渲染生成静态页面，防止升级后内容为空
     const isrProvider = app.get(ISRProvider);
     isrProvider.activeAll('首次启动触发全量渲染！', 1000, {

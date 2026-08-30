@@ -1,4 +1,10 @@
-import { Inject, Injectable, forwardRef, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  forwardRef,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateArticleDto, SearchArticleOption, UpdateArticleDto } from 'src/types/article.dto';
@@ -9,12 +15,27 @@ import { MetaProvider } from '../meta/meta.provider';
 import { VisitProvider } from '../visit/visit.provider';
 import { sleep } from 'src/utils/sleep';
 import { CategoryDocument } from 'src/scheme/category.schema';
+import { escapeRegexLiteral } from 'src/utils/safeRegex';
+import {
+  hashContentPassword,
+  hasContentPassword,
+  isValidContentPasswordLength,
+  MAX_CONTENT_PASSWORD_LENGTH,
+  verifyContentPassword,
+} from 'src/utils/contentPassword';
+import { isScryptPasswordHash } from 'src/utils/crypto';
 
 export type ArticleView = 'admin' | 'public' | 'list';
+
+const ARTICLE_PATHNAME_MAX_LENGTH = 256;
+const ARTICLE_PATHNAME_ENCODED_MAX_LENGTH = ARTICLE_PATHNAME_MAX_LENGTH * 12;
+const ARTICLE_PATHNAME_CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
+const ARTICLE_PATHNAME_RESERVED_CHARACTERS = /[\/\\?#%]/u;
 
 @Injectable()
 export class ArticleProvider {
   idLock = false;
+  private identityWriteQueue: Promise<void> = Promise.resolve();
   constructor(
     @InjectModel('Article')
     private articleModel: Model<ArticleDocument>,
@@ -23,6 +44,96 @@ export class ArticleProvider {
     private readonly metaProvider: MetaProvider,
     private readonly visitProvider: VisitProvider,
   ) {}
+
+  private async withIdentityWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.identityWriteQueue;
+    let release: () => void = () => undefined;
+    this.identityWriteQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private assertNoBodyIdentityFields(data: Record<string, unknown>) {
+    const immutableField = ['id', '_id', '__v'].find((field) =>
+      Object.prototype.hasOwnProperty.call(data, field),
+    );
+    if (immutableField) {
+      throw new BadRequestException(`Article ${immutableField} cannot be supplied in the body`);
+    }
+  }
+
+  private normalizeArticlePathname(value: unknown): string {
+    if (typeof value !== 'string') {
+      throw new BadRequestException('Article pathname must be a string');
+    }
+    if (
+      value.length > ARTICLE_PATHNAME_ENCODED_MAX_LENGTH ||
+      ARTICLE_PATHNAME_CONTROL_CHARACTERS.test(value)
+    ) {
+      throw new BadRequestException('Invalid article pathname');
+    }
+
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(value).normalize('NFC').trim();
+    } catch {
+      throw new BadRequestException('Invalid article pathname encoding');
+    }
+    if (!pathname) return '';
+    if (
+      pathname.length > ARTICLE_PATHNAME_MAX_LENGTH ||
+      ARTICLE_PATHNAME_CONTROL_CHARACTERS.test(pathname) ||
+      ARTICLE_PATHNAME_RESERVED_CHARACTERS.test(pathname) ||
+      pathname === '.' ||
+      pathname === '..'
+    ) {
+      throw new BadRequestException('Invalid article pathname');
+    }
+    return pathname;
+  }
+
+  private async assertPathnameNamespaceAvailable(
+    articleId: number,
+    pathname: string,
+    claimStableId: boolean,
+  ) {
+    const pathnameClaims = new Set<string>();
+    if (pathname) pathnameClaims.add(pathname);
+    if (claimStableId) pathnameClaims.add(String(articleId));
+
+    const namespace: any[] = [];
+    for (const claim of pathnameClaims) {
+      namespace.push({ pathname: claim });
+      const decomposedClaim = claim.normalize('NFD');
+      if (decomposedClaim !== claim) namespace.push({ pathname: decomposedClaim });
+    }
+    const numericPathname = Number(pathname);
+    if (pathname && Number.isFinite(numericPathname)) {
+      // Article routes resolve pathname before falling back to the numeric id.
+      // Prevent a custom pathname from shadowing another article's stable id.
+      namespace.push({ id: numericPathname });
+    }
+    if (namespace.length === 0) return;
+
+    const conflictingArticle = await this.articleModel
+      .findOne(
+        {
+          id: { $ne: articleId },
+          $or: namespace,
+        },
+        { id: 1, _id: 0 },
+      )
+      .exec();
+    if (conflictingArticle) {
+      throw new BadRequestException('Article pathname conflicts with another article');
+    }
+  }
   publicView = {
     title: 1,
     content: 1,
@@ -54,7 +165,6 @@ export class ArticleProvider {
     id: 1,
     top: 1,
     hidden: 1,
-    password: 1,
     private: 1,
     _id: 0,
     viewer: 1,
@@ -101,15 +211,51 @@ export class ArticleProvider {
     createArticleDto: CreateArticleDto,
     skipUpdateWordCount?: boolean,
     id?: number,
+    trustedImportPasswordHash = false,
   ): Promise<Article> {
-    const createdData = new this.articleModel(createArticleDto);
-    const newId = id || (await this.getNewId());
-    createdData.id = newId;
-    if (!skipUpdateWordCount) {
-      this.metaProvider.updateTotalWords('新建文章');
+    const data = { ...(createArticleDto as any) } as CreateArticleDto & Record<string, unknown>;
+    this.assertNoBodyIdentityFields(data);
+    if (id !== undefined && (!Number.isSafeInteger(id) || id <= 0)) {
+      throw new BadRequestException('Article id must be a positive safe integer');
     }
-    const res = createdData.save();
-    return res;
+    if (data.private !== undefined && typeof data.private !== 'boolean') {
+      throw new BadRequestException('Article private must be a boolean');
+    }
+    if (data.password !== undefined && typeof data.password !== 'string') {
+      throw new BadRequestException('Article password must be a string');
+    }
+    if (data.pathname !== undefined) {
+      data.pathname = this.normalizeArticlePathname(data.pathname);
+    }
+    if (data.private) {
+      if (!isValidContentPasswordLength(data.password)) {
+        throw new BadRequestException(
+          `Private articles require a password of 1-${MAX_CONTENT_PASSWORD_LENGTH} characters`,
+        );
+      }
+      data.password =
+        trustedImportPasswordHash && isScryptPasswordHash(data.password)
+          ? data.password
+          : await hashContentPassword(data.password);
+    } else {
+      delete data.password;
+    }
+    return this.withIdentityWriteLock(async () => {
+      const newId = id ?? (await this.getNewId());
+      await this.assertPathnameNamespaceAvailable(newId, data.pathname || '', true);
+
+      const createdData = new this.articleModel(data);
+      createdData.id = newId;
+      if (!skipUpdateWordCount) {
+        this.metaProvider.updateTotalWords('新建文章');
+      }
+      const res: any = await createdData.save();
+      const response = { ...(res?.toObject?.() || res?._doc || res) };
+      delete response.password;
+      delete response._id;
+      delete response.__v;
+      return response as Article;
+    });
   }
   async searchArticlesByLink(link: string) {
     const artciles = await this.articleModel.find(
@@ -281,13 +427,14 @@ export class ArticleProvider {
       const { id, ...createDto } = a;
       const oldArticle = await this.getById(id, 'admin');
       if (oldArticle) {
-        this.updateById(
+        await this.updateById(
           oldArticle.id,
           {
             ...createDto,
             deleted: false,
             updatedAt: oldArticle.updatedAt || oldArticle.createdAt,
           },
+          true,
           true,
         );
       } else {
@@ -298,6 +445,7 @@ export class ArticleProvider {
           },
           true,
           id,
+          true,
         );
       }
     }
@@ -432,6 +580,20 @@ export class ArticleProvider {
     return articles;
   }
 
+  /** Only call from the AdminGuard-protected backup controller. */
+  async exportForBackup(): Promise<Article[]> {
+    return this.articleModel
+      .find(
+        {
+          $or: [{ deleted: false }, { deleted: { $exists: false } }],
+        },
+        { ...this.adminView, password: 1 },
+      )
+      .select('+password')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
   async getTimeLineInfo() {
     // 肯定是不需要具体内容的，一个列表就好了
     const articles = await this.articleModel
@@ -524,12 +686,15 @@ export class ArticleProvider {
       }
     }
     if (option.tags) {
-      const tags = option.tags.split(',');
+      const tags = option.tags.split(',').filter(Boolean);
+      if (!tags.length || tags.length > 20) {
+        throw new BadRequestException('Tags query must contain 1-20 values');
+      }
       const or: any = [];
       tags.forEach((t) => {
         if (option.regMatch) {
           or.push({
-            tags: { $regex: `${t}`, $options: 'i' },
+            tags: { $regex: escapeRegexLiteral(t), $options: 'i' },
           });
         } else {
           or.push({
@@ -542,7 +707,7 @@ export class ArticleProvider {
     if (option.category) {
       if (option.regMatch) {
         and.push({
-          category: { $regex: `${option.category}`, $options: 'i' },
+          category: { $regex: escapeRegexLiteral(option.category), $options: 'i' },
         });
       } else {
         and.push({
@@ -552,7 +717,7 @@ export class ArticleProvider {
     }
     if (option.title) {
       and.push({
-        title: { $regex: `${option.title}`, $options: 'i' },
+        title: { $regex: escapeRegexLiteral(option.title), $options: 'i' },
       });
     }
     if (option.startTime || option.endTime) {
@@ -581,55 +746,38 @@ export class ArticleProvider {
       view = isPublic ? this.publicView : this.adminView;
     }
     let articlesQuery = this.articleModel.find(query, view).sort(sort);
-    if (option.pageSize != -1 && !isPublic) {
+    if (isPublic && option.pageSize != -1) {
+      // Match the previous public ordering without loading and sorting the
+      // whole collection in application memory.
+      sort = Object.fromEntries([
+        ['top', -1],
+        ...Object.entries(sort).filter(([key]) => key !== 'top'),
+      ]);
+      articlesQuery = this.articleModel.find(query, view).sort(sort);
+    }
+    if (option.pageSize != -1) {
       articlesQuery = articlesQuery
         .skip(option.pageSize * option.page - option.pageSize)
         .limit(option.pageSize);
     }
 
     let articles = await articlesQuery.exec();
-    // public 下 包括所有的，
-    if (isPublic && option.pageSize != -1) {
-      // 把 top 的诺到前面去
-      const topArticles = articles.filter((a: any) => {
-        const top = a?._doc?.top || a?.top;
-        return Boolean(top) && top != '';
-      });
-      const notTopArticles = articles.filter((a: any) => {
-        const top = a?._doc?.top || a?.top;
-        return !Boolean(top) || top == '';
-      });
-      const sortedTopArticles = topArticles.sort((a: any, b: any) => {
-        const topA = a?._doc?.top || a?.top;
-        const topB = b?._doc?.top || b?.top;
-        if (topA > topB) {
-          return -1;
-        } else if (topB > topA) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
-      articles = [...sortedTopArticles, ...notTopArticles];
-      const skip = option.pageSize * option.page - option.pageSize;
-      const rawEnd = skip + option.pageSize;
-      const end = rawEnd > articles.length - 1 ? articles.length : rawEnd;
-      articles = articles.slice(skip, end);
-    }
     // withWordCount 只会返回当前分页的文字数量
 
     const total = await this.articleModel.count(query).exec();
     // 过滤私有文章
     if (isPublic) {
       const tmpArticles: any[] = [];
+      const privateCategories = await this.categoryModal
+        .find({ private: true }, { name: 1, _id: 0 })
+        .lean()
+        .exec();
+      const privateCategoryNames = new Set(privateCategories.map((category) => category.name));
       for (const a of articles) {
         //@ts-ignore
         const isPrivateInArticle = a?._doc?.private || a?.private;
-        const category = await this.categoryModal.findOne({
-          //@ts-ignore
-          name: a?._doc?.category || a?.category,
-        });
-        const isPrivateInCategory = category?.private || false;
+        //@ts-ignore
+        const isPrivateInCategory = privateCategoryNames.has(a?._doc?.category || a?.category);
         const isPrivate = isPrivateInArticle || isPrivateInCategory;
         if (isPrivate) {
           tmpArticles.push({
@@ -681,6 +829,14 @@ export class ArticleProvider {
   }
 
   async getByPathName(pathname: string, view: ArticleView): Promise<Article> {
+    let normalizedPathname: string;
+    try {
+      normalizedPathname = this.normalizeArticlePathname(pathname);
+    } catch {
+      return null;
+    }
+    if (!normalizedPathname) return null;
+
     const $and: any = [
       {
         $or: [
@@ -697,7 +853,7 @@ export class ArticleProvider {
     return await this.articleModel
       .findOne(
         {
-          pathname: decodeURIComponent(pathname),
+          pathname: normalizedPathname,
           $and,
         },
         this.getView(view),
@@ -730,29 +886,87 @@ export class ArticleProvider {
       .exec();
   }
   async getByIdWithPassword(id: number | string, password: string): Promise<any> {
-    const article: any = await this.getByIdOrPathname(id, 'admin');
-    if (!password) {
+    if (!isValidContentPasswordLength(password)) {
       return null;
     }
+    let pathname: string;
+    try {
+      pathname = this.normalizeArticlePathname(String(id));
+    } catch {
+      return null;
+    }
+    const articleByPathname: any = pathname
+      ? await this.articleModel
+          .findOne({
+            pathname,
+            $or: [{ deleted: false }, { deleted: { $exists: false } }],
+          })
+          .select('+password')
+          .exec()
+      : null;
+    const numericId = Number(id);
+    const article: any =
+      articleByPathname ||
+      (Number.isFinite(numericId)
+        ? await this.articleModel
+            .findOne({
+              id: numericId,
+              $or: [{ deleted: false }, { deleted: { $exists: false } }],
+            })
+            .select('+password')
+            .exec()
+        : null);
     if (!article) {
       return null;
     }
-    const category =
-      (await this.categoryModal.findOne({
-        name: article.category,
-      })) || ({} as any);
 
-    const categoryPassword = category.private ? category.password : undefined;
-    const targetPassword = categoryPassword ? categoryPassword : article.password;
-    if (!targetPassword || targetPassword == '') {
-      return { ...(article?._doc || article), password: undefined };
-    } else {
-      if (targetPassword == password) {
-        return { ...(article?._doc || article), password: undefined };
-      } else {
-        return null;
+    if (article.hidden) {
+      const siteInfo = await this.metaProvider.getSiteInfo();
+      if (!siteInfo?.allowOpenHiddenPostByUrl || siteInfo.allowOpenHiddenPostByUrl == 'false') {
+        throw new NotFoundException('该文章是隐藏文章！');
       }
     }
+
+    const category: any = await this.categoryModal
+      .findOne({ name: article.category })
+      .select('+password')
+      .exec();
+    const categoryProtectsArticle = Boolean(category?.private);
+    const articleProtectsItself = Boolean(article.private);
+    const protectedRecord = categoryProtectsArticle
+      ? category
+      : articleProtectsItself
+        ? article
+        : null;
+    const storedPassword = protectedRecord?.password;
+
+    if (protectedRecord) {
+      if (!hasContentPassword(storedPassword)) return null;
+      const verification = await verifyContentPassword(password, storedPassword);
+      if (!verification.valid) return null;
+
+      if (verification.needsRehash) {
+        const migratedPassword = await hashContentPassword(password);
+        if (categoryProtectsArticle) {
+          await this.categoryModal.updateOne(
+            { _id: category._id },
+            { $set: { password: migratedPassword } },
+          );
+        } else {
+          await this.articleModel.updateOne(
+            { _id: article._id },
+            { $set: { password: migratedPassword } },
+          );
+        }
+      }
+    }
+
+    const result = { ...(article?.toObject?.() || article?._doc || article) };
+    delete result.password;
+    delete result._id;
+    delete result.__v;
+    delete result.deleted;
+    return result;
   }
   async getByIdOrPathnameWithPreNext(id: string | number, view: ArticleView) {
     const curArticle = await this.getByIdOrPathname(id, view);
@@ -887,13 +1101,14 @@ export class ArticleProvider {
   }
 
   async searchByString(str: string, includeHidden: boolean): Promise<Article[]> {
+    const safeSearch = escapeRegexLiteral(str);
     const $and: any = [
       {
         $or: [
-          { content: { $regex: `${str}`, $options: 'i' } },
-          { title: { $regex: `${str}`, $options: 'i' } },
-          { category: { $regex: `${str}`, $options: 'i' } },
-          { tags: { $regex: `${str}`, $options: 'i' } },
+          { content: { $regex: safeSearch, $options: 'i' } },
+          { title: { $regex: safeSearch, $options: 'i' } },
+          { category: { $regex: safeSearch, $options: 'i' } },
+          { tags: { $regex: safeSearch, $options: 'i' } },
         ],
       },
       {
@@ -923,6 +1138,8 @@ export class ArticleProvider {
       .find({
         $and,
       })
+      .limit(100)
+      .maxTimeMS(2_000)
       .exec();
     const s = str.toLocaleLowerCase();
     const titleData = rawData.filter((each) => each.title.toLocaleLowerCase().includes(s));
@@ -950,18 +1167,76 @@ export class ArticleProvider {
     return res;
   }
 
-  async updateById(id: number, updateArticleDto: UpdateArticleDto, skipUpdateWordCount?: boolean) {
-    const res = await this.articleModel.updateOne(
-      { id },
-      {
-        ...updateArticleDto,
-        updatedAt: updateArticleDto.updatedAt || new Date(),
-      },
-    );
-    if (!skipUpdateWordCount) {
-      this.metaProvider.updateTotalWords('更新文章');
+  async updateById(
+    id: number,
+    updateArticleDto: UpdateArticleDto,
+    skipUpdateWordCount?: boolean,
+    trustedImportPasswordHash = false,
+  ) {
+    const updateData = { ...(updateArticleDto as any) } as UpdateArticleDto &
+      Record<string, unknown>;
+    this.assertNoBodyIdentityFields(updateData);
+    if (updateData.pathname !== undefined) {
+      updateData.pathname = this.normalizeArticlePathname(updateData.pathname);
     }
-    return res;
+
+    const operation = async () => {
+      const existing: any = await this.articleModel
+        .findOne({ id }, { private: 1, password: 1, pathname: 1 })
+        .select('+password')
+        .exec();
+      if (!existing) {
+        throw new NotFoundException('Article not found');
+      }
+
+      if (updateData.private !== undefined && typeof updateData.private !== 'boolean') {
+        throw new BadRequestException('Article private must be a boolean');
+      }
+      if (updateData.password !== undefined && typeof updateData.password !== 'string') {
+        throw new BadRequestException('Article password must be a string');
+      }
+      const existingPathname = typeof existing.pathname === 'string' ? existing.pathname : '';
+      if (updateData.pathname && updateData.pathname !== existingPathname) {
+        await this.assertPathnameNamespaceAvailable(id, updateData.pathname, false);
+      }
+
+      const nextPrivate =
+        typeof updateData.private === 'boolean' ? updateData.private : Boolean(existing.private);
+      const newPasswordProvided = hasContentPassword(updateData.password);
+
+      if (newPasswordProvided && !isValidContentPasswordLength(updateData.password)) {
+        throw new BadRequestException(
+          `Content password must contain at most ${MAX_CONTENT_PASSWORD_LENGTH} characters`,
+        );
+      }
+
+      const update: any = {
+        $set: {
+          ...updateData,
+          updatedAt: updateData.updatedAt || new Date(),
+        },
+      };
+      delete update.$set.password;
+
+      if (!nextPrivate) {
+        update.$unset = { password: 1 };
+      } else if (newPasswordProvided) {
+        update.$set.password =
+          trustedImportPasswordHash && isScryptPasswordHash(updateData.password)
+            ? updateData.password
+            : await hashContentPassword(updateData.password);
+      } else if (!hasContentPassword(existing.password)) {
+        throw new BadRequestException('Private articles require a password');
+      }
+
+      const res = await this.articleModel.updateOne({ id }, update);
+      if (!skipUpdateWordCount) {
+        this.metaProvider.updateTotalWords('更新文章');
+      }
+      return res;
+    };
+
+    return updateData.pathname !== undefined ? this.withIdentityWriteLock(operation) : operation();
   }
 
   async getNewId() {
@@ -969,12 +1244,17 @@ export class ArticleProvider {
       await sleep(10);
     }
     this.idLock = true;
-    const maxObj = await this.articleModel.find({}).sort({ id: -1 }).limit(1);
-    let res = 1;
-    if (maxObj.length) {
-      res = maxObj[0].id + 1;
+    try {
+      const maxObj = await this.articleModel.find({}).sort({ id: -1 }).limit(1);
+      let res = 1;
+      if (maxObj.length) {
+        res = maxObj[0].id + 1;
+      }
+      return res;
+    } finally {
+      // A transient database error must not leave every later article create
+      // spinning forever behind a stale in-process lock.
+      this.idLock = false;
     }
-    this.idLock = false;
-    return res;
   }
 }

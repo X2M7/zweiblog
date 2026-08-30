@@ -4,13 +4,13 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: van-blog
+  name: zwei-blog
   labels:
-    app: van-blog
+    app: zwei-blog
 spec:
   selector:
     matchLabels:
-      app: van-blog
+      app: zwei-blog
   template:
     spec:
       volumes:
@@ -20,14 +20,14 @@ spec:
             type: ''
         - name: static
           hostPath:
-            path: /var/k8s/van-blog/static
+            path: /var/k8s/zwei-blog/static
             type: ''
         - name: log
           hostPath:
-            path: /var/k8s/van-blog/log
+            path: /var/k8s/zwei-blog/log
             type: ''
       containers:
-        - name: van-blog
+        - name: zwei-blog
           image: 'mereith/van-blog:latest'
           ports:
             - name: http-80
@@ -37,9 +37,9 @@ spec:
               containerPort: 443
               protocol: TCP
           env:
-            - name: VAN_BLOG_DATABASE_URL
+            - name: ZWEI_BLOG_DATABASE_URL
               value: >-
-                mongodb://some@some@van.example.com:27017/vanBlog?authSource=admin
+                mongodb://some@some@van.example.com:27017/zweiBlog?authSource=admin
 
 
             - name: EMAIL

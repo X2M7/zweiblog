@@ -50,14 +50,14 @@ order: 2
 
 ![导入 Markdown](https://pic.mereith.com/img/513d3fa66a42e3832682d623a0f0f664.clipboard-2022-08-29.png)
 
-其中，Markdown 文件的 [Front Matter](https://hexo.bootcss.com/docs/front-matter.html) 将会被自动解析成 VanBlog 的字段并展示在弹出的确认表单中，具体而言：
+其中，Markdown 文件的 [Front Matter](https://hexo.bootcss.com/docs/front-matter.html) 将会被自动解析成 ZweiBlog 的字段并展示在弹出的确认表单中，具体而言：
 
-| 字段名称   | 映射到 VanBlog 中的字段 | 说明                                              |
+| 字段名称   | 映射到 ZweiBlog 中的字段 | 说明                                              |
 | ---------- | ----------------------- | ------------------------------------------------- |
 | title      | 标题                    | 默认使用文件名                                    |
 | tags       | 标签                    | 默认为空                                          |
-| categories | 分类                    | 会选择第一个包含在 Vanblog 系统中的分类，否则为空 |
-| category   | 分类                    | 会选择第一个包含在 Vanblog 系统中的分类，否则为空 |
+| categories | 分类                    | 会选择第一个包含在 Zweiblog 系统中的分类，否则为空 |
+| category   | 分类                    | 会选择第一个包含在 Zweiblog 系统中的分类，否则为空 |
 | date       | 创建日期                | 如果默认为当前时间                                |
 | hide       | 是否隐藏文章            | 默认不隐藏                                        |
 | hidden     | 是否隐藏文章            | 默认不隐藏                                        |

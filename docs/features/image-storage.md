@@ -8,7 +8,7 @@ order: 5
 
 ### 内置图床
 
-VanBlog 带有内置的图床实现，无需任何配置，开箱即用。
+ZweiBlog 带有内置的图床实现，无需任何配置，开箱即用。
 
 ::: tip
 
@@ -18,7 +18,7 @@ VanBlog 带有内置的图床实现，无需任何配置，开箱即用。
 
 ### 第三方图床
 
-VanBlog 可以对接第三方图床，是基于 [picgo-core](https://picgo.github.io/PicGo-Core-Doc/) 实现的。
+ZweiBlog 可以对接第三方图床，是基于 [picgo-core](https://picgo.github.io/PicGo-Core-Doc/) 实现的。
 
 #### 支持列表
 
@@ -36,7 +36,7 @@ VanBlog 可以对接第三方图床，是基于 [picgo-core](https://picgo.githu
 
 感谢张鱼哥同学，他写了一份很详细的 `腾讯云 COS` 配置指南：
 
-- [vanblog 使用 picgo 图床的完整部署教程](https://www.handyzyg.cn/post/47)
+- [zweiblog 使用 picgo 图床的完整部署教程](https://www.handyzyg.cn/post/47)
 
 其他云存储的指南欢迎大家补充～
 
@@ -52,7 +52,7 @@ VanBlog 可以对接第三方图床，是基于 [picgo-core](https://picgo.githu
 
 ::: warning 注意
 
-VanBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文件不通用！
+ZweiBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文件不通用！
 
 :::
 
@@ -76,7 +76,7 @@ VanBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文�
 
 ### 自动压缩
 
-无论使用何种图床，VanBlog 都支持上传图片自动压缩为 webp 格式。在编辑器或图片管理中上传图片时，VanBlog 会在收到图片信息的时候，先进行压缩，再保存到对应图床。
+无论使用何种图床，ZweiBlog 都支持上传图片自动压缩为 webp 格式。在编辑器或图片管理中上传图片时，ZweiBlog 会在收到图片信息的时候，先进行压缩，再保存到对应图床。
 
 这个功能默认是开启的，想手动关闭请在后台 `站点管理/系统设置/图床设置` 中，关闭 `自动压缩` 即可。
 
@@ -84,7 +84,7 @@ VanBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文�
 
 ### 自动水印
 
-无论使用何种图床，VanBlog 都支持上传图片自动添加水印。在编辑器或图片管理中上传图片时，VanBlog 会在收到图片信息的时候，先进行水印转换，再保存到对应图床。
+无论使用何种图床，ZweiBlog 都支持上传图片自动添加水印。在编辑器或图片管理中上传图片时，ZweiBlog 会在收到图片信息的时候，先进行水印转换，再保存到对应图床。
 
 在后台 `站点管理/系统设置/图床设置` 中，开启水印并输入水印文字即可。
 
@@ -104,7 +104,7 @@ VanBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文�
 
 ### 扫描已有图片
 
-VanBlog 支持把文章中存在的，但是不在图床记录中的图片扫描出来。
+ZweiBlog 支持把文章中存在的，但是不在图床记录中的图片扫描出来。
 
 点击 `站点管理/系统设置/图床设置` 中的 `扫描现有文章图片到图床`，耐心等待即可。如果存在扫描失败的图片，会弹窗显示信息。
 
@@ -114,7 +114,7 @@ VanBlog 支持把文章中存在的，但是不在图床记录中的图片扫描
 
 ### 图片管理
 
-进入 VanBlog 后台的 `图片管理` 模块可以对图片进行管理：
+进入 ZweiBlog 后台的 `图片管理` 模块可以对图片进行管理：
 
 ![图片管理](https://pic.mereith.com/img/5be657eaaff09be9dd4a77d968e54c21.clipboard-2022-08-15.png)
 
@@ -124,7 +124,7 @@ VanBlog 支持把文章中存在的，但是不在图床记录中的图片扫描
 
 ### 编辑器快捷上传
 
-VanBlog 支持在编辑器中快捷上传图片，见下图：
+ZweiBlog 支持在编辑器中快捷上传图片，见下图：
 
 ![编辑器上传图片](https://www.mereith.com/static/img/8ad428da63e4380d4b1c2f2a8362b492.clipboard-2022-09-08.png)
 
@@ -134,7 +134,7 @@ VanBlog 支持在编辑器中快捷上传图片，见下图：
 
 ### 导出全部图片
 
-VanBlog 支持将全部本地图床图片导出为压缩包。
+ZweiBlog 支持将全部本地图床图片导出为压缩包。
 
 你可以在后台中的图片设置中点击按钮来导出全部本地图床图片
 

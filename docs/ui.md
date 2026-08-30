@@ -1,5 +1,5 @@
 ---
-title: VanBlog 展示
+title: ZweiBlog 展示
 index: false
 icon: image
 ---

@@ -149,33 +149,9 @@
 }
 
 
-:root {
-  --waline-bgcolor-light: #fff !important;
-}
-/* waline */
-body .wl-panel {
-  margin: 0.5em 0;
-  border-radius: 0;
-}
-.dark .wl-input:focus {
-  background-color: inherit;
-}
-.dark .wl-editor:focus {
-  background-color: inherit;
-}
-body #wl-edit {
-  transition: none;
-}
-.dark .wl-panel {
-  background-color: #26282c;
-}
 .dark .toast {
   background-color: #232428;
   color: #9e9e9e;
-}
-.wl-git-popup input {
-  background-color: inherit;
-  outline: none;
 }
 .popover-arrow {
   opacity: 1 !important;

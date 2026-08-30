@@ -1,9 +1,9 @@
 import ColumnsToolBar from '@/components/ColumnsToolBar';
 import PublishDraftModal from '@/components/PublishDraftModal';
 import UpdateModal from '@/components/UpdateModal';
-import { genActiveObj } from '@/services/van-blog/activeColTools';
-import { deleteDraft, getAllCategories, getDraftById, getTags } from '@/services/van-blog/api';
-import { parseObjToMarkdown } from '@/services/van-blog/parseMarkdownFile';
+import { genActiveObj } from '@/services/zwei-blog/activeColTools';
+import { deleteDraft, getAllCategories, getDraftById, getTags } from '@/services/zwei-blog/api';
+import { parseObjToMarkdown } from '@/services/zwei-blog/parseMarkdownFile';
 import { message, Modal, Tag } from 'antd';
 import { history } from 'umi';
 export const columns = [

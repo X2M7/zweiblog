@@ -21,6 +21,7 @@ import { CacheProvider } from 'src/provider/cache/cache.provider';
 import { InitProvider } from 'src/provider/init/init.provider';
 import { PipelineProvider } from 'src/provider/pipeline/pipeline.provider';
 import { ApiToken } from 'src/provider/swagger/token';
+import { timingSafeStringEqual } from 'src/utils/crypto';
 
 @ApiTags('tag')
 @Controller('/api/admin/auth/')
@@ -33,22 +34,24 @@ export class AuthController {
     private readonly cacheProvider: CacheProvider,
     private readonly initProvider: InitProvider,
     private readonly pipelineProvider: PipelineProvider,
+    private readonly loginGuard: LoginGuard,
   ) {}
 
   @UseGuards(LoginGuard, AuthGuard('local'))
   @Post('/login')
   async login(@Request() request: any) {
     if (request?.user?.fail) {
-      this.logProvider.login(request, false);
+      await this.logProvider.login(request, false);
       throw new UnauthorizedException({
         statusCode: 401,
         message: '用户名或密码错误！',
       });
     }
     // 能到这里登陆就成功了
-    this.logProvider.login(request, true);
+    await this.loginGuard.clearFailures(request);
+    await this.logProvider.login(request, true);
     const data = await this.authProvider.login(request.user);
-    this.pipelineProvider.dispatchEvent('login', data);
+    void this.pipelineProvider.dispatchEvent('login', { user: data.user });
     return {
       statusCode: 200,
       data,
@@ -64,9 +67,7 @@ export class AuthController {
         message: '无登录凭证！',
       });
     }
-    this.pipelineProvider.dispatchEvent('logout', {
-      token,
-    });
+    void this.pipelineProvider.dispatchEvent('logout', {});
     await this.tokenProvider.disableToken(token);
     return {
       statusCode: 200,
@@ -75,23 +76,24 @@ export class AuthController {
   }
 
   @Post('/restore')
-  async restore(
-    @Request() request: Request,
-    @Body() body: { key: string; name: string; password: string },
-  ) {
-    const token = body.key;
-    const keyInCache = await this.cacheProvider.get('restoreKey');
-    if (!token || token != keyInCache) {
+  async restore(@Body() body: { key: string; name: string; password: string }) {
+    const token = typeof body?.key === 'string' ? body.key : '';
+    const keyInCache = this.cacheProvider.get<string>('restoreKey');
+    if (!token || typeof keyInCache !== 'string' || !timingSafeStringEqual(token, keyInCache)) {
       throw new UnauthorizedException({
         statusCode: 401,
         message: '恢复密钥错误！',
       });
     }
-    await this.userProvider.updateUser({
-      name: body.name,
-      password: body.password,
-    });
-    await this.initProvider.initRestoreKey();
+    this.cacheProvider.delete('restoreKey');
+    try {
+      await this.userProvider.updateUser({
+        name: body.name,
+        password: body.password,
+      });
+    } finally {
+      await this.initProvider.initRestoreKey();
+    }
     setTimeout(() => {
       // 在前端清理 localStore 之后
       this.tokenProvider.disableAll();

@@ -20,9 +20,9 @@ COPY . .
 # ENV NEXT_TELEMETRY_DISABLED 1
 
 ENV isBuild=t
-ENV VAN_BLOG_REVALIDATE_TIME=10
-ENV VAN_BLOG_ALLOW_DOMAINS "pic.mereith.com"
-ENV VAN_BLOG_SERVER_URL "https://www.mereith.com"
+ENV ZWEI_BLOG_REVALIDATE_TIME=10
+ENV ZWEI_BLOG_ALLOW_DOMAINS "pic.mereith.com"
+ENV ZWEI_BLOG_SERVER_URL "https://www.mereith.com"
 RUN yarn build
 
 # If using npm comment out above and use below instead
@@ -56,8 +56,8 @@ USER nextjs
 EXPOSE 3001
 
 ENV PORT 3001
-ENV VAN_BLOG_SERVER_URL server:3000
-ENV VAN_BLOG_REVALIDATE_TIME 10
-ENV VAN_BLOG_ALLOW_DOMAINS "pic.mereith.com"
+ENV ZWEI_BLOG_SERVER_URL server:3000
+ENV ZWEI_BLOG_REVALIDATE_TIME 10
+ENV ZWEI_BLOG_ALLOW_DOMAINS "pic.mereith.com"
 
 CMD ["node", "server.js","-p","3001"]

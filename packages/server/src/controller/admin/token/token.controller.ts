@@ -22,14 +22,14 @@ export class TokenController {
   }
 
   @Post()
-  async createApiToken(@Body() body: { name: string }) {
+  async createApiToken(@Body() body: { name: string; expiresInDays?: number }) {
     if (config.demo && config.demo == 'true') {
       return {
         statusCode: 401,
         message: '演示站禁止修改此项！',
       };
     }
-    const data = await this.tokenProvider.createAPIToken(body.name);
+    const data = await this.tokenProvider.createAPIToken(body.name, body.expiresInDays);
     return {
       statusCode: 200,
       data,

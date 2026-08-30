@@ -1,5 +1,5 @@
-import { createArticle, createDraft } from '@/services/van-blog/api';
-import { parseMarkdownFile } from '@/services/van-blog/parseMarkdownFile';
+import { createArticle, createDraft } from '@/services/zwei-blog/api';
+import { parseMarkdownFile } from '@/services/zwei-blog/parseMarkdownFile';
 import { Alert, Button, Card, message, Space, Spin, Upload } from 'antd';
 import { useState } from 'react';
 

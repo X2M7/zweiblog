@@ -3,8 +3,8 @@ import {
   deleteCategory,
   getAllCategories,
   updateCategory,
-} from '@/services/van-blog/api';
-import { encodeQuerystring } from '@/services/van-blog/encode';
+} from '@/services/zwei-blog/api';
+import { encodeQuerystring } from '@/services/zwei-blog/encode';
 import { PlusOutlined } from '@ant-design/icons';
 import { ModalForm, ProFormSelect, ProFormText, ProTable } from '@ant-design/pro-components';
 import { Button, message, Modal } from 'antd';
@@ -52,7 +52,6 @@ const columns = [
         trigger={<a key={'editC' + record.name}>修改</a>}
         autoFocusFirstInput
         initialValues={{
-          password: record.password,
           private: record.private,
         }}
         submitTimeout={3000}
@@ -61,15 +60,20 @@ const columns = [
             message.error('无有效信息！请至少填写一个选项！');
             return false;
           }
-          if (values.private && !values.password) {
-            message.error('如若加密，请填写密码！');
+          if (values.private && (!record.private || !record.hasPassword) && !values.password) {
+            message.error('启用分类加密时必须设置访问密码');
             return false;
+          }
+
+          const submission = { ...values };
+          if (!submission.password) {
+            delete submission.password;
           }
 
           Modal.confirm({
             content: `确定修改分类 "${record.name}" 吗？改动将立即生效!`,
             onOk: async () => {
-              await updateCategory(record.name, values);
+              await updateCategory(record.name, submission);
               message.success('提交成功');
               action?.reload();
               return true;
@@ -96,7 +100,8 @@ const columns = [
           width="md"
           name="password"
           label="密码"
-          placeholder="请输入加密密码"
+          placeholder="留空表示保留当前密码"
+          fieldProps={{ autoComplete: 'new-password' }}
         />
       </ModalForm>,
 

@@ -1,4 +1,4 @@
-import { getLog, getPipelineConfig } from '@/services/van-blog/api';
+import { getLog, getPipelineConfig } from '@/services/zwei-blog/api';
 import { ProTable } from '@ant-design/pro-components';
 import { Modal, Tag } from 'antd';
 import { useEffect, useRef, useState } from 'react';

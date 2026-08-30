@@ -7,14 +7,14 @@ if (process.platform === 'win32') {
   logPath = join(__dirname, '../log');
 }
 
-const logPathEnv = process.env.VAN_BLOG_LOG;
+const logPathEnv = process.env.ZWEI_BLOG_LOG;
 if (logPathEnv) {
   logPath = logPathEnv;
 }
 
 const printLog = (string, isError = false) => {
-  const logName = `vanblog-${isError ? 'stderr' : 'stdout'}.log`;
-  const logNameNormal = `vanblog-stdio.log`;
+  const logName = `zweiblog-${isError ? 'stderr' : 'stdout'}.log`;
+  const logNameNormal = `zweiblog-stdio.log`;
   writeFileSync(join(logPath, logName), string, { flag: 'a' });
   writeFileSync(join(logPath, logNameNormal), string, { flag: 'a' });
 };
@@ -27,7 +27,7 @@ const ctx = spawn('node', ['main.js'], {
   },
 });
 ctx.on('exit', () => {
-  process.stderr.write(`[vanblog] 已停止`);
+  process.stderr.write(`[zweiblog] 已停止`);
 });
 ctx.stdout.on('data', (data) => {
   printLog(data.toString(), false);

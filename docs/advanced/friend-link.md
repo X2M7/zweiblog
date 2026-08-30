@@ -3,7 +3,7 @@ title: 友情链接
 icon: heart
 ---
 
-VanBlog 支持 `友情链接` 展示，
+ZweiBlog 支持 `友情链接` 展示，
 
 ::: tip
 

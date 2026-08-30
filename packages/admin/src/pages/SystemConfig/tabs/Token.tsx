@@ -1,22 +1,15 @@
-import { createApiToken, getAllApiTokens, deleteApiToken } from '@/services/van-blog/api';
+import { createApiToken, getAllApiTokens, deleteApiToken } from '@/services/zwei-blog/api';
 import { ModalForm, ProFormText, ProTable } from '@ant-design/pro-components';
+import type { ActionType } from '@ant-design/pro-table';
 import { Button, Card, message, Modal, Space, Typography } from 'antd';
 
 import { useRef } from 'react';
-import { history } from 'umi';
 const columns = [
-  { dataIndex: '_id', title: 'ID' },
   { dataIndex: 'name', title: '名称' },
   {
-    dataIndex: 'token',
-    title: '内容',
-    render: (token) => {
-      return (
-        <Typography.Text style={{ maxWidth: 250 }} ellipsis={true} copyable={true}>
-          {token}
-        </Typography.Text>
-      );
-    },
+    dataIndex: 'createdAt',
+    title: '创建时间',
+    valueType: 'dateTime',
   },
   {
     title: '操作',
@@ -42,7 +35,7 @@ const columns = [
   },
 ];
 export default function () {
-  const actionRef = useRef();
+  const actionRef = useRef<ActionType>();
   return (
     <>
       <Card
@@ -55,12 +48,36 @@ export default function () {
               title="新建 API Token"
               trigger={<Button type="primary"> 新建</Button>}
               onFinish={async (vals) => {
-                await createApiToken(vals);
+                const { data } = await createApiToken(vals);
                 actionRef.current?.reload();
+                Modal.success({
+                  title: 'API Token 仅显示一次，请立即复制',
+                  width: 680,
+                  content: (
+                    <div>
+                      <p>关闭此窗口后将无法再次查看该 Token。</p>
+                      <Typography.Text
+                        code
+                        copyable
+                        style={{ maxWidth: '100%', wordBreak: 'break-all' }}
+                      >
+                        {data?.token}
+                      </Typography.Text>
+                    </div>
+                  ),
+                });
                 return true;
               }}
             >
-              <ProFormText label="名称" name="name" />
+              <ProFormText
+                label="名称"
+                name="name"
+                fieldProps={{ maxLength: 64 }}
+                rules={[
+                  { required: true, whitespace: true, message: '请输入 Token 名称' },
+                  { max: 64, message: '名称不能超过 64 个字符' },
+                ]}
+              />
             </ModalForm>
             <Button
               onClick={() => {
@@ -75,7 +92,7 @@ export default function () {
                   title: 'Token 管理功能介绍',
                   content: (
                     <div>
-                      <p>创建的 Api Token 可以用来调用 VanBlog 的 API</p>
+                      <p>创建的 Api Token 可以用来调用 ZweiBlog 的 API</p>
                       <p>结合 API 文档，您可以做到很多有意思的事情。</p>
                       <p>API 文档现在比较水，会慢慢完善的，未来会有 API Playgroud，敬请期待。</p>
                       <p>
@@ -102,7 +119,7 @@ export default function () {
         }
       >
         <ProTable
-          rowKey="id"
+          rowKey="_id"
           columns={columns}
           dateFormatter="string"
           actionRef={actionRef}

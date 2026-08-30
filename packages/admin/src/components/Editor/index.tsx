@@ -22,26 +22,10 @@ import { cn } from './locales';
 import { useModel } from 'umi';
 import { customContainer } from './plugins/customContainer';
 import { historyIcon } from './history';
-import rawHTML from './rawHTML';
 import { Heading } from './plugins/heading';
 import { customCodeBlock } from './plugins/codeBlock';
 import { LinkTarget } from './plugins/linkTarget';
-
-const sanitize = (schema) => {
-  schema.protocols.src.push('data');
-  schema.tagNames.push('center');
-  schema.tagNames.push('iframe');
-  schema.tagNames.push('script');
-  schema.attributes['*'].push('style');
-  schema.attributes['*'].push('src');
-  schema.attributes['*'].push('scrolling');
-  schema.attributes['*'].push('border');
-  schema.attributes['*'].push('frameborder');
-  schema.attributes['*'].push('framespacing');
-  schema.attributes['*'].push('allowfullscreen');
-  schema.strip = [];
-  return schema;
-};
+import { sanitizeMarkdownSchema } from './sanitizeSchema';
 
 export default function EditorComponent(props: {
   value: string;
@@ -65,7 +49,6 @@ export default function EditorComponent(props: {
       imgUploadPlugin(setLoading),
       emoji(),
       insertMore(),
-      rawHTML(),
       historyIcon(),
       Heading(),
       customCodeBlock(),
@@ -81,7 +64,7 @@ export default function EditorComponent(props: {
           plugins={plugins}
           onChange={props.onChange}
           locale={cn}
-          sanitize={sanitize}
+          sanitize={sanitizeMarkdownSchema}
           uploadImages={async (files: File[]) => {
             setLoading(true);
             const res = [];

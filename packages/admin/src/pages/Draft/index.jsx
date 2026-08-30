@@ -1,14 +1,14 @@
 import ImportDraftModal from '@/components/ImportDraftModal';
 import NewDraftModal from '@/components/NewDraftModal';
-import { getDraftsByOption } from '@/services/van-blog/api';
-import { useNum } from '@/services/van-blog/useNum';
+import { getDraftsByOption } from '@/services/zwei-blog/api';
+import { useNum } from '@/services/zwei-blog/useNum';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import RcResizeObserver from 'rc-resize-observer';
 import { useMemo, useRef, useState } from 'react';
 import { history } from 'umi';
 import { columns, draftKeysObj, draftKeysObjSmall } from './columes';
 import { Button, Space, message } from 'antd';
-import { batchExport, batchDelete } from '@/services/van-blog/batch';
+import { batchExport, batchDelete } from '@/services/zwei-blog/batch';
 export default () => {
   const actionRef = useRef();
   const [colKeys, setColKeys] = useState(draftKeysObj);
@@ -141,7 +141,7 @@ export default () => {
           }}
           editable={false}
           columnsState={{
-            // persistenceKey: 'van-blog-draft-table',
+            // persistenceKey: 'zwei-blog-draft-table',
             // persistenceType: 'localStorage',
             value: colKeys,
             onChange(value) {

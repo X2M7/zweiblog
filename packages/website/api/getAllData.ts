@@ -143,7 +143,7 @@ export interface PublicMetaProp {
   };
 }
 
-export const version = process.env["VAN_BLOG_VERSION"] || "dev";
+export const version = process.env["ZWEI_BLOG_VERSION"] || "dev";
 
 const defaultMeta: MetaProps = {
   categories: [],
@@ -160,8 +160,8 @@ const defaultMeta: MetaProps = {
     authorLogo: "/logo.svg",
     siteLogo: "/logo.svg",
     favicon: "/logo.svg",
-    siteName: "VanBlog",
-    siteDesc: "Vanblog",
+    siteName: "ZweiBlog",
+    siteDesc: "Zweiblog",
     copyrightAggreement: "",
     beianNumber: "",
     beianUrl: "",

@@ -3,7 +3,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ArticleProvider } from '../article/article.provider';
 import { Feed } from 'feed';
 import { MetaProvider } from '../meta/meta.provider';
-import { SettingProvider } from '../setting/setting.provider';
 import fs from 'fs';
 import path from 'path';
 import { config } from 'src/config';
@@ -17,7 +16,6 @@ export class RssProvider {
   constructor(
     private readonly articleProvider: ArticleProvider,
     private readonly metaProvider: MetaProvider,
-    private readonly settingProvider: SettingProvider,
     private readonly markdownProvider: MarkdownProvider,
   ) {}
 
@@ -47,12 +45,7 @@ export class RssProvider {
         }
       });
       const meta = await this.metaProvider.getAll();
-      const walineSetting = await this.settingProvider.getWalineSetting();
-      let email = process.env.EMAIL;
-      if (walineSetting && walineSetting?.authorEmail) {
-        email = walineSetting?.authorEmail;
-      }
-      walineSetting?.authorEmail;
+      const email = process.env.EMAIL;
       const author = {
         name: meta.siteInfo.author,
         email,
@@ -80,7 +73,7 @@ export class RssProvider {
         favicon: favicon,
         copyright: `All rights reserved ${date.getFullYear()}, ${meta.siteInfo.author}`,
         updated: date,
-        generator: 'Feed for VanBlog',
+        generator: 'Feed for ZweiBlog',
         feedLinks: {
           rss2: `${siteUrl}rss/feed.xml`, // xml format
           json: `${siteUrl}rss/feed.json`, // json fromat

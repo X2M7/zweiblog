@@ -17,6 +17,7 @@ import { StaticProvider } from 'src/provider/static/static.provider';
 import { config } from 'src/config';
 import { checkTrue } from 'src/utils/checkTrue';
 import { ApiToken } from 'src/provider/swagger/token';
+import { imageUploadOptions } from 'src/utils/uploadLimits';
 
 @ApiTags('img')
 @UseGuards(...AdminGuard)
@@ -25,7 +26,7 @@ import { ApiToken } from 'src/provider/swagger/token';
 export class ImgController {
   constructor(private readonly staticProvider: StaticProvider) {}
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', imageUploadOptions))
   async upload(
     @UploadedFile() file: any,
     @Query('favicon') favicon?: string,

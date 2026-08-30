@@ -1,7 +1,7 @@
 import NumSelect from '@/components/NumSelect';
 import TipTitle from '@/components/TipTitle';
-import { getWelcomeData } from '@/services/van-blog/api';
-import { useNum } from '@/services/van-blog/useNum';
+import { getWelcomeData } from '@/services/zwei-blog/api';
+import { useNum } from '@/services/zwei-blog/useNum';
 import { Area } from '@ant-design/plots';
 import { ProCard, StatisticCard } from '@ant-design/pro-components';
 import { Spin } from 'antd';

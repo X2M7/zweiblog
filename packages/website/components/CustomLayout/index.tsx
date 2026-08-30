@@ -1,9 +1,10 @@
-import { decode } from "js-base64";
-import Head from "next/head";
-import Script from "next/script";
-import { createElement } from "react";
+import { decode } from 'js-base64';
+import Head from 'next/head';
+import Script from 'next/script';
+import { createElement } from 'react';
 
-import { type HeadTag } from "../../utils/getLayoutProps";
+import { type HeadTag } from '../../utils/getLayoutProps';
+import { isUnsafeCustomCodeEnabled, sanitizeCustomHead, sanitizeCustomHtml } from './sanitize';
 
 export default function (props: {
   customCss?: string;
@@ -11,12 +12,17 @@ export default function (props: {
   customScript?: string;
   customHead?: HeadTag[];
 }) {
+  const safeCustomHead = sanitizeCustomHead(props.customHead);
+  const safeCustomHtml = props.customHtml ? sanitizeCustomHtml(decode(props.customHtml)) : '';
+  const allowUnsafeCustomCode = isUnsafeCustomCodeEnabled(
+    process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE,
+  );
   const renderHeadTags = () => {
-    if (props.customHead?.length) {
+    if (safeCustomHead.length) {
       return (
         <>
-          {props.customHead.map(({ content, props, name }, index) =>
-            createElement(name, { ...props, key: `head-tag-${index}` }, content)
+          {safeCustomHead.map(({ content, props, name }, index) =>
+            createElement(name, { ...props, key: `head-tag-${index}` }, content),
           )}
         </>
       );
@@ -31,15 +37,9 @@ export default function (props: {
         {props.customCss ? <style>{decode(props.customCss)}</style> : null}
         {renderHeadTags()}
       </Head>
-      {props.customHtml ? (
-        <div
-          dangerouslySetInnerHTML={{ __html: decode(props.customHtml) }}
-        ></div>
-      ) : null}
-      {props.customScript ? (
-        <Script strategy="beforeInteractive">{`${decode(
-          props.customScript
-        )}`}</Script>
+      {safeCustomHtml ? <div dangerouslySetInnerHTML={{ __html: safeCustomHtml }}></div> : null}
+      {allowUnsafeCustomCode && props.customScript ? (
+        <Script strategy="beforeInteractive">{`${decode(props.customScript)}`}</Script>
       ) : null}
     </>
   );

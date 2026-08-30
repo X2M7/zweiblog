@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { InitDto } from 'src/types/init.dto';
 import { MetaDocument } from 'src/scheme/meta.schema';
 import { UserDocument } from 'src/scheme/user.schema';
-import { WalineProvider } from '../waline/waline.provider';
 import { SettingProvider } from '../setting/setting.provider';
 import { version } from '../../utils/loadConfig';
 import { encryptPassword, makeSalt } from 'src/utils/crypto';
@@ -15,7 +14,10 @@ import path from 'path';
 import { WebsiteProvider } from '../website/website.provider';
 import { CategoryDocument } from 'src/scheme/category.schema';
 import { CustomPageDocument } from 'src/scheme/customPage.schema';
-import e from 'express';
+import { config } from 'src/config';
+
+const RESTORE_KEY_TTL_MS = 15 * 60 * 1000;
+
 @Injectable()
 export class InitProvider {
   logger = new Logger(InitProvider.name);
@@ -25,7 +27,6 @@ export class InitProvider {
     @InjectModel('Category') private categoryModal: Model<CategoryDocument>,
     @InjectModel('CustomPage')
     private customPageModal: Model<CustomPageDocument>,
-    private readonly walineProvider: WalineProvider,
     private readonly settingProvider: SettingProvider,
     private readonly cacheProvider: CacheProvider,
     private readonly websiteProvider: WebsiteProvider,
@@ -39,10 +40,11 @@ export class InitProvider {
     }
     try {
       const salt = makeSalt();
+      const password = await encryptPassword(user.username, user.password, salt);
       await this.userModel.create({
         id: 0,
         name: user.username,
-        password: encryptPassword(user.username, user.password, salt),
+        password,
         mickname: user?.nickname || user.username,
         type: 'admin',
         salt,
@@ -59,8 +61,6 @@ export class InitProvider {
         categories: [],
       });
       await this.settingProvider.updateMenuSetting({ data: defaultMenu });
-      // 运行 waline
-      this.walineProvider.init();
       // 重启前台
       this.websiteProvider.restart('初始化');
       return '初始化成功!';
@@ -78,22 +78,24 @@ export class InitProvider {
   }
   async initRestoreKey() {
     const key = makeSalt();
-    await this.cacheProvider.set('restoreKey', key);
-    const filePath = path.join('/var/log/', 'restore.key');
+    this.cacheProvider.set('restoreKey', key, RESTORE_KEY_TTL_MS);
+    const logPath = path.resolve(config.log);
+    const filePath = path.join(logPath, 'restore.key');
     try {
-      fs.writeFileSync(filePath, key, { encoding: 'utf-8' });
+      fs.mkdirSync(logPath, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(filePath, key, { encoding: 'utf-8', mode: 0o600 });
+      fs.chmodSync(filePath, 0o600);
     } catch (err) {
       this.logger.error('写入恢复密钥到文件失败！');
     }
     this.logger.warn(
-      `忘记密码恢复密钥为： ${key}\n 注意此密钥也会同时写入到日志目录中的 restore.key 文件中，每次重启 vanblog 或老密钥被使用时都会重新生成此密钥`,
+      `忘记密码恢复密钥已写入 ${filePath}，权限为 0600，有效期 15 分钟；服务重启或密钥使用后会重新生成。`,
     );
   }
 
   async washStaticSetting() {
     // 新版加入了图床自动压缩功能，默认开启，需要洗一下。
     const staticSetting = await this.settingProvider.getStaticSetting();
-    console.log(staticSetting);
     if (staticSetting && staticSetting.enableWebp === undefined) {
       this.logger.log('新版本自动开启图床压缩功能');
       await this.settingProvider.updateStaticSetting({

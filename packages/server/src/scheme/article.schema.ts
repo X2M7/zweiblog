@@ -35,7 +35,7 @@ export class Article extends Document {
   @Prop({ default: false, index: true })
   private: boolean;
 
-  @Prop({ default: '' })
+  @Prop({ default: '', select: false })
   password: string;
 
   @Prop({ default: false, index: true })

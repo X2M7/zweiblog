@@ -12,23 +12,23 @@ order: 7
 
 本项目使用了 `JavaScript` 和 `TypeScript` 实现。
 
-如果你想参与 VanBlog 开发，可以进群哦：
+如果你想参与 ZweiBlog 开发，可以进群哦：
 
-- [VanBlog 开发群](https://jq.qq.com/?_wv=1027&k=mf2CguM8)
+- [ZweiBlog 开发群](https://jq.qq.com/?_wv=1027&k=mf2CguM8)
 
 ## 准备知识
 
 ### 整体架构
 
-Vanblog 分为以下几个部分，构建后将整合到一个 `docker` 容器内：
+Zweiblog 分为以下几个部分，构建后将整合到一个 `docker` 容器内：
 
-> website: Vanblog 默认的主题，使用了 `nextjs` 框架，有运行时。
+> website: Zweiblog 默认的主题，使用了 `nextjs` 框架，有运行时。
 >
-> server: Vanblog 的后端服务，有运行时。
+> server: Zweiblog 的后端服务，有运行时。
 >
-> waline: Vanblog 内嵌的评论服务，有运行时。
+> comment: Server 内置的本地评论模块，数据保存在 MongoDB。
 >
-> admin: Vanblog 后台面板，打包后为静态页面，无运行时。
+> admin: Zweiblog 后台面板，打包后为静态页面，无运行时。
 >
 > caddy: 作为对外的网关，按照规则反代上述几个服务，并提供全自动的 https。
 
@@ -36,7 +36,10 @@ Vanblog 分为以下几个部分，构建后将整合到一个 `docker` 容器�
 
 打包后，启动关系如图：
 
-![架构图](./assets/vanblog.svg)
+```text
+浏览器 → Caddy → Website / Admin / Server → MongoDB
+                                └─ 原生评论模块（Server 内）
+```
 
 ### 路径结构
 
@@ -53,8 +56,7 @@ Vanblog 分为以下几个部分，构建后将整合到一个 `docker` 容器�
 ├── package.json
 ├── packages # 代码主体
 |  ├── admin # 后台前端代码
-|  ├── server # 后端代码
-|  ├── waline # 内嵌 waline 评论系统
+|  ├── server # API、后台能力与本地评论系统
 |  └── website # 前台前端代码
 ├── README.md
 └── pnpm-workspace.yaml # pnpm workspace 文件
@@ -79,7 +81,7 @@ Vanblog 分为以下几个部分，构建后将整合到一个 `docker` 容器�
 开发之前，要有一个 `mongodb` 数据库。推荐用 `docker` 起一个：
 
 ```bash
-docker run --name mongodb-vanblog -d --restart unless-stopped \
+docker run --name mongodb-zweiblog -d --restart unless-stopped \
   -p 27017:27017 mongo
 ```
 
@@ -92,7 +94,7 @@ docker run --name mongodb-vanblog -d --restart unless-stopped \
 
 ```bash
 git clone https://github.com/Mereithhh/vanblog.git
-cd vanblog
+cd zweiblog
 pnpm i
 ```
 
@@ -103,17 +105,17 @@ pnpm i
 ```yaml
 database:
   # 数据库连接
-  url: mongodb://localhost:27017/vanBlog?authSource=admin
+  url: mongodb://localhost:27017/zweiBlog?authSource=admin
 static:
   # 图床等静态文件保存的位置
-  path: /var/vanblog-dev/static
+  path: /var/zweiblog-dev/static
 # 是否开启演示站模式，会限制很多权限
 demo: 'false'
-# waline 用的表名，会自动创建
-waline:
+# 旧 Waline 数据库名，仅在执行显式评论迁移时使用
+legacyWaline:
   db: waline
 # 日志位置
-log: /var/vanblog-dev/logs
+log: /var/zweiblog-dev/logs
 ```
 
 ### 开发相关命令
@@ -130,7 +132,7 @@ pnpm dev
 # 后台为 3002 端口
 ```
 
-::: info VanBlog开发后台如果用到复制到剪切板相关的功能，可能需要开启 `https`，请在 `packages/admin/config/config.js` 中的 `https` 改成 `true`，再重启开发进程。
+::: info ZweiBlog开发后台如果用到复制到剪切板相关的功能，可能需要开启 `https`，请在 `packages/admin/config/config.js` 中的 `https` 改成 `true`，再重启开发进程。
 
 ```js
  devServer: { https: true, port: 3002 },
@@ -184,8 +186,8 @@ pnpm build:test
 
 ```bash
 # 这个build server 是第一次打包镜像拿数据的，不写也行，那就得等启动容器后增量渲染生效了。
-VAN_BLOG_BUILD_SERVER="https://some.vanblog-server.com"
-docker build --build-arg VAN_BLOG_BUILD_SERVER=$VAN_BLOG_BUILD_SERVER -t mereith/van-blog:test .
+ZWEI_BLOG_BUILD_SERVER="https://some.zweiblog-server.com"
+docker build --build-arg ZWEI_BLOG_BUILD_SERVER=$ZWEI_BLOG_BUILD_SERVER -t mereith/van-blog:test .
 ```
 
 ## 文档发版

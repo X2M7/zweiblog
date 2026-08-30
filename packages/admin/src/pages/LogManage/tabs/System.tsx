@@ -1,4 +1,4 @@
-import { getLog } from '@/services/van-blog/api';
+import { getLog } from '@/services/zwei-blog/api';
 import { Button, Card, Space, Spin } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import TerminalDisplay from '@/components/TerminalDisplay';

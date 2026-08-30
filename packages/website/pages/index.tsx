@@ -6,7 +6,7 @@ import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getIndexPageProps } from "../utils/getPageProps";
 import { revalidate } from "../utils/loadConfig";
-import Waline from "../components/WaLine";
+import Comments from "../components/Comments";
 import Head from "next/head";
 import { getArticlesKeyWord } from "../utils/keywords";
 import { getArticlePath } from "../utils/getArticlePath";
@@ -62,7 +62,7 @@ const Home = (props: IndexPageProps) => {
         base={"/"}
         more={"/page"}
       ></PageNav>
-      <Waline enable={props.layoutProps.enableComment} visible={false} />
+      <Comments enable={props.layoutProps.enableComment} visible={false} />
     </Layout>
   );
 };

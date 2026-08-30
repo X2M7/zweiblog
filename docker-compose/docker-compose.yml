@@ -1,33 +1,80 @@
-version: '3'
-
 services:
-  vanblog:
-    # 阿里云镜像源
-    # image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:latest
-    image: mereith/van-blog:latest
-    restart: always
+  zweiblog:
+    # Build this zweiblog checkout. Pulling the upstream image here would not
+    # include the native local-comment and security changes in this project.
+    image: zweiblog:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        ZWEI_BLOG_VERSIONS: zweiblog-local
+    restart: unless-stopped
     environment:
       TZ: 'Asia/Shanghai'
-      # 邮箱地址，用于自动申请 https 证书
-      EMAIL: 'someone@mereith.com'
+      # Email address used by Caddy when requesting HTTPS certificates.
+      EMAIL: 'someone@example.com'
+      # The URI is read from a Docker secret instead of being exposed by
+      # `docker inspect` as an environment variable.
+      ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
     volumes:
-      # 图床文件的存放地址，按需修改。
       - ${PWD}/data/static:/app/static
-      # 日志文件
       - ${PWD}/log:/var/log
-      # caddy 配置存储
-      - ${PWD}/caddy/config:/root/.config/caddy
-      # caddy 证书存储
-      - ${PWD}/caddy/data:/root/.local/share/caddy
+      - ${PWD}/caddy/config:/home/zweiblog/.config/caddy
+      - ${PWD}/caddy/data:/home/zweiblog/.local/share/caddy
     ports:
-      # 前面的是映射到宿主机的端口号，改端口的话该前面的
-      - 80:80
-      - 443:443
+      - '80:80'
+      - '443:443'
+    secrets:
+      - mongo_app_uri
+    networks:
+      - web
+      - database
+    depends_on:
+      mongo:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
   mongo:
-    # 某些机器不支持 avx 会报错，所以默认用 v4 版本。有的话用最新的。
-    image: mongo:4.4.16
-    restart: always
+    # MongoDB 8.0 is a supported major release. Do not point this image at a
+    # MongoDB 4.4 data directory; use scripts/migrate-mongo.sh instead.
+    image: mongo:8.0
+    restart: unless-stopped
     environment:
       TZ: 'Asia/Shanghai'
+      MONGO_INITDB_ROOT_USERNAME: zweiblog-root
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
     volumes:
       - ${PWD}/data/mongo:/data/db
+      - ${PWD}/mongo-init.js:/docker-entrypoint-initdb.d/10-zweiblog-user.js:ro
+      - ${PWD}/mongo-healthcheck.js:/opt/zweiblog/mongo-healthcheck.js:ro
+    secrets:
+      - mongo_root_password
+      - mongo_app_password
+      - mongo_app_uri
+    networks:
+      - database
+    healthcheck:
+      test: ['CMD', 'mongosh', '--nodb', '--quiet', '--file', '/opt/zweiblog/mongo-healthcheck.js']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  mongo_root_password:
+    file: ${PWD}/secrets/mongo-root-password
+  mongo_app_password:
+    file: ${PWD}/secrets/mongo-app-password
+  mongo_app_uri:
+    file: ${PWD}/secrets/mongo-app-uri
+
+networks:
+  web:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true

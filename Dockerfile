@@ -1,115 +1,118 @@
-# 具体每个服务的去看 packages 里面的 Dockerfile
-# 这个是 all in one 的。
-FROM  node:18-alpine as ADMIN_BUILDER
+FROM node:22-alpine AS ADMIN_BUILDER
 ENV NODE_OPTIONS='--max_old_space_size=4096 --openssl-legacy-provider'
 ENV EEE=production
-WORKDIR /app
-USER root
+WORKDIR /repo
 RUN apk add --update python3 make g++ && rm -rf /var/cache/apk/*
-COPY ./packages/admin/ ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./packages/admin/ ./packages/admin/
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
 RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
-RUN pnpm i
-# RUN sed -i 's/\/assets/\/admin\/assets/g' dist/admin/index.html
-RUN pnpm build
+RUN pnpm install --frozen-lockfile --filter @zweiblog/admin...
+RUN pnpm --filter @zweiblog/admin build
 
-FROM node:18 as SERVER_BUILDER
+FROM node:22-alpine AS SERVER_BUILDER
 ENV NODE_OPTIONS=--max_old_space_size=4096
-WORKDIR /app
-COPY ./packages/server/ .
+WORKDIR /repo
+RUN apk add --no-cache python3 make g++
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./packages/server/ ./packages/server/
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
 RUN pnpm config set registry https://registry.npmmirror.com -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
-RUN pnpm i
-RUN pnpm build
+RUN pnpm install --frozen-lockfile --filter @zweiblog/server...
+RUN pnpm --filter @zweiblog/server build
+RUN pnpm --filter @zweiblog/server deploy --prod /out/server
 
-FROM node:18-alpine AS WEBSITE_BUILDER
-WORKDIR /app
+FROM node:22-alpine AS RUNTIME_DEPS_BUILDER
+WORKDIR /repo
+RUN apk add --no-cache python3 make g++
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./packages/cli/ ./packages/cli/
+RUN corepack enable
+RUN corepack prepare pnpm@8.11.0 --activate
+RUN pnpm config set network-timeout 600000 -g
+RUN pnpm config set registry https://registry.npmmirror.com -g
+RUN pnpm config set fetch-retries 20 -g
+RUN pnpm config set fetch-timeout 600000 -g
+RUN pnpm install --frozen-lockfile --filter zweiblog-cli...
+RUN pnpm --filter zweiblog-cli deploy --prod /out/cli
+
+FROM node:22-alpine AS WEBSITE_BUILDER
+WORKDIR /repo
 RUN apk add --update python3 make g++ && rm -rf /var/cache/apk/*
-COPY ./package.json ./
-COPY ./pnpm-lock.yaml ./
-COPY ./pnpm-workspace.yaml ./
-COPY ./tsconfig.base.json ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./tsconfig.base.json ./
 COPY ./packages/website ./packages/website
-ENV isBuild t
-ENV VAN_BLOG_ALLOW_DOMAINS "pic.mereith.com"
-ARG VAN_BLOG_BUILD_SERVER
-ENV VAN_BLOG_SERVER_URL ${VAN_BLOG_BUILD_SERVER}
-ARG VAN_BLOG_VERSIONS
-ENV VAN_BLOG_VERSION ${VAN_BLOG_VERSIONS}
+ENV isBuild=t
+ENV ZWEI_BLOG_ALLOW_DOMAINS="pic.mereith.com"
+ARG ZWEI_BLOG_BUILD_SERVER
+ENV ZWEI_BLOG_SERVER_URL=${ZWEI_BLOG_BUILD_SERVER}
+ARG ZWEI_BLOG_VERSIONS
+ENV ZWEI_BLOG_VERSION=${ZWEI_BLOG_VERSIONS}
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
 RUN pnpm config set registry https://registry.npmmirror.com -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
-RUN pnpm install --frozen-lockfile
-RUN pnpm build:website
+RUN pnpm install --frozen-lockfile --filter @zweiblog/theme-default...
+RUN pnpm --filter @zweiblog/theme-default build
 
-
-#运行容器
-FROM node:18-alpine AS RUNNER
+FROM node:22-alpine AS RUNNER
 WORKDIR /app
-RUN  apk add --no-cache --update tzdata caddy nss-tools libwebp-tools \
+RUN apk add --no-cache --update tzdata caddy nss-tools libwebp-tools libcap \
   && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
   && echo "Asia/Shanghai" > /etc/timezone \
-  && apk del tzdata
-RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
-RUN pnpm config set network-timeout 600000 -g
-RUN pnpm config set registry https://registry.npmmirror.com -g
-RUN pnpm config set fetch-retries 20 -g
-RUN pnpm config set fetch-timeout 600000 -g
-# 复制 cli 工具
+  && apk del tzdata \
+  && setcap cap_net_bind_service=+ep "$(command -v caddy)"
+
 WORKDIR /app/cli
-COPY ./packages/cli/ ./
-RUN pnpm i
-# 安装 waline
-WORKDIR /app/waline
-COPY ./packages/waline/ ./
-RUN pnpm i
-# 复制 server
+COPY --from=RUNTIME_DEPS_BUILDER /out/cli/ ./
+
 WORKDIR /app/server
-COPY --from=SERVER_BUILDER /app/node_modules ./node_modules
-COPY --from=SERVER_BUILDER /app/dist/src/ ./
-# 复制 website
+COPY --from=SERVER_BUILDER /out/server/node_modules ./node_modules
+COPY --from=SERVER_BUILDER /repo/packages/server/dist/src/ ./
+
 WORKDIR /app/website
-COPY --from=WEBSITE_BUILDER  /app/packages/website/.next/standalone/ ./
-COPY --from=WEBSITE_BUILDER /app/packages/website/next.config.js ./packages/website/next.config.js
-COPY --from=WEBSITE_BUILDER /app/packages/website/public ./packages/website/public
-COPY --from=WEBSITE_BUILDER /app/packages/website/package.json ./packages/website/package.json
-COPY --from=WEBSITE_BUILDER  /app/packages/website/.next/static ./packages/website/.next/static
-RUN  cd  /app/website  && cd ..
-ENV NODE_ENV production
-ENV VAN_BLOG_SERVER_URL "http://127.0.0.1:3000"
-ENV VAN_BLOG_ALLOW_DOMAINS "pic.mereith.com"
-ENV VAN_BLOG_DATABASE_URL "mongodb://mongo:27017/vanBlog?authSource=admin"
-ENV EMAIL "vanblog@mereith.com"
-ENV VAN_BLOG_WALINE_DB "waline"
-# 复制静态文件
+COPY --from=WEBSITE_BUILDER /repo/packages/website/.next/standalone/ ./
+COPY --from=WEBSITE_BUILDER /repo/packages/website/next.config.js ./packages/website/next.config.js
+COPY --from=WEBSITE_BUILDER /repo/packages/website/public ./packages/website/public
+COPY --from=WEBSITE_BUILDER /repo/packages/website/package.json ./packages/website/package.json
+COPY --from=WEBSITE_BUILDER /repo/packages/website/.next/static ./packages/website/.next/static
+
+ENV NODE_ENV=production
+ENV HOME=/home/zweiblog
+ENV ZWEI_BLOG_SERVER_URL="http://127.0.0.1:3000"
+ENV ZWEI_BLOG_ALLOW_DOMAINS="pic.mereith.com"
+ENV EMAIL="vanblog@mereith.com"
+ENV ZWEI_BLOG_LEGACY_WALINE_DB="waline"
+
 WORKDIR /app/admin
-COPY --from=ADMIN_BUILDER /app/dist/ ./
+COPY --from=ADMIN_BUILDER /repo/packages/admin/dist/ ./
 COPY caddyTemplate.json /app/caddyTemplate.json
-# 复制入口文件
+
 WORKDIR /app
 COPY ./scripts/start.js ./
 COPY ./entrypoint.sh ./
-ENV PORT 3001
-# 增加版本
-ARG VAN_BLOG_VERSIONS
-ENV VAN_BLOG_VERSION ${VAN_BLOG_VERSIONS}
+ENV PORT=3001
+ARG ZWEI_BLOG_VERSIONS
+ENV ZWEI_BLOG_VERSION=${ZWEI_BLOG_VERSIONS}
+RUN addgroup -S -g 10001 zweiblog \
+  && adduser -S -D -u 10001 -G zweiblog -h /home/zweiblog zweiblog \
+  && mkdir -p /app/static /var/log /home/zweiblog/.config/caddy /home/zweiblog/.local/share/caddy \
+  && chown -R zweiblog:zweiblog /app /var/log /home/zweiblog
+
 VOLUME /app/static
 VOLUME /var/log
-VOLUME /root/.config/caddy
-VOLUME /root/.local/share/caddy
+VOLUME /home/zweiblog/.config/caddy
+VOLUME /home/zweiblog/.local/share/caddy
 
 EXPOSE 80
-ENTRYPOINT [ "sh","entrypoint.sh" ]
-# CMD [ "entrypoint.sh" ]
+USER zweiblog
+ENTRYPOINT ["sh", "entrypoint.sh"]

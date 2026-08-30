@@ -2,7 +2,7 @@
 /* eslint-disable no-underscore-dangle */
 /* globals workbox */
 workbox.core.setCacheNameDetails({
-  prefix: 'van-blog-admin',
+  prefix: 'zwei-blog-admin',
   suffix: 'v0',
 });
 // Control all opened tabs ASAP

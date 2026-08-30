@@ -1,5 +1,6 @@
 // https://umijs.org/config/
 import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin';
+import path from 'path';
 import { defineConfig } from 'umi';
 import defaultSettings from './defaultSettings';
 import proxy from './proxy';
@@ -44,6 +45,15 @@ export default defineConfig({
   proxy: proxy[REACT_APP_ENV || 'dev'],
   manifest: {
     basePath: '/',
+  },
+  // @ant-design/charts-util parses the React 18 entry even when its React 17
+  // runtime branch is selected. Umi applies this top-level alias after its
+  // built-in resolver aliases, so the compatibility shim remains reachable.
+  alias: {
+    'react-dom/client$': path.resolve(
+      __dirname,
+      '../src/shims/react-dom-client.ts',
+    ),
   },
   // Fast Refresh 热更新
   fastRefresh: {},

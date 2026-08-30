@@ -1,6 +1,6 @@
-import { publishDraft } from '@/services/van-blog/api';
-import { Modal, ModalForm, ProFormSelect, ProFormText } from '@ant-design/pro-components';
-import { message } from 'antd';
+import { publishDraft } from '@/services/zwei-blog/api';
+import { ModalForm, ProFormSelect, ProFormText } from '@ant-design/pro-components';
+import { message, Modal } from 'antd';
 export default function (props) {
   const { title, id, trigger, action, onFinish } = props;
   return (

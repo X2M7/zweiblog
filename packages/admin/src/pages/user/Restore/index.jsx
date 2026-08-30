@@ -1,5 +1,5 @@
-import { restore } from '@/services/van-blog/api';
-import { encryptPwd } from '@/services/van-blog/encryptPwd';
+import { restore } from '@/services/zwei-blog/api';
+import { encryptPwd } from '@/services/zwei-blog/encryptPwd';
 import ProCard from '@ant-design/pro-card';
 import ProForm, { ProFormText } from '@ant-design/pro-form';
 import { Alert, message } from 'antd';
@@ -27,7 +27,7 @@ export default function () {
           style={{ marginBottom: 12 }}
           message={
             <p style={{ marginBottom: 0 }}>
-              VanBlog
+              ZweiBlog
               会在每次启动时在日志中打印随机的恢复密钥，同时也会将其写入到您挂载的日志目录中的
               restore.key 文件中。
             </p>

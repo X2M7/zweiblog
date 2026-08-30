@@ -1,6 +1,6 @@
 import Footer from '@/components/Footer';
-import { login } from '@/services/van-blog/api';
-import { encryptPwd } from '@/services/van-blog/encryptPwd';
+import { login } from '@/services/zwei-blog/api';
+import { encryptPwd } from '@/services/zwei-blog/encryptPwd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-form';
 import { message } from 'antd';
@@ -54,8 +54,8 @@ const Login = () => {
         <LoginForm
           className={styles.loginForm}
           logo={<img alt="logo" src="/logo.svg" />}
-          title="VanBlog"
-          subTitle={'VanBlog 博客管理后台'}
+          title="ZweiBlog"
+          subTitle={'ZweiBlog 博客管理后台'}
           initialValues={{
             autoLogin: true,
           }}

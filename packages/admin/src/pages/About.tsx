@@ -32,7 +32,7 @@ export default function (props) {
                 alignItems: 'center',
               }}
             >
-              <div>VanBlog</div>
+              <div>ZweiBlog</div>
               <div style={{ marginBottom: 4, marginLeft: 4 }}>
                 <Tag color="cyan">{version}</Tag>
               </div>

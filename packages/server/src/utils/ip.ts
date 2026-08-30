@@ -1,5 +1,4 @@
 import * as os from 'os';
-import axios from 'axios';
 
 // import publicIp from 'public-ip';
 
@@ -18,18 +17,8 @@ export const getLocalIps = () => {
   return res;
 };
 export const getPublicIp = async () => {
-  try {
-    // return await publicIpv4();
-    const res = await axios.get('http://ip.cip.cc');
-    if (res.data && res.data.trim() != '') {
-      return res.data.replace('\n', '');
-    } else {
-      return null;
-    }
-  } catch (err) {
-    console.log('获取公网 IP 超时');
-    return null;
-  }
+  // 不把服务器网络信息发送给第三方；默认只使用本地网卡地址。
+  return null;
 };
 export const getDefaultSubjects = async () => {
   const localIps = await getLocalIps();

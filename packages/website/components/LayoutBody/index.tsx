@@ -5,11 +5,11 @@ export default function (props: {
   return (
     <>
       <div className="flex mx-auto justify-center">
-        <div className="flex-shrink flex-grow md:max-w-3xl xl:max-w-4xl w-full vanblog-main">
+        <div className="flex-shrink flex-grow md:max-w-3xl xl:max-w-4xl w-full zweiblog-main">
           {props.children}
         </div>
         <div
-          className={`hidden lg:block flex-shrink-0 flex-grow-0 vanblog-sider ${
+          className={`hidden lg:block flex-shrink-0 flex-grow-0 zweiblog-sider ${
             Boolean(props.sideBar) ? "w-52" : ""
           }`}
         >

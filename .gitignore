@@ -67,6 +67,9 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.*
+!.env.example
+!.env.*.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -147,3 +150,15 @@ staticFolder
 localBuild.sh
 log
 log/**
+/.local-runtime/
+
+# Local Docker Compose runtime state and credentials
+/docker-compose/secrets/
+/docker-compose/data/
+/docker-compose/log/
+/docker-compose/caddy/
+
+# MongoDB migration output and credentials generated from published helper scripts
+**/mongo-migration-*/
+/docs/.vuepress/public/secrets/
+/docs/.vuepress/public/data/

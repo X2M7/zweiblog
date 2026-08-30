@@ -3,7 +3,7 @@ title: RSS
 icon: rss
 ---
 
-VanBlog 内置了 `RSS feed 生成器` ，开箱即用。
+ZweiBlog 内置了 `RSS feed 生成器` ，开箱即用。
 
 <!-- more -->
 
@@ -17,7 +17,7 @@ VanBlog 内置了 `RSS feed 生成器` ，开箱即用。
 
 导航栏右上角会默认出现 `RSS` 按钮。您可以在后台的 `布局设置` 中关闭此按钮。
 
-VanBlog 包含后端 Markdown 渲染器，因此你可以在支持 HTML 内容的 RSS 阅读器上获得与网页相近的体验。
+ZweiBlog 包含后端 Markdown 渲染器，因此你可以在支持 HTML 内容的 RSS 阅读器上获得与网页相近的体验。
 
 您可以用喜欢的阅读器来浏览和阅读 RSS：
 
@@ -33,7 +33,7 @@ RSS 订阅中的 HTML 暂不支持 mermaid 图表。(如果您有好的解决方
 
 ## 信息生成
 
-- 作者: RSS 订阅中的作者邮箱优先取自 `评论设置` 中的作者邮箱，其次是启动 VanBlog 时传递的 `EMAIL` 环境变量。
+- 作者: RSS 订阅中的作者邮箱优先取自 `评论设置` 中的作者邮箱，其次是启动 ZweiBlog 时传递的 `EMAIL` 环境变量。
 
 - 图标:
 

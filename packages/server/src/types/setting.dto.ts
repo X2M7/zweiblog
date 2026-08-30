@@ -12,7 +12,7 @@ export const defaultStaticSetting: StaticSetting = {
 export type SettingType =
   | 'static'
   | 'https'
-  | 'waline'
+  | 'comment'
   | 'layout'
   | 'login'
   | 'menu'
@@ -22,10 +22,24 @@ export type SettingType =
 export type SettingValue =
   | StaticSetting
   | HttpsSetting
-  | WalineSetting
+  | CommentSetting
   | LayoutSetting
   | VersionSetting
-  | ISRSetting;
+  | ISRSetting
+  | LoginSetting
+  | MenuSetting;
+
+export interface CommentSetting {
+  moderation: 'all' | 'suspicious' | 'off';
+  pageSize: number;
+  maxLength: number;
+}
+
+export const defaultCommentSetting: CommentSetting = {
+  moderation: 'suspicious',
+  pageSize: 10,
+  maxLength: 50_000,
+};
 
 export interface ISRSetting {
   mode: 'delay' | 'onDemand';
@@ -44,6 +58,14 @@ export interface LoginSetting {
   durationSeconds: number;
   expiresIn: number;
 }
+
+export const defaultLoginSetting: LoginSetting = {
+  enableMaxLoginRetry: true,
+  maxRetryTimes: 5,
+  durationSeconds: 15 * 60,
+  expiresIn: 3600 * 24 * 7,
+};
+
 export interface VersionSetting {
   version: string;
 }
@@ -64,20 +86,6 @@ export interface HeadTag {
   name: string;
   props: Record<string, string>;
   conent: string;
-}
-
-export interface WalineSetting {
-  'smtp.enabled': boolean;
-  'smtp.port': number;
-  'smtp.host': string;
-  'smtp.user': string;
-  'smtp.password': string;
-  'sender.name': string;
-  'sender.email': string;
-  authorEmail: string;
-  webhook?: string;
-  forceLoginComment: boolean;
-  otherConfig?: string;
 }
 
 export interface HttpsSetting {

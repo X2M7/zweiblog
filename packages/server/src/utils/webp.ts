@@ -1,15 +1,31 @@
-import { execSync } from 'child_process';
-import { writeFileSync, readFileSync, rmSync } from 'fs';
+import { execFile } from 'node:child_process';
+import { writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 export const compressImgToWebp = async (srcImage: Buffer) => {
-  const filenameTemp = `temp${Date.now()}`;
-  const p = `/tmp/${filenameTemp}`;
-  const o = `/tmp/${filenameTemp}.webp`;
-  writeFileSync(p, srcImage);
+  const filenameTemp = `zweiblog-${randomBytes(16).toString('hex')}`;
+  const inputPath = join(tmpdir(), filenameTemp);
+  const outputPath = join(tmpdir(), `${filenameTemp}.webp`);
 
-  execSync(`cwebp -q 80 ${p} -o ${o}`);
+  try {
+    writeFileSync(inputPath, srcImage, { mode: 0o600 });
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        'cwebp',
+        ['-quiet', '-q', '80', inputPath, '-o', outputPath],
+        { timeout: 30_000, maxBuffer: 1024 * 1024 },
+        (error) => {
+          if (error) reject(error);
+          else resolve();
+        },
+      );
+    });
 
-  const f = readFileSync(o);
-  rmSync(p);
-  rmSync(o);
-  return f;
+    return readFileSync(outputPath);
+  } finally {
+    rmSync(inputPath, { force: true });
+    rmSync(outputPath, { force: true });
+  }
 };

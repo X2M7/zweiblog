@@ -4,7 +4,7 @@ import AuthorCard, { AuthorCardProps } from "../../components/AuthorCard";
 import Layout from "../../components/Layout";
 import PageNav from "../../components/PageNav";
 import PostCard from "../../components/PostCard";
-import Waline from "../../components/WaLine";
+import Comments from "../../components/Comments";
 import { Article } from "../../types/article";
 import { getArticlePath } from "../../utils/getArticlePath";
 import { LayoutProps } from "../../utils/getLayoutProps";
@@ -68,7 +68,7 @@ const PagePages = (props: PagePagesProps) => {
         base={"/"}
         more={"/page"}
       ></PageNav>
-      <Waline enable={props.layoutProps.enableComment} visible={false} />
+      <Comments enable={props.layoutProps.enableComment} visible={false} />
     </Layout>
   );
 };

@@ -1,8 +1,8 @@
 import ImportArticleModal from '@/components/ImportArticleModal';
 import NewArticleModal from '@/components/NewArticleModal';
-import { getArticlesByOption } from '@/services/van-blog/api';
-import { batchExport, batchDelete } from '@/services/van-blog/batch';
-import { useNum } from '@/services/van-blog/useNum';
+import { getArticlesByOption } from '@/services/zwei-blog/api';
+import { batchExport, batchDelete } from '@/services/zwei-blog/batch';
+import { useNum } from '@/services/zwei-blog/useNum';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { Button, Space, message } from 'antd';
 import RcResizeObserver from 'rc-resize-observer';
@@ -149,7 +149,7 @@ export default () => {
           }}
           editable={false}
           columnsState={{
-            // persistenceKey: 'van-blog-article-table',
+            // persistenceKey: 'zwei-blog-article-table',
             // persistenceType: 'localStorage',
             value: colKeys,
             onChange(value) {

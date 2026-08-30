@@ -16,9 +16,9 @@ yarn start:dev
 
 ```
 database:
-  url: mongodb://somemongo:27017/vanBlog?authSource=admin
+  url: mongodb://somemongo:27017/zweiBlog?authSource=admin
 # 配置静态图床的文件夹
 static:
-  path: /code/github/van-blog/staticFolder
+  path: /code/github/zwei-blog/staticFolder
 
 ```

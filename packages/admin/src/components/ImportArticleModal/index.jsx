@@ -1,5 +1,5 @@
-import { createArticle, getAllCategories, getTags } from '@/services/van-blog/api';
-import { parseMarkdownFile } from '@/services/van-blog/parseMarkdownFile';
+import { createArticle, getAllCategories, getTags } from '@/services/zwei-blog/api';
+import { parseMarkdownFile } from '@/services/zwei-blog/parseMarkdownFile';
 import {
   ModalForm,
   ProFormDateTimePicker,

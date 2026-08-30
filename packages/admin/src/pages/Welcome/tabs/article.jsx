@@ -1,11 +1,11 @@
 import { ProCard, StatisticCard } from '@ant-design/pro-components';
 import { Spin } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
-import { getWelcomeData } from '@/services/van-blog/api';
+import { getWelcomeData } from '@/services/zwei-blog/api';
 import style from '../index.less';
 import NumSelect from '@/components/NumSelect';
 import { Pie, Column } from '@ant-design/plots';
-import { useNum } from '@/services/van-blog/useNum';
+import { useNum } from '@/services/zwei-blog/useNum';
 import RcResizeObserver from 'rc-resize-observer';
 
 const ArticleTab = () => {

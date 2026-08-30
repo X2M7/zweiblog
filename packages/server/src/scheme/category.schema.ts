@@ -18,7 +18,7 @@ export class Category extends Document {
   @Prop({ default: false, index: true })
   private: boolean;
 
-  @Prop()
+  @Prop({ select: false })
   password: string;
 
   @Prop({ type: SchemaTypes.Mixed })

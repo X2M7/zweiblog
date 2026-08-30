@@ -6,6 +6,7 @@ const __dirname = getDirname(import.meta.url);
 export default hopeTheme({
   hostname: 'https://vanblog.mereith.com',
 
+  // This is the real upstream repository used by the edit links.
   docsRepo: 'Mereithhh/vanblog',
   docsBranch: 'master',
   docsDir: 'docs',

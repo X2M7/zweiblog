@@ -4,7 +4,7 @@ import {
   getCaddyLog,
   getHttpsConfig,
   setHttpsConfig,
-} from '@/services/van-blog/api';
+} from '@/services/zwei-blog/api';
 import ProForm, { ProFormSwitch } from '@ant-design/pro-form';
 import { Alert, Button, Card, Input, message, Modal, Row, Space, Spin } from 'antd';
 import lodash from 'lodash';
@@ -61,7 +61,7 @@ export default function (props) {
         message={
           <div>
             <p>
-              VanBlog 是通过{' '}
+              ZweiBlog 是通过{' '}
               <a target={'_blank'} rel="noreferrer" href="https://caddyserver.com/">
                 Caddy
               </a>{' '}
@@ -75,7 +75,7 @@ export default function (props) {
               </a>
             </p>
             <p>高级玩家可点击按钮查看 Caddy 运行日志或配置排查错误。</p>
-            <p>access 日志可进入容器 /var/log/vanblog-access.log 查看</p>
+            <p>access 日志可进入容器 /var/log/zweiblog-access.log 查看</p>
           </div>
         }
         style={{ marginBottom: 20 }}

@@ -1,14 +1,14 @@
 import { ProCard, StatisticCard } from '@ant-design/pro-components';
 import { Spin } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getWelcomeData } from '@/services/van-blog/api';
+import { getWelcomeData } from '@/services/zwei-blog/api';
 import ArticleList from '@/components/ArticleList';
-import { getRecentTimeDes } from '@/services/van-blog/tool';
+import { getRecentTimeDes } from '@/services/zwei-blog/tool';
 import { Link } from 'umi';
 import TipTitle from '@/components/TipTitle';
 import style from '../index.less';
 import NumSelect from '@/components/NumSelect';
-import { useNum } from '@/services/van-blog/useNum';
+import { useNum } from '@/services/zwei-blog/useNum';
 import RcResizeObserver from 'rc-resize-observer';
 
 const Viewer = () => {

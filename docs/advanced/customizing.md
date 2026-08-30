@@ -3,7 +3,7 @@ title: 定制化（嵌入自定义 HTML、CSS、JS）
 icon: wand-magic-sparkles
 ---
 
-VanBlog 通过定制化功能允许你在页面中嵌入自己的 HTML、CSS、JS 片段。
+ZweiBlog 通过定制化功能允许你在页面中嵌入自己的 HTML、CSS、JS 片段。
 
 <!-- more -->
 

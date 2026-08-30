@@ -27,7 +27,10 @@ export function readDirs(dir: string, baseDir = '', blacklist: string[] = []) {
     .filter((x) => !blacklist.includes(x))
     .map((file: string) => {
       const subPath = path.join(dir, file);
-      const stats = fs.statSync(subPath);
+      const stats = fs.lstatSync(subPath);
+      if (stats.isSymbolicLink()) {
+        return null;
+      }
       const key = path.join(relativePath, file);
       if (stats.isDirectory()) {
         return {
@@ -47,7 +50,8 @@ export function readDirs(dir: string, baseDir = '', blacklist: string[] = []) {
         parent: relativePath,
         mtime: stats.mtime.getTime(),
       };
-    });
+    })
+    .filter(Boolean);
   return result.sort(dirSort);
 }
 

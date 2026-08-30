@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'node:path';
 
 export const checkOrCreate = (p: string) => {
   try {
@@ -19,9 +20,7 @@ export const checkFolder = (p: string) => {
 };
 
 export const checkOrCreateByFilePath = (p: string) => {
-  const folderPathArr = p.split('/');
-  folderPathArr.pop();
-  const folderPath = folderPathArr.join('/');
+  const folderPath = path.dirname(p);
   try {
     fs.readdirSync(folderPath);
   } catch (err) {

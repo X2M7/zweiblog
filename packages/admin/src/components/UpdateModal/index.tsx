@@ -1,4 +1,4 @@
-import { getAllCategories, getTags, updateArticle, updateDraft } from '@/services/van-blog/api';
+import { getAllCategories, getTags, updateArticle, updateDraft } from '@/services/zwei-blog/api';
 import { ModalForm, ProFormDateTimePicker, ProFormSelect, ProFormText } from '@ant-design/pro-form';
 import { Form, message, Modal } from 'antd';
 import moment from 'moment';
@@ -13,8 +13,10 @@ export default function (props: {
   const { currObj, setLoading, type, onFinish } = props;
   const [form] = Form.useForm();
   useEffect(() => {
-    if (form && form.setFieldsValue) form.setFieldsValue(currObj);
-  }, [currObj]);
+    if (form && form.setFieldsValue) {
+      form.setFieldsValue({ ...(currObj || {}), password: undefined });
+    }
+  }, [currObj, form]);
   return (
     <ModalForm
       form={form}
@@ -27,7 +29,7 @@ export default function (props: {
       width={450}
       autoFocusFirstInput
       submitTimeout={3000}
-      initialValues={currObj || {}}
+      initialValues={{ ...(currObj || {}), password: undefined }}
       onFinish={async (values) => {
         if (location.hostname == 'blog-demo.mereith.com' && type != 'draft') {
           Modal.info({
@@ -39,14 +41,22 @@ export default function (props: {
         if (!currObj || !currObj.id) {
           return false;
         }
+        const submission = { ...values };
+        if (type == 'article' && submission.private && !currObj.private && !submission.password) {
+          message.error('启用文章加密时必须设置访问密码');
+          return false;
+        }
+        if (!submission.password) {
+          delete submission.password;
+        }
         setLoading(true);
         if (type == 'article') {
-          await updateArticle(currObj?.id, values);
+          await updateArticle(currObj?.id, submission);
           onFinish();
           message.success('修改文章成功！');
           setLoading(false);
         } else if (type == 'draft') {
-          await updateDraft(currObj?.id, values);
+          await updateDraft(currObj?.id, submission);
           onFinish();
           message.success('修改草稿成功！');
           setLoading(false);
@@ -153,8 +163,9 @@ export default function (props: {
             width="md"
             id="password"
             name="password"
-            placeholder="请输入密码"
+            placeholder="留空表示保留当前密码"
             dependencies={['private']}
+            fieldProps={{ autoComplete: 'new-password' }}
           />
           <ProFormSelect
             width="md"

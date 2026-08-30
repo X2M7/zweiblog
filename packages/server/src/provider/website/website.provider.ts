@@ -31,11 +31,11 @@ export class WebsiteProvider {
     const isrEnv =
       isrConfig.mode == 'delay'
         ? {
-            VAN_BLOG_REVALIDATE: 'true',
-            VAN_BLOG_REVALIDATE_TIME: isrConfig.delay,
+            ZWEI_BLOG_REVALIDATE: 'true',
+            ZWEI_BLOG_REVALIDATE_TIME: isrConfig.delay,
           }
         : {
-            VAN_BLOG_REVALIDATE: 'false',
+            ZWEI_BLOG_REVALIDATE: 'false',
           };
     if (!meta?.siteInfo) return { ...isrEnv };
     const siteinfo = meta.siteInfo;
@@ -70,7 +70,7 @@ export class WebsiteProvider {
     if (wechatDarkItem) {
       addEach(wechatDarkItem?.value);
     }
-    return { VAN_BLOG_ALLOW_DOMAINS: urls.join(','), ...isrEnv };
+    return { ZWEI_BLOG_ALLOW_DOMAINS: urls.join(','), ...isrEnv };
   }
   async restart(reason: string) {
     this.logger.log(`${reason}重启 website`);
@@ -93,7 +93,7 @@ export class WebsiteProvider {
     }
   }
   async run(): Promise<any> {
-    if (process.env['VANBLOG_DISABLE_WEBSITE'] === 'true') {
+    if (process.env['ZWEIBLOG_DISABLE_WEBSITE'] === 'true') {
       this.logger.log('无 website 模式');
       return;
     }

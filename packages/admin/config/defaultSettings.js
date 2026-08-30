@@ -9,7 +9,7 @@ const Settings = {
   fixSiderbar: true,
   colorWeak: false,
   // headerRender: false,
-  title: 'VanBlog',
+  title: 'ZweiBlog',
   headerHeight: 48,
   splitMenus: false,
   // headerRender: false,

@@ -4,7 +4,7 @@ icon: certificate
 order: 1
 ---
 
-VanBlog 镜像内采用了 Caddy 作为反向代理，并支持全自动按需 HTTPS 证书申请配置。
+ZweiBlog 镜像内采用了 Caddy 作为反向代理，并支持全自动按需 HTTPS 证书申请配置。
 
 <!-- more -->
 
@@ -16,7 +16,7 @@ VanBlog 镜像内采用了 Caddy 作为反向代理，并支持全自动按需 H
 
 ## 开启 HTTPS
 
-VanBlog 首次运行默认关闭 HTTPS，请通过 HTTP 协议访问。无需多余设置，首次通过 “HTTPS + 域名” 访问时，会自动申请 HTTPS 证书并应用。
+ZweiBlog 首次运行默认关闭 HTTPS，请通过 HTTP 协议访问。无需多余设置，首次通过 “HTTPS + 域名” 访问时，会自动申请 HTTPS 证书并应用。
 
 ::: info 自动 HTTPS 要求
 
@@ -60,7 +60,7 @@ VanBlog 首次运行默认关闭 HTTPS，请通过 HTTP 协议访问。无需多
 
 ::: info 原理
 
-VanBlog 通过 Caddy 的 API 在运行时动态修改配置来开关 HTTPS 自动重定向。
+ZweiBlog 通过 Caddy 的 API 在运行时动态修改配置来开关 HTTPS 自动重定向。
 
 全自动按需申请证书可以参考 [on-demand-tls](https://caddyserver.com/docs/automatic-https#on-demand-tls)
 
@@ -70,7 +70,7 @@ VanBlog 通过 Caddy 的 API 在运行时动态修改配置来开关 HTTPS 自�
 
 如果你熟悉 Caddy ，或者想自己排查，可以点击 `查看日志` 或者 `查看配置` 按钮自行排查。
 
-- VanBlog 访问日志在容器中的 `/var/log/vanblog-access.log`
+- ZweiBlog 访问日志在容器中的 `/var/log/zweiblog-access.log`
 
 - Caddy 的运行日志储存在 `/var/log/caddy.log`中，除了可以在后台查看外，也可以自行进入容器中或挂载目录查看。
 

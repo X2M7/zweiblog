@@ -2,7 +2,7 @@
 home: true
 icon: home
 index: false
-heroText: VanBlog
+heroText: ZweiBlog
 heroImage: /merge.png
 tagline: 一款简洁实用优雅的高性能个人博客系统。
 actions:

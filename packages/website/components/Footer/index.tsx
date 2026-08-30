@@ -57,14 +57,14 @@ export default function ({
           </p>
         )}
         <RunningTime since={since}></RunningTime>
-        <p className="footer-powered-by-vanblog">
+        <p className="footer-powered-by-zweiblog">
           Powered By&nbsp;
           <a
             href="https://vanblog.mereith.com"
             target={"_blank"}
             className="hover:text-gray-900 dark:hover:text-dark-hover transition ua ua-link"
           >
-            VanBlog <span>{version}</span>
+            ZweiBlog <span>{version}</span>
           </a>
         </p>
 

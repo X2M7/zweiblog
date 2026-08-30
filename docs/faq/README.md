@@ -5,9 +5,9 @@ dir:
   order: 6
 ---
 
-::: info VanBlog
+::: info ZweiBlog
 
-VanBlog 目前处于快速迭代期，您可以先尝试参考升级指南进行升级，可能会解决一些问题：
+ZweiBlog 目前处于快速迭代期，您可以先尝试参考升级指南进行升级，可能会解决一些问题：
 
 - [升级指南](../guide/update.md)
 

@@ -1,6 +1,6 @@
 ::: tip 温馨提示
 
-VanBlog 现在支持一键脚本部署了。经过测试，宝塔也可以通过一键脚本进行部署。
+ZweiBlog 现在支持一键脚本部署了。经过测试，宝塔也可以通过一键脚本进行部署。
 
 建议您通过[一键脚本部署](../guide/get-started.md#一键脚本部署)，这样后期可以通过脚本一键升级会方便一些。
 
@@ -12,7 +12,7 @@ VanBlog 现在支持一键脚本部署了。经过测试，宝塔也可以通过
 
 :::
 
-你也可以通过宝塔面板图形化操作部署 VanBlog，具体步骤如下：
+你也可以通过宝塔面板图形化操作部署 ZweiBlog，具体步骤如下：
 
 ### 安装依赖
 
@@ -26,7 +26,7 @@ VanBlog 现在支持一键脚本部署了。经过测试，宝塔也可以通过
 
 ### 添加 docker-compose 模板
 
-如图所示，添加 `docker-compose` 模板，模板名称为 `vanblog`，描述随意。
+如图所示，添加 `docker-compose` 模板，模板名称为 `zweiblog`，描述随意。
 
 ![安装 Docker Compose](https://www.mereith.com/static/img/d4a56888230de79cc31bbeb603578e02.clipboard-2022-09-03.png)
 
@@ -38,7 +38,7 @@ VanBlog 现在支持一键脚本部署了。经过测试，宝塔也可以通过
 version: '3'
 
 services:
-  vanblog:
+  zweiblog:
     # 阿里云镜像源
     # image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:latest
     image: mereith/van-blog:latest
@@ -49,13 +49,13 @@ services:
       EMAIL: 'someone@mereith.com'
     volumes:
       # 图床文件的存放地址，按需修改。
-      - /var/vanblog/data/static:/app/static
+      - /var/zweiblog/data/static:/app/static
       # 日志文件
-      - /var/vanblog/log:/var/log
+      - /var/zweiblog/log:/var/log
       # Caddy 配置存储
-      - /var/vanblog/caddy/config:/root/.config/caddy
+      - /var/zweiblog/caddy/config:/root/.config/caddy
       # Caddy 证书存储
-      - /var/vanblog/caddy/data:/root/.local/share/caddy
+      - /var/zweiblog/caddy/data:/root/.local/share/caddy
     ports:
       # 前面的是映射到宿主机的端口号，该端口的话改前面的。
       - 8880:80
@@ -67,14 +67,14 @@ services:
     environment:
       TZ: 'Asia/Shanghai'
     volumes:
-      - /var/vanblog/data/mongo:/data/db
+      - /var/zweiblog/data/mongo:/data/db
 ```
 
 所有可用的环境变量详见 [参考 → 环境变量](../reference/env.md)
 
 ### 启动
 
-如下图所示，新建 `Compose` 项目，名称写 `vanblog`，模板选择刚刚创建的。
+如下图所示，新建 `Compose` 项目，名称写 `zweiblog`，模板选择刚刚创建的。
 
 ![创建项目](https://www.mereith.com/static/img/920dd318b4073cc793c11caa4700d7b9.clipboard-2022-09-02.png)
 
@@ -106,7 +106,7 @@ services:
 
 ![修改端口](https://pic.mereith.com/img/47a03229d46e9120ad1e7bf1abf4b504.clipboard-2022-09-14.png)
 
-如果你只部署 VanBlog ，并想关闭 Ngnix ，请输入以下命令关闭 Ngnix:
+如果你只部署 ZweiBlog ，并想关闭 Ngnix ，请输入以下命令关闭 Ngnix:
 
 ```bash
 nginx -s stop

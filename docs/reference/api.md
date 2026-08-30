@@ -8,7 +8,7 @@ order: 6
 
 ## API 文档入口
 
-你可以在后台的 `系统设置/Token 管理` 中点击 `API 文档` 进入此 Vanblog 对应的 API 文档。
+你可以在后台的 `系统设置/Token 管理` 中点击 `API 文档` 进入此 Zweiblog 对应的 API 文档。
 
 ![](https://pic.mereith.com/img/d78409dcfb170ea71289ac38d9430165.clipboard-2023-03-17.png)
 

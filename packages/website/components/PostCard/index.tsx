@@ -5,7 +5,7 @@ import CopyRight from "../CopyRight";
 import Reward from "../Reward";
 import TopPinIcon from "../TopPinIcon";
 import UnLockCard from "../UnLockCard";
-import WaLine from "../WaLine";
+import Comments from "../Comments";
 import { PostBottom } from "./bottom";
 import { SubTitle, Title } from "./title";
 import { getTarget } from "../Link/tools";
@@ -106,7 +106,7 @@ export default function (props: {
           updatedAt={props.updatedAt}
           createdAt={props.createdAt}
           catelog={props.catelog}
-          enableComment={props.enableComment}
+          enableComment={props.private ? "false" : props.enableComment}
         />
         <div className="text-sm md:text-base  text-gray-600 mt-4 mx-2">
           {props.type == "article" && (
@@ -176,8 +176,8 @@ export default function (props: {
           }}
         ></div>
       </div>
-      {props.type != "overview" && (
-        <WaLine enable={props.enableComment} visible={true} />
+      {props.type != "overview" && !props.private && (
+        <Comments enable={props.enableComment} visible={true} />
       )}
     </div>
   );

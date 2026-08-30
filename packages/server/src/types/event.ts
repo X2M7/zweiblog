@@ -1,13 +1,13 @@
-export interface VanblogEventItem {
+export interface ZweiblogEventItem {
   eventName: string;
   eventNameChinese: string;
   eventDescription: string;
   passive: boolean;
 }
 
-export type VanblogEventType = 'system' | 'custom' | 'corn';
+export type ZweiblogEventType = 'system' | 'custom' | 'corn';
 
-export const VanblogSystemEvents: VanblogEventItem[] = [
+export const ZweiblogSystemEvents: ZweiblogEventItem[] = [
   {
     eventName: 'login',
     eventNameChinese: '登录',
@@ -72,8 +72,8 @@ export const VanblogSystemEvents: VanblogEventItem[] = [
   },
 ];
 
-export const VanblogSystemEventNames = VanblogSystemEvents.map((item) => item.eventName);
-export type VanblogSystemEvent =
+export const ZweiblogSystemEventNames = ZweiblogSystemEvents.map((item) => item.eventName);
+export type ZweiblogSystemEvent =
   | 'login'
   | 'logout'
   | 'beforeUpdateArticle'

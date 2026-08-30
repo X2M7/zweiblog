@@ -1,11 +1,11 @@
 import ColumnsToolBar from '@/components/ColumnsToolBar';
 import UpdateModal from '@/components/UpdateModal';
-import { deleteArticle, getAllCategories, getArticleById, getTags } from '@/services/van-blog/api';
-import { getPathname } from '@/services/van-blog/getPathname';
-import { parseObjToMarkdown } from '@/services/van-blog/parseMarkdownFile';
+import { deleteArticle, getAllCategories, getArticleById, getTags } from '@/services/zwei-blog/api';
+import { getPathname } from '@/services/zwei-blog/getPathname';
+import { parseObjToMarkdown } from '@/services/zwei-blog/parseMarkdownFile';
 import { message, Modal, Space, Tag } from 'antd';
 import { history } from 'umi';
-import { genActiveObj } from '../../services/van-blog/activeColTools';
+import { genActiveObj } from '../../services/zwei-blog/activeColTools';
 export const columns = [
   {
     dataIndex: 'id',

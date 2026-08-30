@@ -1,31 +1,71 @@
-version: '3'
-
 services:
-  vanblog:
-    image: vanblog_image
-    restart: always
+  zweiblog:
+    image: zweiblog_image
+    restart: unless-stopped
     environment:
       TZ: 'Asia/Shanghai'
-      # 邮箱地址，用于自动申请 https 证书
-      EMAIL: vanblog_email
+      # Email address used by Caddy when requesting HTTPS certificates.
+      EMAIL: zweiblog_email
+      ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
     volumes:
-      # 图床文件的存放地址，按需修改。
-      - vanblog_data_path/data/static:/app/static
-      # 日志文件
-      - vanblog_data_path/log:/var/log
-      # caddy 配置存储
-      - vanblog_data_path/caddy/config:/root/.config/caddy
-      # caddy 证书存储
-      - vanblog_data_path/caddy/data:/root/.local/share/caddy
+      - zweiblog_data_path/data/static:/app/static
+      - zweiblog_data_path/log:/var/log
+      - zweiblog_data_path/caddy/config:/home/zweiblog/.config/caddy
+      - zweiblog_data_path/caddy/data:/home/zweiblog/.local/share/caddy
     ports:
-      # 前面的是映射到宿主机的端口号，改端口的话该前面的
-      - vanblog_http_port:80
-      - vanblog_https_port:443
+      - 'zweiblog_http_port:80'
+      - 'zweiblog_https_port:443'
+    secrets:
+      - mongo_app_uri
+    networks:
+      - web
+      - database
+    depends_on:
+      mongo:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
   mongo:
-    # 某些机器不支持 avx 会报错，所以默认用 v4 版本。有的话用最新的。
-    image: mongo:4.4.16
-    restart: always
+    # Existing MongoDB 4.4 data must be migrated; never upgrade its data files
+    # directly to 8.0.
+    image: mongo:8.0
+    restart: unless-stopped
     environment:
       TZ: 'Asia/Shanghai'
+      MONGO_INITDB_ROOT_USERNAME: zweiblog-root
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
     volumes:
-      - vanblog_data_path/data/mongo:/data/db
+      - zweiblog_data_path/data/mongo:/data/db
+      - zweiblog_data_path/mongo-init.js:/docker-entrypoint-initdb.d/10-zweiblog-user.js:ro
+      - zweiblog_data_path/mongo-healthcheck.js:/opt/zweiblog/mongo-healthcheck.js:ro
+    secrets:
+      - mongo_root_password
+      - mongo_app_password
+      - mongo_app_uri
+    networks:
+      - database
+    healthcheck:
+      test: ['CMD', 'mongosh', '--nodb', '--quiet', '--file', '/opt/zweiblog/mongo-healthcheck.js']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  mongo_root_password:
+    file: zweiblog_data_path/secrets/mongo-root-password
+  mongo_app_password:
+    file: zweiblog_data_path/secrets/mongo-app-password
+  mongo_app_uri:
+    file: zweiblog_data_path/secrets/mongo-app-uri
+
+networks:
+  web:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true

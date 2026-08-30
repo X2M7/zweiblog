@@ -13,10 +13,10 @@ import {
   updateAbout,
   updateArticle,
   updateDraft,
-} from '@/services/van-blog/api';
-import { getPathname } from '@/services/van-blog/getPathname';
-import { parseMarkdownFile, parseObjToMarkdown } from '@/services/van-blog/parseMarkdownFile';
-import { useCacheState } from '@/services/van-blog/useCacheState';
+} from '@/services/zwei-blog/api';
+import { getPathname } from '@/services/zwei-blog/getPathname';
+import { parseMarkdownFile, parseObjToMarkdown } from '@/services/zwei-blog/parseMarkdownFile';
+import { useCacheState } from '@/services/zwei-blog/useCacheState';
 import { DownOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-layout';
 import { Button, Dropdown, Input, Menu, message, Modal, Space, Tag, Upload } from 'antd';
@@ -117,7 +117,7 @@ export default function () {
         } else {
           setValue(data?.content || '');
         }
-        document.title = `关于 - VanBlog 编辑器`;
+        document.title = `关于 - ZweiBlog 编辑器`;
         setCurrObj(data);
       }
       if (type == 'article' && id) {
@@ -131,7 +131,7 @@ export default function () {
         } else {
           setValue(data?.content || '');
         }
-        document.title = `${data?.title || ''} - VanBlog 编辑器`;
+        document.title = `${data?.title || ''} - ZweiBlog 编辑器`;
         setCurrObj(data);
       }
       if (type == 'draft' && id) {
@@ -146,7 +146,7 @@ export default function () {
           setValue(data?.content || '');
         }
         setCurrObj(data);
-        document.title = `${data?.title || ''} - VanBlog 编辑器`;
+        document.title = `${data?.title || ''} - ZweiBlog 编辑器`;
       }
       setLoading(false);
     },

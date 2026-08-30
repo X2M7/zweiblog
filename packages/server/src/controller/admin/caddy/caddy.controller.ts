@@ -7,7 +7,7 @@ import {
   Logger,
   Delete,
   Query,
-  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
@@ -15,8 +15,9 @@ import { config } from 'src/config';
 import { SettingProvider } from 'src/provider/setting/setting.provider';
 import { HttpsSetting } from 'src/types/setting.dto';
 import { CaddyProvider } from 'src/provider/caddy/caddy.provider';
-import { isIpv4 } from 'src/utils/ip';
 import { ApiToken } from 'src/provider/swagger/token';
+import { MetaProvider } from 'src/provider/meta/meta.provider';
+import { domainFromUrl, normalizeDomain } from 'src/utils/domain';
 
 @ApiTags('caddy')
 @ApiToken
@@ -26,6 +27,7 @@ export class CaddyController {
   constructor(
     private readonly settingProvider: SettingProvider,
     private readonly caddyProvider: CaddyProvider,
+    private readonly metaProvider: MetaProvider,
   ) {}
   @UseGuards(...AdminGuard)
   @Get('https')
@@ -39,17 +41,20 @@ export class CaddyController {
 
   @Get('ask')
   async askOnDemand(@Query('domain') domain: string) {
-    // console.log(is);
-    const is = isIpv4(domain);
-    // console.log(domain, is);
-    if (!is) {
-      return 'is Domain, on damand https';
-    } else {
-      // 增加到 subjects 中
-      this.logger.log('试图通过 ip + https 访问，已驳回');
-      // this.caddyProvider.addSubject(domain);
-      throw new BadRequestException();
+    const requestedDomain = normalizeDomain(domain);
+    const siteInfo = await this.metaProvider.getSiteInfo();
+    const allowedDomains = new Set(
+      [domainFromUrl(siteInfo?.baseUrl), ...config.caddy.allowedDomains.map(normalizeDomain)].filter(
+        (item): item is string => Boolean(item),
+      ),
+    );
+
+    if (requestedDomain && allowedDomains.has(requestedDomain)) {
+      return 'domain allowed';
     }
+
+    this.logger.warn(`拒绝未配置域名的按需证书申请：${requestedDomain || 'invalid domain'}`);
+    throw new ForbiddenException();
   }
   @UseGuards(...AdminGuard)
   @Delete('log')

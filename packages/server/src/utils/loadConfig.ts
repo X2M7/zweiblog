@@ -4,10 +4,10 @@ import * as fs from 'fs';
 import * as _ from 'lodash';
 // 解析配置文件
 let rawConfigs = [];
-if (process.env.VAN_BLOG_CONFIG_FILE) {
-  rawConfigs = [path.resolve(process.env.VAN_BLOG_CONFIG_FILE)];
+if (process.env.ZWEI_BLOG_CONFIG_FILE) {
+  rawConfigs = [path.resolve(process.env.ZWEI_BLOG_CONFIG_FILE)];
 } else {
-  rawConfigs = [path.resolve('/etc/van-blog/config.yaml'), path.resolve('./config.yaml')];
+  rawConfigs = [path.resolve('/etc/zwei-blog/config.yaml'), path.resolve('./config.yaml')];
 }
 
 rawConfigs = rawConfigs
@@ -17,7 +17,7 @@ rawConfigs = rawConfigs
   .map((content) => yaml.parse(content));
 
 if (rawConfigs.length === 0) {
-  console.log('未检测到 Vanblog 配置文件, 即将从环境变量中读取, 或采用默认配置');
+  console.log('未检测到 Zweiblog 配置文件, 即将从环境变量中读取, 或采用默认配置');
   rawConfigs.push([]);
 }
 
@@ -34,7 +34,7 @@ const config = [...rawConfigs].reduce((prev, curr) => {
  */
 export const loadConfig = (key: string, defaultValue?: any) => {
   const envKey =
-    'VAN_BLOG_' +
+    'ZWEI_BLOG_' +
     key
       .split('.')
       .map((x) => x.toUpperCase())
@@ -46,4 +46,4 @@ export const loadConfig = (key: string, defaultValue?: any) => {
     return process.env[envKey] || _.get(config, key, false) || defaultValue();
   }
 };
-export const version = process.env['VAN_BLOG_VERSION'] || 'dev';
+export const version = process.env['ZWEI_BLOG_VERSION'] || 'dev';

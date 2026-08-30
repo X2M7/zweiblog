@@ -1,11 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import * as fs from 'fs';
+import path from 'path';
+import { config } from 'src/config';
 import { SettingProvider } from '../setting/setting.provider';
 @Injectable()
 export class CaddyProvider {
   subjects: string[] = [];
   logger = new Logger(CaddyProvider.name);
+  private readonly logPath = path.join(config.log, 'caddy.log');
   constructor(private readonly settingProvider: SettingProvider) {
     this.init();
   }
@@ -27,7 +30,7 @@ export class CaddyProvider {
   }
   clearLog() {
     try {
-      fs.writeFileSync('/var/log/caddy.log', '');
+      fs.writeFileSync(this.logPath, '');
     } catch (err) {}
   }
   async addSubject(domain: string) {
@@ -127,7 +130,7 @@ export class CaddyProvider {
   }
   async getLog() {
     try {
-      const data = fs.readFileSync('/var/log/caddy.log', { encoding: 'utf-8' });
+      const data = fs.readFileSync(this.logPath, { encoding: 'utf-8' });
       return data.toString();
     } catch (err) {
       return '';

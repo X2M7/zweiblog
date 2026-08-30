@@ -10,8 +10,8 @@ export default defineUserConfig({
   base: '/',
 
   lang: 'zh-CN',
-  title: 'VanBlog',
-  description: 'VanBlog 的官方网站',
+  title: 'ZweiBlog',
+  description: 'ZweiBlog 的官方网站',
 
   head: [
     ['link', { rel: 'icon', href: '/logo.svg' }],

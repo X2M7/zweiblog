@@ -52,7 +52,7 @@ order: 1
 
   ::: tip
 
-  如果将自定义路径名设置成 `如何部署VanBlog`，发布后即可通过 `/post/如何部署VanBlog` 来访问。
+  如果将自定义路径名设置成 `如何部署ZweiBlog`，发布后即可通过 `/post/如何部署ZweiBlog` 来访问。
 
   :::
 
@@ -90,14 +90,14 @@ order: 1
 
 ![导入 Markdown](https://pic.mereith.com/img/537490f086ff26ab0b339bd68f7f9016.clipboard-2022-08-29.png)
 
-其中，Markdown 文件的 [Front Matter](https://hexo.bootcss.com/docs/front-matter.html) 将会被自动解析成 VanBlog 的字段并展示在弹出的确认表单中，具体而言：
+其中，Markdown 文件的 [Front Matter](https://hexo.bootcss.com/docs/front-matter.html) 将会被自动解析成 ZweiBlog 的字段并展示在弹出的确认表单中，具体而言：
 
-| 字段名称   | 映射到 VanBlog 中的字段 | 说明                                              |
+| 字段名称   | 映射到 ZweiBlog 中的字段 | 说明                                              |
 | ---------- | ----------------------- | ------------------------------------------------- |
 | title      | 标题                    | 默认使用文件名                                    |
 | tags       | 标签                    | 默认为空                                          |
-| categories | 分类                    | 会选择第一个包含在 Vanblog 系统中的分类，否则为空 |
-| category   | 分类                    | 会选择第一个包含在 Vanblog 系统中的分类，否则为空 |
+| categories | 分类                    | 会选择第一个包含在 Zweiblog 系统中的分类，否则为空 |
+| category   | 分类                    | 会选择第一个包含在 Zweiblog 系统中的分类，否则为空 |
 | date       | 创建日期                | 如果默认为当前时间                                |
 | hide       | 是否隐藏文章            | 默认不隐藏                                        |
 | hidden     | 是否隐藏文章            | 默认不隐藏                                        |

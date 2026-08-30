@@ -6,7 +6,7 @@ order: -3
 
 ## 升级提示
 
-目前 VanBlog 处于快速迭代期，如果后台出现新版本提醒，推荐进行升级。
+目前 ZweiBlog 处于快速迭代期，如果后台出现新版本提醒，推荐进行升级。
 
 ![升级提醒](https://pic.mereith.com/img/e314ee92dd1ad9b5b6c0b814b014c247.clipboard-2022-08-22.png)
 
@@ -18,10 +18,10 @@ order: -3
 
 @tab 脚本
 
-你可以直接运行安装脚本来升级 VanBlog，启动后请输入 6 并回车。
+你可以直接运行安装脚本来升级 ZweiBlog，启动后请输入 6 并回车。
 
 ```bash
-./vanblog.sh
+./zweiblog.sh
 ```
 
 ![脚本一键升级](https://pic.mereith.com/img/fbbf5dde011f9dec13cdb25ad741765f.clipboard-2022-09-20.png)
@@ -38,7 +38,7 @@ order: -3
 
 @tab docker
 
-请切换到部署 VanBlog 的目录下（docker-compose.yaml 存放的路径下），然后运行下面的命令。
+请切换到部署 ZweiBlog 的目录下（docker-compose.yaml 存放的路径下），然后运行下面的命令。
 
 ```bash
 # 关闭原有服务
@@ -101,7 +101,7 @@ Watchtower 使用可参考 [Watchtower - 自动更新 Docker 镜像与容器](ht
 
 ::: info 当前版本查看
 
-VanBlog 会在前台和后台的最下方展示版本信息。
+ZweiBlog 会在前台和后台的最下方展示版本信息。
 
 ![前台版本信息](https://pic.mereith.com/img/720d4503f7ca23cfb035061d0927b088.clipboard-2022-08-16.png)
 

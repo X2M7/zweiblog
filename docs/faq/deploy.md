@@ -6,7 +6,7 @@ order: 1
 
 ## 如何部署到 CDN
 
-在编排文件 `docker-compose.yaml` 中设置 `vanblog` 容器的 `VAN_BLOG_CDN_URL` 这个环境变量后，按部就班增加 CDN 即可。
+在编排文件 `docker-compose.yaml` 中设置 `zweiblog` 容器的 `ZWEI_BLOG_CDN_URL` 这个环境变量后，按部就班增加 CDN 即可。
 
 ![image](https://user-images.githubusercontent.com/95157017/204312649-8d02dfd6-bb2a-4646-921c-d59f07221854.png)
 

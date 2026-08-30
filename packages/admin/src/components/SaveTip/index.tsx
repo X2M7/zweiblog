@@ -1,4 +1,4 @@
-import { isMac, isMobileByScreenSize } from '@/services/van-blog/ua';
+import { isMac, isMobileByScreenSize } from '@/services/zwei-blog/ua';
 import { useMemo } from 'react';
 
 export const SaveTip = () => {

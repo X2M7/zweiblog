@@ -1,5 +1,5 @@
 import Footer from '@/components/Footer';
-import { fetchInit } from '@/services/van-blog/api';
+import { fetchInit } from '@/services/zwei-blog/api';
 import ProCard from '@ant-design/pro-card';
 import { ProFormInstance } from '@ant-design/pro-form';
 import { Alert, Modal } from 'antd';
@@ -10,7 +10,7 @@ import styles from './index.less';
 import { ProFormText, StepsForm } from '@ant-design/pro-components';
 
 import SiteInfoForm from '@/components/SiteInfoForm';
-import { encryptPwd } from '@/services/van-blog/encryptPwd';
+import { encryptPwd } from '@/services/zwei-blog/encryptPwd';
 import { useRef } from 'react';
 
 const InitPage = () => {
@@ -24,7 +24,7 @@ const InitPage = () => {
         <ProCard
           title={
             <div>
-              <p style={{ fontSize: 20, marginBottom: 0 }}>欢迎使用 VanBlog 个人博客系统</p>
+              <p style={{ fontSize: 20, marginBottom: 0 }}>欢迎使用 ZweiBlog 个人博客系统</p>
               <a
                 target={'_blank'}
                 rel="noreferrer"

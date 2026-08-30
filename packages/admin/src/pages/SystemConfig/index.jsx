@@ -1,4 +1,4 @@
-import { useTab } from '@/services/van-blog/useTab';
+import { useTab } from '@/services/zwei-blog/useTab';
 import { PageContainer } from '@ant-design/pro-layout';
 import thinstyle from '../Welcome/index.less';
 import Advance from './tabs/Advance';
@@ -9,7 +9,7 @@ import ImgTab from './tabs/ImgTab';
 import Migrate from './tabs/migrate';
 import SiteInfo from './tabs/SiteInfo';
 import User from './tabs/User';
-import WalineTab from './tabs/WalineTab';
+import CommentTab from './tabs/CommentTab';
 import Token from './tabs/Token';
 export default function () {
   const tabMap = {
@@ -18,7 +18,7 @@ export default function () {
     backup: <Backup />,
     user: <User />,
     img: <ImgTab />,
-    waline: <WalineTab />,
+    comment: <CommentTab />,
     caddy: <Caddy />,
     advance: <Advance />,
     migrate: <Migrate />,
@@ -52,7 +52,7 @@ export default function () {
         },
         {
           tab: '评论设置',
-          key: 'waline',
+          key: 'comment',
         },
         {
           tab: '备份恢复',

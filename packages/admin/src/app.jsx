@@ -7,9 +7,9 @@ import { history, Link } from 'umi';
 import defaultSettings from '../config/defaultSettings';
 import LogoutButton from './components/LogoutButton';
 import ThemeButton from './components/ThemeButton';
-import { fetchAllMeta } from './services/van-blog/api';
-import { checkUrl } from './services/van-blog/checkUrl';
-import { beforeSwitchTheme, getInitTheme, mapTheme } from './services/van-blog/theme';
+import { fetchAllMeta } from './services/zwei-blog/api';
+import { checkUrl } from './services/zwei-blog/checkUrl';
+import { beforeSwitchTheme, getInitTheme, mapTheme } from './services/zwei-blog/theme';
 const isDev = process.env.UMI_ENV === 'dev';
 const loginPath = '/user/login';
 /** 获取用户信息比较慢的时候会展示一个 loading */

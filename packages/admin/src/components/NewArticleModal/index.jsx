@@ -1,4 +1,4 @@
-import { createArticle, getAllCategories, getTags } from '@/services/van-blog/api';
+import { createArticle, getAllCategories, getTags } from '@/services/zwei-blog/api';
 import {
   ModalForm,
   ProFormDateTimePicker,

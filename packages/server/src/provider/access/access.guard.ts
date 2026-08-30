@@ -11,16 +11,17 @@ export class AccessGuard implements CanActivate {
   }
   async validateRequest(request: any) {
     try {
-      const path = request.route.path;
-      const method = Object.keys(request.route.methods)[0];
-      const key = `${method}-${path}`;
-      const user = request.user;
-      // console.log(key, user);
-      if (!user) {
-        // 不管了让后面的处理
-        return true;
+      const path = request?.route?.path;
+      const method = Object.keys(request?.route?.methods || {})[0];
+      if (!path || !method) {
+        return false;
       }
-      if (user.id == 0) {
+      const key = `${method}-${path}`;
+      const user = request?.user;
+      if (!user) {
+        return false;
+      }
+      if (user.id === 0) {
         // 超管为 0
         return true;
       } else {
@@ -47,8 +48,10 @@ export class AccessGuard implements CanActivate {
         }
       }
     } catch (err) {
-      // 出了问题可能是 404 路由，就不管了。
-      return true;
+      this.logger.warn(
+        `权限校验异常，已拒绝请求：${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+      return false;
     }
   }
 }

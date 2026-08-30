@@ -9,6 +9,7 @@ import {
   UpdateDraftDto,
 } from 'src/types/draft.dto';
 import { Draft, DraftDocument } from 'src/scheme/draft.schema';
+import { escapeRegexLiteral } from 'src/utils/safeRegex';
 import { ArticleProvider } from '../article/article.provider';
 import { sleep } from 'src/utils/sleep';
 export type DraftView = 'admin' | 'public' | 'list';
@@ -118,19 +119,19 @@ export class DraftProvider {
       const or: any = [];
       tags.forEach((t) => {
         or.push({
-          tags: { $regex: `${t}`, $options: 'i' },
+          tags: { $regex: escapeRegexLiteral(t), $options: 'i' },
         });
       });
       and.push({ $or: or });
     }
     if (option.category) {
       and.push({
-        category: { $regex: `${option.category}`, $options: 'i' },
+        category: { $regex: escapeRegexLiteral(option.category), $options: 'i' },
       });
     }
     if (option.title) {
       and.push({
-        title: { $regex: `${option.title}`, $options: 'i' },
+        title: { $regex: escapeRegexLiteral(option.title), $options: 'i' },
       });
     }
     if (option.startTime || option.endTime) {
@@ -199,13 +200,16 @@ export class DraftProvider {
   }
 
   async searchByString(str: string): Promise<Draft[]> {
+    const safeSearch = escapeRegexLiteral(str);
     return this.draftModel
       .find({
         $or: [
-          { content: { $regex: `*${str}*`, $options: 'i' } },
-          { title: { $regex: `*${str}*`, $options: 'i' } },
+          { content: { $regex: safeSearch, $options: 'i' } },
+          { title: { $regex: safeSearch, $options: 'i' } },
         ],
       })
+      .limit(100)
+      .maxTimeMS(2_000)
       .exec();
   }
 

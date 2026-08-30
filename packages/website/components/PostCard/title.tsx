@@ -171,7 +171,7 @@ export function SubTitle(props: {
               ></path>
             </svg>
           </span>
-          <span className="waline-comment-count" data-path={dataPath}>
+          <span className="local-comment-count" data-path={dataPath}>
             0
           </span>
         </span>

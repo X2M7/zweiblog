@@ -6,9 +6,9 @@ index: false
 
 <!-- TODO:  -->
 
-::: info VanBlog
+::: info ZweiBlog
 
-如果你是小白，可以参考本篇文章从头开始部署 VanBlog。
+如果你是小白，可以参考本篇文章从头开始部署 ZweiBlog。
 
 :::
 
@@ -21,7 +21,7 @@ index: false
 
 ## 1. 云服务器
 
-<!-- ::: info VanBlog
+<!-- ::: info ZweiBlog
 
 如果不懂什么是云服务器，可以看这篇文章：
 
@@ -67,7 +67,7 @@ index: false
 
 ## 2. 域名
 
-::: info VanBlog
+::: info ZweiBlog
 
 如果不懂什么是域名、DNS，可以看这篇文章：
 

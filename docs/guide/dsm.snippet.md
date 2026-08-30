@@ -38,9 +38,9 @@
 
 完成后启动即可。
 
-### 创建 VanBlog 容器
+### 创建 ZweiBlog 容器
 
-和上面一样，点击 `容器/新建` ，选中刚刚下载的 `mereith/van-blog:latest` 镜像，容器名称为 VanBlog。
+和上面一样，点击 `容器/新建` ，选中刚刚下载的 `mereith/van-blog:latest` 镜像，容器名称为 ZweiBlog。
 
 ![image.png](https://pic.mereith.com/img/6b237de9e368fbcda040c5eaa5aec363.image.png)
 
@@ -60,7 +60,7 @@
 
 ### 链接
 
-为了让 VanBlog 容器内可以访问之前创建的 `mongo` 容器，在 `高级设置/链接` 中添加链接到之前创建的 `mongo` 容器。
+为了让 ZweiBlog 容器内可以访问之前创建的 `mongo` 容器，在 `高级设置/链接` 中添加链接到之前创建的 `mongo` 容器。
 
 ![image.png](https://pic.mereith.com/img/72794966c5ef678f61273967a2530940.image.png)
 
@@ -72,7 +72,7 @@
 
 ### 存储空间映射
 
-可以参考 [VanBlog 文档/环境变量配置](../reference//env.md) 中的目录映射部分进行映射。
+可以参考 [ZweiBlog 文档/环境变量配置](../reference//env.md) 中的目录映射部分进行映射。
 
 其中图床数据的目录映射推荐做一下，不然重置后可能会让你的博客本地图床图片都失效。
 
