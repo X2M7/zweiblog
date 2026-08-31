@@ -62,6 +62,9 @@ cleanup() {
           >/dev/null 2>&1 || true
       fi
       rm -rf -- "${temp_root}" || true
+      if [[ -e "${temp_root}" ]]; then
+        echo "WARNING: temporary smoke-test data could not be removed: ${temp_root}" >&2
+      fi
       ;;
     *) echo "Refusing to remove unexpected temporary path: ${temp_root}" >&2 ;;
   esac
@@ -94,7 +97,7 @@ fi
 mkdir -p \
   "${deployment_root}/secrets" \
   "${deployment_root}/data/mongo" \
-  "${deployment_root}/data/static/customPage/legacy-smoke" \
+  "${deployment_root}/data/static" \
   "${deployment_root}/log" \
   "${deployment_root}/caddy/config" \
   "${deployment_root}/caddy/data"
@@ -105,18 +108,10 @@ mkdir -p \
 chmod 0777 \
   "${deployment_root}/data/mongo" \
   "${deployment_root}/data/static" \
-  "${deployment_root}/data/static/customPage" \
   "${deployment_root}/log" \
   "${deployment_root}/caddy" \
   "${deployment_root}/caddy/config" \
   "${deployment_root}/caddy/data"
-
-# Older releases returned /static/customPage URLs. Create this compatibility
-# fixture before containers take ownership of the bind-mounted directories.
-chmod 0755 "${deployment_root}/data/static/customPage/legacy-smoke"
-printf '<script>window.legacySmoke=true</script>' \
-  >"${deployment_root}/data/static/customPage/legacy-smoke/index.html"
-chmod 0644 "${deployment_root}/data/static/customPage/legacy-smoke/index.html"
 
 root_password="$(openssl rand -hex 32)"
 app_password="$(openssl rand -hex 32)"
@@ -251,40 +246,121 @@ stored_image="${deployment_root}/data/static/${upload_path#/static/}"
 cmp --silent "${stored_image}" "${temp_root}/uploaded-image" ||
   fail 'Caddy did not return the uploaded image from the local static volume'
 
+# Initialize this disposable deployment, create an isolated multi-file page,
+# and upload a file larger than the old 10 MiB limit through the complete
+# Caddy -> Nest/Multer -> disk path. The credential and token exist only in
+# this temporary deployment and are removed by cleanup.
+smoke_username="smoke-${run_suffix}"
+smoke_credential="$(openssl rand -hex 32)"
+node -e \
+  'const [username,password,baseUrl,image]=process.argv.slice(1);process.stdout.write(JSON.stringify({user:{username,password,nickname:"Smoke"},siteInfo:{author:"Smoke",authorDesc:"Docker smoke",authorLogo:image,favicon:image,siteName:"ZweiBlog Smoke",siteDesc:"Docker smoke",baseUrl}}))' \
+  "${smoke_username}" "${smoke_credential}" "${external_base}" "${upload_path}" \
+  >"${temp_root}/init-request.json"
+curl --fail --silent --show-error --max-time 30 \
+  --header 'Content-Type: application/json' \
+  --data-binary "@${temp_root}/init-request.json" \
+  "${external_base}/api/admin/init" >"${temp_root}/init-response.json"
+node -e \
+  "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(value?.statusCode!==200)process.exit(1)" \
+  "${temp_root}/init-response.json" || fail 'the disposable deployment could not be initialized'
+
+node -e \
+  'const [username,password]=process.argv.slice(1);process.stdout.write(JSON.stringify({username,password,type:"account"}))' \
+  "${smoke_username}" "${smoke_credential}" >"${temp_root}/login-request.json"
+curl --fail --silent --show-error --max-time 30 \
+  --header 'Content-Type: application/json' \
+  --data-binary "@${temp_root}/login-request.json" \
+  "${external_base}/api/admin/auth/login" >"${temp_root}/login-response.json"
+smoke_token="$(node -e \
+  "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')),token=value?.data?.token;if(value?.statusCode!==200||typeof token!=='string'||!token)process.exit(1);process.stdout.write(token)" \
+  "${temp_root}/login-response.json")"
+[[ -n "${smoke_token}" ]] || fail 'the disposable administrator login returned no token'
+unset smoke_credential
+
+curl --fail --silent --show-error --max-time 30 \
+  --header "token: ${smoke_token}" \
+  --header 'Content-Type: application/json' \
+  --data-binary '{"name":"Smoke large upload","path":"/smoke-upload","type":"folder","html":"","sandboxMode":"isolated"}' \
+  "${external_base}/api/admin/customPage" >"${temp_root}/custom-page-create.json"
+node -e \
+  "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(value?.statusCode!==200||value?.data?.path!=='/smoke-upload')process.exit(1)" \
+  "${temp_root}/custom-page-create.json" || fail 'the smoke custom page could not be created'
+
+readonly custom_upload_size=$((11 * 1024 * 1024 + 17))
+readonly custom_upload_file="${temp_root}/large-custom-page-upload.bin"
+node -e \
+  'const fs=require("node:fs"),file=process.argv[1],size=Number(process.argv[2]),begin=Buffer.from("ZWEIBLOG-BEGIN"),end=Buffer.from("ZWEIBLOG-END"),fd=fs.openSync(file,"w",0o600);try{fs.ftruncateSync(fd,size);fs.writeSync(fd,begin,0,begin.length,0);fs.writeSync(fd,end,0,end.length,size-end.length)}finally{fs.closeSync(fd)}' \
+  "${custom_upload_file}" "${custom_upload_size}"
+curl --fail --silent --show-error --max-time 180 \
+  --header "token: ${smoke_token}" \
+  --form "file=@${custom_upload_file};type=application/octet-stream;filename=large.bin" \
+  "${external_base}/api/admin/customPage/upload?path=%2Fsmoke-upload&name=large.bin" \
+  >"${temp_root}/custom-upload.json"
+custom_upload_path="$(node -e \
+  "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')),src=value?.data?.src;if(value?.statusCode!==200||typeof src!=='string')process.exit(1);process.stdout.write(src)" \
+  "${temp_root}/custom-upload.json")"
+[[ "${custom_upload_path}" == '/c/smoke-upload/large.bin' ]] ||
+  fail 'the large custom-page upload returned an unexpected path'
+stored_custom_upload_size="$(docker exec "${app_container}" node -e \
+  "const fs=require('node:fs');process.stdout.write(String(fs.statSync('/app/static/customPage/smoke-upload/large.bin').size))")"
+[[ "${stored_custom_upload_size}" == "${custom_upload_size}" ]] ||
+  fail 'the large custom-page upload was not fully persisted'
+curl --fail --silent --show-error --max-time 60 \
+  "${external_base}${custom_upload_path}" >"${temp_root}/downloaded-custom-page-file.bin"
+cmp --silent "${custom_upload_file}" "${temp_root}/downloaded-custom-page-file.bin" ||
+  fail 'the large custom-page upload changed while passing through the deployed stack'
+
+# Initialization intentionally restarts Next.js so it can load the new site
+# metadata. Ensure that the public site recovers before publishing the image.
+website_recovered='false'
+for _ in {1..30}; do
+  if curl --fail --silent --output /dev/null --max-time 5 \
+    "${external_base}/"; then
+    website_recovered='true'
+    break
+  fi
+  sleep 1
+done
+[[ "${website_recovered}" == 'true' ]] || fail 'the website did not recover after initialization'
+
 # Older releases returned /static/customPage URLs. They must remain usable via
 # a redirect through /c, never through the unsandboxed generic static mount.
 legacy_headers="${temp_root}/legacy-custom-page.headers"
 legacy_status="$(curl --silent --show-error --output /dev/null \
   --dump-header "${legacy_headers}" --write-out '%{http_code}' --max-time 20 \
-  "${external_base}/static/customPage/legacy-smoke/index.html")"
+  "${external_base}/static/customPage/smoke-upload/large.bin")"
 [[ "${legacy_status}" == '308' ]] ||
   fail "legacy custom-page static route returned ${legacy_status} instead of 308"
 legacy_headers_normalized="${temp_root}/legacy-custom-page.normalized.headers"
 tr -d '\015' <"${legacy_headers}" >"${legacy_headers_normalized}"
-grep -Fxiq 'location: /c/legacy-smoke/index.html' "${legacy_headers_normalized}" ||
+grep -Fxiq 'location: /c/smoke-upload/large.bin' "${legacy_headers_normalized}" ||
   fail 'legacy custom-page static route did not redirect through /c'
 grep -Fxiq 'access-control-allow-origin: *' "${legacy_headers_normalized}" ||
   fail 'legacy custom-page redirect is missing isolated-page CORS'
 
-smoke_token="$(openssl rand -hex 32)"
 access_marker="smoke_access_${run_suffix}"
 curl --fail --silent --show-error --output /dev/null --max-time 20 \
   --header "Authorization: Bearer ${smoke_token}" \
   --header "Token: ${smoke_token}" \
   "${external_base}/api/public/category?marker=${access_marker}"
 
-readonly access_log="${deployment_root}/log/zweiblog-access.log"
+access_log_contains() {
+  docker exec "${app_container}" node -e \
+    "const fs=require('node:fs'),needle=process.argv[1],file='/var/log/zweiblog-access.log';process.exit(fs.existsSync(file)&&fs.readFileSync(file,'utf8').includes(needle)?0:1)" \
+    "$1"
+}
+
 access_entry_found='false'
 for _ in {1..20}; do
-  if [[ -f "${access_log}" ]] && grep -Fq "${access_marker}" "${access_log}"; then
+  if access_log_contains "${access_marker}"; then
     access_entry_found='true'
     break
   fi
   sleep 1
 done
 [[ "${access_entry_found}" == 'true' ]] || fail 'Caddy did not write the marked access-log entry'
-if grep -Fq "${smoke_token}" "${access_log}"; then
+if access_log_contains "${smoke_token}"; then
   fail 'Caddy access log leaked a sensitive request token'
 fi
 
-echo 'Docker smoke test passed: health, listeners, Caddy routes, and access-log redaction.'
+echo 'Docker smoke test passed: health, listeners, Caddy routes, >10 MiB custom-page upload, and access-log redaction.'
