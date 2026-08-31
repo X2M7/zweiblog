@@ -137,6 +137,7 @@ Copy-Item .env.example .env
 
 ```dotenv
 ZWEIBLOG_IMAGE=ghcr.io/x2m7/zweiblog:latest
+COMPOSE_PROJECT_NAME=zweiblog
 ZWEIBLOG_HTTP_BIND=127.0.0.1
 ZWEIBLOG_HTTP_PORT=8080
 ZWEIBLOG_HTTPS_BIND=127.0.0.1
@@ -144,6 +145,10 @@ ZWEIBLOG_HTTPS_PORT=8443
 ```
 
 `latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。
+
+如果同一台服务器还保留旧 VanBlog，**不需要也不建议先删除旧项目**。先停止旧容器并保留其目录、MongoDB 数据和备份，把 ZweiBlog 克隆到新的目录；`.env.example` 已使用独立的 `COMPOSE_PROJECT_NAME=zweiblog`，默认端口和数据目录也与旧项目分开。确认内容、图片、评论及反向代理全部切换成功后，再决定是否清理旧项目。
+
+如果管理菜单仍显示 `VanBlog`、`github.com/mereithhh/van-blog` 或操作 `/var/vanblog`，说明运行的是上游旧 `vanblog.sh`，它不会自动更新成 ZweiBlog 脚本。不要用旧脚本删除未知数据；本仓库脚本是 [`scripts/zweiblog.sh`](./scripts/zweiblog.sh)，默认目录为 `/var/zweiblog`。尤其不要把旧 MongoDB 4.4 的数据目录直接挂载给本编排中的 MongoDB 8.0。
 
 ### 2. 生成 MongoDB 凭据
 
@@ -385,6 +390,7 @@ sudo docker compose \
 | 变量 | 作用 | 建议 |
 | --- | --- | --- |
 | `ZWEIBLOG_IMAGE` | ZweiBlog 容器镜像 | 默认 `ghcr.io/x2m7/zweiblog:latest`；生产环境建议固定版本标签 |
+| `COMPOSE_PROJECT_NAME` | Docker Compose 项目名 | 默认 `zweiblog`；同机多实例时每套使用不同名称 |
 | `ZWEIBLOG_MONGO_VERSION` | MongoDB 镜像版本 | 新部署保持 `8.0`，不要随意切换主要版本 |
 | `TZ` | 容器时区 | 按部署地修改，默认 `Asia/Shanghai` |
 | `ZWEIBLOG_HTTP_BIND` / `ZWEIBLOG_HTTP_PORT` | 宿主机 HTTP 监听 | 反代默认 `127.0.0.1:8080` |

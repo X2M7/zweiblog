@@ -42,6 +42,9 @@ jobs:
       - name: Test container configuration renderer
         run: node --test scripts/render-caddy-config.test.js
 
+      - name: Check shell script syntax
+        run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh docker-compose/setup-mongo-secrets.sh
+
       - name: Test server
         run: pnpm --filter @zweiblog/server exec jest --runInBand
 

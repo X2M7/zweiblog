@@ -10,7 +10,7 @@
 ZWEIBLOG_BASE_PATH="/var/zweiblog"
 ZWEIBLOG_DATA_PATH="${ZWEIBLOG_BASE_PATH}/data"
 ZWEIBLOG_DATA_PATH_RAW="\/var\/zweiblog\/data"
-ZWEIBLOG_SCRIPT_VERSION="v0.3.2"
+ZWEIBLOG_SCRIPT_VERSION="v0.3.3"
 
 ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL:-https://raw.githubusercontent.com/X2M7/zweiblog/main}"
 ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL%/}"
@@ -25,7 +25,8 @@ SCRIPT_URL="${ZWEIBLOG_INSTALLER_URL:-${ZWEIBLOG_RELEASE_BASE_URL}/scripts/zweib
 GITHUB_URL="dn-dao-github-mirror.daocloud.io"
 Get_Docker_URL="${ZWEIBLOG_DOCKER_INSTALL_HOST:-get.docker.com}"
 Get_Docker_Argu=" -s docker --mirror Aliyun"
-Docker_IMG="${ZWEIBLOG_IMAGE:-ghcr.io/x2m7/zweiblog:latest}"
+ZWEIBLOG_IMAGE="${ZWEIBLOG_IMAGE:-ghcr.io/x2m7/zweiblog:latest}"
+Docker_IMG="${ZWEIBLOG_IMAGE}"
 ZWEIBLOG_OLD_IMAGE="${ZWEIBLOG_OLD_IMAGE:-zweiblog:previous}"
 
 red='\033[0;31m'
@@ -68,17 +69,13 @@ retag_old_images() {
 }
 
 pre_check() {
+  # check root before touching anything under /var
+  [[ $EUID -ne 0 ]] && echo -e "${red}错误: ${plain} 必须使用root用户运行此脚本！\n" && exit 1
 
-  mkdir -p ${ZWEIBLOG_BASE_PATH}
-
-  command -v curl >/dev/null 2>&1
-  if [[ $? != 0 ]]; then
+  if ! command -v curl >/dev/null 2>&1; then
     echo "未找到 curl 命令"
     exit 1
   fi
-
-  # check root
-  [[ $EUID -ne 0 ]] && echo -e "${red}错误: ${plain} 必须使用root用户运行此脚本！\n" && exit 1
 
   ## os_arch
   if [[ $(uname -m | grep 'x86_64') != "" ]]; then
@@ -252,16 +249,16 @@ install_zweiblog() {
   fi
 
 
-  if [[ $(docker compose | grep 'Usage') != "" ]]; then
-    echo -e "未找到 docker-compose ，尝试使用 docker compose 创建别名"
-    echo 'docker compose $@' > /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    command -v docker-compose >/dev/null 2>&1
-    if [[ $? != 0 ]]; then
-      echo -e "${red}Docker Compose 别名创建失败${plain}，请手动安装 Docker Compose"
-      exit 0
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    if docker compose version >/dev/null 2>&1; then
+      echo -e "未找到 docker-compose，使用 docker compose 创建兼容命令"
+      printf '%s\n' '#!/bin/sh' 'exec docker compose "$@"' > /usr/local/bin/docker-compose
+      chmod 0755 /usr/local/bin/docker-compose
+      echo -e "${green}Docker Compose${plain} 兼容命令创建成功"
+    else
+      echo -e "${red}未找到 Docker Compose v2，请先完成安装${plain}"
+      return 1
     fi
-    echo -e "${green}Docker Compose${plain} 别名创建成功"
   fi
 
   config 0
@@ -284,6 +281,10 @@ selinux() {
 
 config() {
   require_distribution_assets || return 1
+  if [[ ! -d "${ZWEIBLOG_BASE_PATH}" || ! -d "${ZWEIBLOG_DATA_PATH}" ]]; then
+    echo -e "${red}未检测到完整的 ZweiBlog 安装目录，请先执行安装。${plain}"
+    return 1
+  fi
   existing_mongo_path="${ZWEIBLOG_DATA_PATH}/data/mongo"
   if [ -d "$existing_mongo_path" ] &&
     [ -n "$(find "$existing_mongo_path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
@@ -490,40 +491,138 @@ show_log() {
   fi
 }
 
-uninstall_zweiblog() {
-  echo -e "> 卸载 ZweiBlog，所有数据将都被删除"
-  read -e -r -p "是否退出卸载? [Y/n] " input
-  case $input in
-  [yY][eE][sS] | [yY])
-    echo "退出卸载"
-    exit 0
-    ;;
-  [nN][oO] | [nN])
-    echo "继续卸载"
-    ;;
-  *)
-    echo "退出卸载"
-    exit 0
-    ;;
-  esac
+find_container_using_install_root() {
+  local install_root="$1"
+  local container_ids=""
+  local container_id=""
+  local mount_sources=""
+  local mount_source=""
 
-  cd $ZWEIBLOG_BASE_PATH &&
-    docker-compose down -v
-  rm -rf $ZWEIBLOG_BASE_PATH
-  if [[ -n "${ZWEIBLOG_IMAGE}" ]]; then
-    docker rmi -f "${ZWEIBLOG_IMAGE}" >/dev/null 2>&1 || true
+  if ! container_ids="$(docker ps -aq)"; then
+    return 2
   fi
-  clean_all
 
-  if [[ $# == 0 ]]; then
-    before_show_menu
-  fi
+  for container_id in ${container_ids}; do
+    if ! mount_sources="$(docker inspect --format '{{range .Mounts}}{{println .Source}}{{end}}' "${container_id}" 2>/dev/null)"; then
+      return 2
+    fi
+    while IFS= read -r mount_source; do
+      case "${mount_source}" in
+      "${install_root}" | "${install_root}"/*)
+        printf '%s' "${container_id}"
+        return 0
+        ;;
+      esac
+    done <<< "${mount_sources}"
+  done
+
+  return 1
 }
 
-clean_all() {
-  if [ -z "$(ls -A ${ZWEIBLOG_BASE_PATH})" ]; then
-    rm -rf ${ZWEIBLOG_BASE_PATH}
+uninstall_zweiblog() {
+  local interactive=false
+  local resolved_root=""
+  local compose_file=""
+  local input=""
+  local container_id=""
+  local container_check_status=0
+  [[ $# == 0 ]] && interactive=true
+
+  echo -e "> 卸载 ZweiBlog"
+
+  if [[ ! -e "${ZWEIBLOG_BASE_PATH}" ]]; then
+    echo -e "${yellow}未检测到 ${ZWEIBLOG_BASE_PATH}，无需卸载；没有删除任何文件。${plain}"
+    echo "如需排查旧 VanBlog，请先查看容器和卷，不要直接删除未知目录。"
+    $interactive && before_show_menu
+    return 0
   fi
+
+  if [[ ! -d "${ZWEIBLOG_BASE_PATH}" || -L "${ZWEIBLOG_BASE_PATH}" ]]; then
+    echo -e "${red}安装路径不是普通目录，拒绝自动删除：${ZWEIBLOG_BASE_PATH}${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  resolved_root="$(cd -- "${ZWEIBLOG_BASE_PATH}" && pwd -P)" || {
+    echo -e "${red}无法解析安装路径；没有删除任何文件。${plain}"
+    $interactive && before_show_menu
+    return 1
+  }
+  if [[ "${resolved_root}" != "/var/zweiblog" ]]; then
+    echo -e "${red}安装路径安全校验失败，拒绝删除：${resolved_root}${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  for candidate in docker-compose.yaml docker-compose.yml compose.yaml compose.yml; do
+    if [[ -f "${resolved_root}/${candidate}" ]]; then
+      compose_file="${resolved_root}/${candidate}"
+      break
+    fi
+  done
+  if [[ -z "${compose_file}" || -L "${compose_file}" || ! -d "${resolved_root}/data" ]] ||
+    ! grep -Eq '^[[:space:]]{2}zweiblog:' "${compose_file}"; then
+    echo -e "${red}没有检测到完整的 ZweiBlog 编排和数据结构，拒绝自动删除。${plain}"
+    echo "请先备份并人工核对 ${resolved_root}。"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  echo -e "${red}以下目录中的数据库、图片、评论、密钥和证书将永久删除：${resolved_root}${plain}"
+  read -e -r -p "请输入 DELETE /var/zweiblog 以确认，其他输入均取消: " input
+  if [[ "${input}" != "DELETE /var/zweiblog" ]]; then
+    echo "已取消卸载；没有删除任何文件。"
+    $interactive && before_show_menu
+    return 0
+  fi
+
+  if docker compose version >/dev/null 2>&1; then
+    (cd -- "${resolved_root}" && docker compose -f "${compose_file}" down --volumes --remove-orphans) || {
+      echo -e "${red}停止容器失败，已中止卸载；数据未删除。${plain}"
+      $interactive && before_show_menu
+      return 1
+    }
+  elif command -v docker-compose >/dev/null 2>&1; then
+    (cd -- "${resolved_root}" && docker-compose -f "${compose_file}" down --volumes --remove-orphans) || {
+      echo -e "${red}停止容器失败，已中止卸载；数据未删除。${plain}"
+      $interactive && before_show_menu
+      return 1
+    }
+  else
+    echo -e "${red}未找到 Docker Compose，已中止卸载；数据未删除。${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  container_id="$(find_container_using_install_root "${resolved_root}")"
+  container_check_status=$?
+  if [[ ${container_check_status} -eq 0 ]]; then
+    echo -e "${red}仍有容器引用 ${resolved_root}（容器 ID：${container_id}），已中止删除。${plain}"
+    echo "请先确认该容器属于哪个 Compose 项目并安全停止；数据未删除。"
+    $interactive && before_show_menu
+    return 1
+  elif [[ ${container_check_status} -ne 1 ]]; then
+    echo -e "${red}无法核对 Docker 容器挂载，已中止卸载；数据未删除。${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  if ! rm -rf -- "${resolved_root}"; then
+    echo -e "${red}安装目录删除失败，请人工检查；不要重复执行强制删除。${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+  if [[ -e "${resolved_root}" ]]; then
+    echo -e "${red}安装目录删除失败，请人工检查；不要重复执行强制删除。${plain}"
+    $interactive && before_show_menu
+    return 1
+  fi
+
+  echo -e "${green}ZweiBlog 已卸载。容器镜像未自动删除，避免影响同机的其他部署。${plain}"
+  if $interactive; then
+    before_show_menu
+  fi
+  return 0
 }
 
 backup() {
@@ -638,7 +737,7 @@ show_menu() {
     show_usage
     ;;
   *)
-    echo -e "${red}请输入正确的数字 [0-8]${plain}"
+    echo -e "${red}请输入正确的数字 [0-30]${plain}"
     ;;
   esac
 }
