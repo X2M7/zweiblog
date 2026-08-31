@@ -259,9 +259,11 @@ legacy_status="$(curl --silent --show-error --output /dev/null \
   "${external_base}/static/customPage/legacy-smoke/index.html")"
 [[ "${legacy_status}" == '308' ]] ||
   fail "legacy custom-page static route returned ${legacy_status} instead of 308"
-grep -Eiq '^location: /c/legacy-smoke/index\.html\r?$' "${legacy_headers}" ||
+legacy_headers_normalized="${temp_root}/legacy-custom-page.normalized.headers"
+tr -d '\015' <"${legacy_headers}" >"${legacy_headers_normalized}"
+grep -Fxiq 'location: /c/legacy-smoke/index.html' "${legacy_headers_normalized}" ||
   fail 'legacy custom-page static route did not redirect through /c'
-grep -Eiq '^access-control-allow-origin: \*\r?$' "${legacy_headers}" ||
+grep -Fxiq 'access-control-allow-origin: *' "${legacy_headers_normalized}" ||
   fail 'legacy custom-page redirect is missing isolated-page CORS'
 
 smoke_token="$(openssl rand -hex 32)"
