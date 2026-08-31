@@ -43,7 +43,7 @@ jobs:
         run: node --test scripts/render-caddy-config.test.js
 
       - name: Check shell script syntax
-        run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh docker-compose/setup-mongo-secrets.sh
+        run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
 
       - name: Test server
         run: pnpm --filter @zweiblog/server exec jest --runInBand
@@ -53,6 +53,28 @@ jobs:
 
       - name: Test website
         run: pnpm --filter @zweiblog/theme-default exec vitest run
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build release candidate for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: zweiblog:release-smoke
+          build-args: |
+            ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
+            ZWEI_BLOG_VERSIONS=smoke-${{ github.sha }}
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+      - name: Gate publishing on a healthy Compose deployment
+        timeout-minutes: 8
+        run: bash scripts/docker-smoke-test.sh zweiblog:release-smoke
 
   publish:
     name: Build and publish (${{ matrix.platform }})

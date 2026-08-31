@@ -101,7 +101,10 @@ WORKDIR /app/admin
 COPY --from=ADMIN_BUILDER /repo/packages/admin/dist/ ./
 COPY caddyTemplate.json /app/caddyTemplate.json
 COPY ./scripts/render-caddy-config.js /app/render-caddy-config.js
-RUN EMAIL=build@example.com ZWEI_BLOG_CADDY_TRUSTED_PROXIES=127.0.0.1/32 \
+RUN ZWEI_BLOG_CADDY_HTTPS=off ZWEI_BLOG_CADDY_TRUSTED_PROXIES=127.0.0.1/32 \
+  node /app/render-caddy-config.js /app/caddyTemplate.json /app/caddy-build-check.json \
+  && caddy validate --config /app/caddy-build-check.json \
+  && EMAIL=build@example.com ZWEI_BLOG_CADDY_HTTPS=on-demand \
   node /app/render-caddy-config.js /app/caddyTemplate.json /app/caddy-build-check.json \
   && caddy validate --config /app/caddy-build-check.json \
   && rm -f /app/caddy-build-check.json

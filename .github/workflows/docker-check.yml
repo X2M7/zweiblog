@@ -10,6 +10,7 @@ on:
       - scripts/start.js
       - scripts/render-caddy-config.js
       - scripts/render-caddy-config.test.js
+      - scripts/docker-smoke-test.sh
       - docker-compose/**
       - package.json
       - pnpm-lock.yaml
@@ -39,7 +40,7 @@ jobs:
         run: node --test scripts/render-caddy-config.test.js
 
       - name: Check shell script syntax
-        run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh docker-compose/setup-mongo-secrets.sh
+        run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
 
       - name: Build image without publishing
         uses: docker/build-push-action@v6
@@ -48,8 +49,14 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: false
+          load: true
+          tags: zweiblog:smoke
           build-args: |
             ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
             ZWEI_BLOG_VERSIONS=check-${{ github.sha }}
           cache-from: type=gha,scope=docker-check
           cache-to: type=gha,mode=max,scope=docker-check
+
+      - name: Smoke-test the running Compose deployment
+        timeout-minutes: 8
+        run: bash scripts/docker-smoke-test.sh zweiblog:smoke

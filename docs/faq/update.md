@@ -6,13 +6,7 @@ order: 3
 
 ## 如何回滚
 
-您可以通过指定镜像的版本号来实现，比如您想回滚到 `v0.29.0`，那您可以修改编排中的：
-
-将 `ghcr.io/x2m7/zweiblog:latest` 换成需要回退的 ZweiBlog 版本标签，然后运行：
-
-```bash
-docker-compose down -v && docker-compose up -d
-```
+镜像标签和数据库状态必须匹配。请恢复升级前记录的 Compose 文件、镜像标签和完整数据备份；不要使用 `docker compose down -v`，也不要只回退镜像后继续使用已经迁移的数据。完整流程见根目录 README 的 [升级与回滚](https://github.com/X2M7/zweiblog#升级与回滚)。
 
 ## docker 镜像拉取慢
 
@@ -20,9 +14,7 @@ docker-compose down -v && docker-compose up -d
 
 ## 升级后访问文章地址时出现 404 错误
 
-由于本质上 ZweiBlog 基于静态页面，升级后容器内不存在按照新版本生成的静态页面。
-
-容器每次启动时都会自动触发增量渲染，等待容器选软完成后，即可正常访问。
+容器启动后会重新准备前台服务。先等待健康检查完成，再查看 `docker compose ps` 和 `docker compose logs --tail=200 zweiblog`；不要通过反复删除容器或数据目录处理 404。
 
 ## 升级后后台报错或持续加载
 
@@ -40,6 +32,4 @@ docker-compose down -v && docker-compose up -d
 
 ## 容器无限重启
 
-有时由于作者疏忽，新版本可能由于存在 Bug 引发致命错误导致无限重启，此时可以优先考虑版本回滚。
-
-请记录无限重启容器的日志，并向 [ZweiBlog Issues](https://github.com/X2M7/zweiblog/issues/new/choose) 反馈。
+先保存日志并核对 Compose 文件与镜像版本是否配套。使用内置 HTTPS 时，还要确认重建命令仍带有 `docker-compose.https.yml`。随后按升级前的完整备份执行回滚，并向 [ZweiBlog Issues](https://github.com/X2M7/zweiblog/issues/new/choose) 反馈脱敏后的日志。

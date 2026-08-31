@@ -225,7 +225,7 @@ const ImgPage = () => {
               fetchData();
             }}
             url="/api/admin/img/upload?withWaterMark=true"
-            accept=".png,.jpg,.jpeg,.webp,.jiff,.gif"
+            accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
           />
           <UploadBtn
             setLoading={setLoading}
@@ -242,7 +242,7 @@ const ImgPage = () => {
               fetchData();
             }}
             url="/api/admin/img/upload?withWaterMark=true"
-            accept=".png,.jpg,.jpeg,.webp,.jiff,.gif"
+            accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
           />
         </Space>
       }

@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
@@ -32,10 +33,15 @@ export class CaddyController {
   @UseGuards(...AdminGuard)
   @Get('https')
   async getHttpsConfig() {
-    const config = await this.settingProvider.getHttpsSetting();
+    const httpsSetting = await this.settingProvider.getHttpsSetting();
     return {
       statusCode: 200,
-      data: config,
+      data: {
+        redirect: this.caddyProvider.isInternalHttpsEnabled()
+          ? Boolean(httpsSetting?.redirect)
+          : false,
+        internalHttpsEnabled: this.caddyProvider.isInternalHttpsEnabled(),
+      },
     };
   }
 
@@ -44,9 +50,10 @@ export class CaddyController {
     const requestedDomain = normalizeDomain(domain);
     const siteInfo = await this.metaProvider.getSiteInfo();
     const allowedDomains = new Set(
-      [domainFromUrl(siteInfo?.baseUrl), ...config.caddy.allowedDomains.map(normalizeDomain)].filter(
-        (item): item is string => Boolean(item),
-      ),
+      [
+        domainFromUrl(siteInfo?.baseUrl),
+        ...config.caddy.allowedDomains.map(normalizeDomain),
+      ].filter((item): item is string => Boolean(item)),
     );
 
     if (requestedDomain && allowedDomains.has(requestedDomain)) {
@@ -98,14 +105,18 @@ export class CaddyController {
         message: '演示站禁止修改此项！',
       };
     }
-    const result = await this.caddyProvider.setRedirect(dto.redirect || false);
+    const redirect = Boolean(dto.redirect);
+    if (redirect && !this.caddyProvider.isInternalHttpsEnabled()) {
+      throw new BadRequestException('当前为外部反向代理模式，HTTPS 与证书必须由外层代理管理。');
+    }
+    const result = await this.caddyProvider.setRedirect(redirect);
     if (!result) {
       return {
         statusCode: 500,
         message: '更新失败！请查看 Caddy 日志获取详细信息！',
       };
     }
-    await this.settingProvider.updateHttpsSetting(dto);
+    await this.settingProvider.updateHttpsSetting({ redirect });
     return {
       statusCode: 200,
       data: '更新成功！',

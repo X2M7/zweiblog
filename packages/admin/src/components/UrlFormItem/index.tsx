@@ -51,8 +51,18 @@ export default function (props: {
           onChange: handleOnChange,
         }}
         extra={
-          <div style={{ display: 'flex', marginTop: '10px' }}>
-            <Image src={url || ''} fallback={errorImg} height={100} width={100} />
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: '10px' }}>
+            <Image
+              src={url || ''}
+              fallback={errorImg}
+              alt={`${props.label}预览`}
+              height={100}
+              width={100}
+              style={{
+                objectFit: 'contain',
+                backgroundColor: 'rgba(127, 127, 127, 0.08)',
+              }}
+            />
             <div style={{ marginLeft: 10 }}>
               <UploadBtn
                 setLoading={() => {}}
@@ -83,7 +93,7 @@ export default function (props: {
                   }
                 }}
                 url={dest}
-                accept=".png,.jpg,.jpeg,.webp,.jiff,.gif"
+                accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
               />
             </div>
           </div>

@@ -1,5 +1,9 @@
 import { copyImgLink, getImgLink } from '@/pages/Static/img/tools';
 import { getClipboardContents } from '@/services/zwei-blog/clipboard';
+import {
+  getUploadErrorFromUnknown,
+  requireSuccessfulUpload,
+} from '@/components/UploadBtn/uploadResponse';
 import { message } from 'antd';
 import { BytemdPlugin } from 'bytemd';
 export const uploadImg = async (file: File) => {
@@ -15,17 +19,13 @@ export const uploadImg = async (file: File) => {
         })(),
       },
     });
-    const data = await res.json();
-    if (data && data.statusCode == 200) {
-      const url = getImgLink(data.data.src, false);
-      copyImgLink(data.data.src, true, '上传成功！ ');
-      return url;
-    } else {
-      message.error('上传失败！');
-      return null;
-    }
+    const data = await requireSuccessfulUpload(res);
+    const uploaded = data.data as { src: string };
+    const url = getImgLink(uploaded.src, false);
+    copyImgLink(uploaded.src, true, '上传成功！ ');
+    return url;
   } catch (err) {
-    message.error('上传失败！');
+    message.error(getUploadErrorFromUnknown(err, file.name));
     return null;
   } finally {
   }

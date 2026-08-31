@@ -14,6 +14,82 @@ const ignoreWebsiteWarnings = [
   'null',
 ];
 
+// The website is an independent Next.js process. Keep its environment small:
+// the server process also owns database credentials and other backend-only
+// settings that the website neither needs nor should be able to read.
+const websiteInheritedEnvironmentKeys = [
+  // Cross-platform process startup and temporary/cache directories.
+  'PATH',
+  'Path',
+  'PATHEXT',
+  'SystemRoot',
+  'ComSpec',
+  'COMSPEC',
+  'HOME',
+  'USERPROFILE',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  // Stable locale and time formatting.
+  'TZ',
+  'LANG',
+  'LC_ALL',
+  // Next.js runtime settings.
+  'NODE_ENV',
+  'NEXT_TELEMETRY_DISABLED',
+  // Settings consumed by the website at startup/runtime.
+  'ZWEI_BLOG_SERVER_URL',
+  'ZWEI_BLOG_CDN_URL',
+  'ZWEI_BLOG_VERSION',
+  'ZWEI_BLOG_ALLOW_DOMAINS',
+  'ZWEI_BLOG_REVALIDATE',
+  'ZWEI_BLOG_REVALIDATE_TIME',
+  'NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE',
+] as const;
+
+const websiteLoadedEnvironmentKeys = [
+  'ZWEI_BLOG_ALLOW_DOMAINS',
+  'ZWEI_BLOG_REVALIDATE',
+  'ZWEI_BLOG_REVALIDATE_TIME',
+] as const;
+
+/**
+ * Build the explicit environment boundary for the Next.js child process.
+ *
+ * Do not replace this with `{ ...process.env }`: the parent environment can
+ * contain MongoDB credentials, secret-file paths, cloud tokens, proxy
+ * credentials, and Node startup flags such as NODE_OPTIONS.
+ */
+export function createWebsiteProcessEnvironment(
+  source: NodeJS.ProcessEnv = process.env,
+  loaded: Record<string, unknown> = {},
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    // The bundled reverse proxy reaches Next.js over the same container's
+    // loopback interface. Docker's inherited HOSTNAME is a container name/IP
+    // and must not decide which interface Next.js listens on. The proxy and
+    // healthcheck both use port 3001, so an unrelated parent PORT must not
+    // redirect the website to a different port either.
+    HOSTNAME: '127.0.0.1',
+    PORT: '3001',
+  };
+
+  for (const key of websiteInheritedEnvironmentKeys) {
+    const value = source[key];
+    if (value !== undefined) env[key] = value;
+  }
+
+  // Database-derived values take precedence, but only for the three website
+  // settings loadEnv() is allowed to produce. This also prevents a future
+  // caller from smuggling arbitrary keys through the override object.
+  for (const key of websiteLoadedEnvironmentKeys) {
+    const value = loaded[key];
+    if (value !== undefined && value !== null) env[key] = String(value);
+  }
+
+  return env;
+}
+
 @Injectable()
 export class WebsiteProvider {
   // constructor() {}
@@ -106,10 +182,7 @@ export class WebsiteProvider {
     this.logger.log(JSON.stringify(loadEnvs, null, 2));
     if (this.ctx == null) {
       this.ctx = spawn(cmd, args, {
-        env: {
-          ...process.env,
-          ...loadEnvs,
-        },
+        env: createWebsiteProcessEnvironment(process.env, loadEnvs),
         cwd: path.join(path.resolve(process.cwd(), '..'), 'website'),
         detached: true,
         shell: process.platform === 'win32',

@@ -14,6 +14,7 @@ import { useModel } from 'umi';
 export default function (props) {
   const [loading, setLoading] = useState(false);
   const [curData, setCurData] = useState(null);
+  const [internalHttpsEnabled, setInternalHttpsEnabled] = useState(false);
   const [form] = ProForm.useForm();
   const { initialState } = useModel('@@initialState');
   const cls = useMemo(() => {
@@ -24,6 +25,10 @@ export default function (props) {
     }
   }, [initialState]);
   const updateHttpsConfig = async (data) => {
+    if (!internalHttpsEnabled) {
+      message.warning('当前为外部反向代理模式，HTTPS 与证书由外层代理管理。');
+      return false;
+    }
     setLoading(true);
     try {
       if (data.redirect) {
@@ -56,6 +61,15 @@ export default function (props) {
   };
   return (
     <Card title="HTTPS 相关配置">
+      {!internalHttpsEnabled && (
+        <Alert
+          type="info"
+          showIcon
+          message="当前为外部反向代理模式"
+          description="容器内 Caddy 仅负责 HTTP 路由分发，不监听 443、不申请证书，也不允许开启 HTTPS 自动重定向。请在外层 Nginx、Caddy 或其他反向代理中管理域名证书和 HTTP → HTTPS 跳转。"
+          style={{ marginBottom: 20 }}
+        />
+      )}
       <Alert
         type="info"
         message={
@@ -78,7 +92,7 @@ export default function (props) {
             <p>access 日志可进入容器 /var/log/zweiblog-access.log 查看</p>
           </div>
         }
-        style={{ marginBottom: 20 }}
+        style={{ marginBottom: 20, display: internalHttpsEnabled ? undefined : 'none' }}
       />
       <Alert
         type="warning"
@@ -102,7 +116,7 @@ export default function (props) {
             </p>
           </div>
         }
-        style={{ marginBottom: 20 }}
+        style={{ marginBottom: 20, display: internalHttpsEnabled ? undefined : 'none' }}
       />
 
       <Spin spinning={loading}>
@@ -114,6 +128,7 @@ export default function (props) {
               const { data: res } = await getHttpsConfig();
               setLoading(false);
               if (!res) {
+                setInternalHttpsEnabled(false);
                 setCurData({
                   redirect: false,
                 });
@@ -121,15 +136,24 @@ export default function (props) {
                   redirect: false,
                 };
               }
-              setCurData(res);
+              const enabled = Boolean(res.internalHttpsEnabled);
+              const formData = {
+                redirect: enabled ? Boolean(res.redirect) : false,
+              };
+              setInternalHttpsEnabled(enabled);
+              setCurData(formData);
 
-              return res;
+              return formData;
             } catch (err) {
               setLoading(false);
             }
           }}
           layout="horizontal"
           onFinish={async (data) => {
+            if (!internalHttpsEnabled) {
+              message.warning('外部反向代理模式不能开启内置 HTTPS 自动重定向。');
+              return false;
+            }
             const eq = lodash.isEqual(curData, data);
 
             if (eq) {
@@ -153,6 +177,9 @@ export default function (props) {
             });
           }}
           submitter={{
+            submitButtonProps: {
+              disabled: !internalHttpsEnabled,
+            },
             searchConfig: {
               submitText: '保存',
             },
@@ -240,6 +267,7 @@ export default function (props) {
                   <Row style={{ marginTop: 10 }}>
                     <Button
                       type="primary"
+                      disabled={!internalHttpsEnabled}
                       onClick={async () => {
                         Modal.confirm({
                           title: '触发证书按需申请',
@@ -265,6 +293,7 @@ export default function (props) {
             tooltip="开启后通过 http 访问本站将自动重定向至 https"
             fieldProps={{
               className: cls,
+              disabled: !internalHttpsEnabled,
             }}
           ></ProFormSwitch>
           {/* <ProFormSelect

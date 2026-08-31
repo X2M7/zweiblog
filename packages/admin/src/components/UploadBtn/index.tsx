@@ -1,6 +1,14 @@
 import { Button, message, Upload } from 'antd';
 import ImgCrop from 'antd-img-crop';
 import { RcFile } from 'antd/lib/upload';
+import {
+  buildUploadUrl,
+  fitEntireImageCropProps,
+  getUploadErrorFromUnknown,
+  getUploadErrorMessage,
+  isSuccessfulUpload,
+  requireSuccessfulUpload,
+} from './uploadResponse';
 export default function (props: {
   setLoading: (loading: boolean) => void;
   text: string;
@@ -23,7 +31,7 @@ export default function (props: {
     }
     formData.append('file', file, fileName);
     props.setLoading(true);
-    fetch(`${props.url}&name=${fileName}`, {
+    fetch(buildUploadUrl(props.url, fileName), {
       method: 'POST',
       body: formData,
       headers: {
@@ -32,12 +40,12 @@ export default function (props: {
         })(),
       },
     })
-      .then((res) => res.json())
-      .then(() => {
-        props?.onFinish(file, name);
+      .then(requireSuccessfulUpload)
+      .then((response) => {
+        props?.onFinish(file, file.name, response);
       })
-      .catch(() => {
-        message.error(`${name} 上传失败!`);
+      .catch((error) => {
+        message.error(getUploadErrorFromUnknown(error, file.name));
       })
       .finally(() => {
         props.setLoading(false);
@@ -75,9 +83,15 @@ export default function (props: {
         }
         if (info.file.status === 'done') {
           props?.setLoading(false);
-          props?.onFinish(info.file);
+          if (isSuccessfulUpload(info.file.response)) {
+            props?.onFinish(info.file);
+          } else {
+            message.error(getUploadErrorMessage(info.file.name, 200, info.file.response));
+          }
         } else if (info.file.status === 'error') {
-          message.error(`${info.file.name} 上传失败!`);
+          message.error(
+            getUploadErrorMessage(info.file.name, info.file.xhr?.status, info.file.response),
+          );
           props?.setLoading(false);
         }
       }}
@@ -92,11 +106,7 @@ export default function (props: {
     </Upload>
   );
   if (props.crop) {
-    return (
-      <ImgCrop quality={1} fillColor="rgba(255,255,255,0)">
-        {Core}
-      </ImgCrop>
-    );
+    return <ImgCrop {...fitEntireImageCropProps}>{Core}</ImgCrop>;
   } else {
     return Core;
   }

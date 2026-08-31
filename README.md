@@ -85,7 +85,7 @@ ZweiBlog 已经加入与上游不同的数据字段、接口和交互，不应�
 
 ```text
 浏览器
-  └─ Caddy（容器内 80/443）
+  └─ Caddy（容器内 HTTP 路由；按需启用 443）
        ├─ /admin        → 管理后台静态文件
        ├─ /api 等路径   → NestJS API（容器内 3000）
        └─ 其余页面      → Next.js 前台（容器内 3001）
@@ -114,7 +114,7 @@ NestJS API ──→ MongoDB 8.0（仅 Docker 内部网络）
 
 - 一台可运行 Docker Engine 和 Docker Compose v2 的机器。Linux 服务器最适合作为长期生产环境；Windows/macOS 可通过 Docker Desktop 测试。
 - 如需公网访问，准备一个已解析到服务器的域名。
-- 默认只在 `127.0.0.1:8080/8443` 监听，适合宿主机 Nginx/Caddy 反代；直连模式才需要把 80/443 暴露到公网。
+- 默认只在 `127.0.0.1:8080` 提供 HTTP 上游，适合宿主机 Nginx/Caddy 反代；此模式不会监听 443，也不会初始化或申请证书。直连模式需要显式叠加 HTTPS Compose 文件。
 - 镜像构建会编译三个 Node.js 项目，内存占用高于运行阶段。小内存服务器可以在其他机器构建后推送到自己的镜像仓库。
 
 MongoDB 8.0 已包含在编排中，并且没有映射宿主机端口。**不要为了方便而把 27017 暴露到公网。**
@@ -140,8 +140,6 @@ ZWEIBLOG_IMAGE=ghcr.io/x2m7/zweiblog:latest
 COMPOSE_PROJECT_NAME=zweiblog
 ZWEIBLOG_HTTP_BIND=127.0.0.1
 ZWEIBLOG_HTTP_PORT=8080
-ZWEIBLOG_HTTPS_BIND=127.0.0.1
-ZWEIBLOG_HTTPS_PORT=8443
 ```
 
 `latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。
@@ -217,7 +215,20 @@ ZWEIBLOG_HTTPS_PORT=443
 ACME_EMAIL=admin@example.com
 ```
 
-重新运行 `sudo docker compose up -d`，并确认防火墙只开放所需端口。随后：
+使用专门的 HTTPS 覆盖文件启动，并确认防火墙只开放所需端口：
+
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  config --quiet
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  up -d
+```
+
+基础 `docker-compose.yml` 不会启用容器内 TLS；只有这个覆盖文件会将 `ZWEI_BLOG_CADDY_HTTPS` 设置为 `on-demand` 并发布 443。随后：
 
 1. 将域名 A/AAAA 记录解析到服务器，并确认公网 80/443 可达。
 2. 先通过 `http://你的域名/admin` 完成初始化，把站点 URL 填为最终的 `https://你的域名`。
@@ -226,11 +237,15 @@ ACME_EMAIL=admin@example.com
 
 证书和 Caddy 配置会保存在宿主机 `docker-compose/caddy/`，重建容器不会丢失。证书申请只接受后台站点 URL 中已经配置的域名，避免将按需签发入口变成开放代理。
 
+启用该覆盖文件后，后续每次启动、重建、升级和恢复都必须继续带上同一组 `-f docker-compose.yml -f docker-compose.https.yml` 参数。单独执行 `docker compose up -d` 会回到默认的外部反代模式，关闭容器内 TLS 并移除 443 映射。
+
+兼容旧版一键部署：早期脚本生成的 Compose 只有 `EMAIL`，没有 `ZWEI_BLOG_CADDY_HTTPS`。升级镜像后，若模式未设置且 `EMAIL` 是有效邮箱，ZweiBlog 会暂时推断为 `on-demand` 并输出迁移警告，以免原有 443 突然中断；没有邮箱时按 `off` 处理，非空但无效的邮箱会拒绝启动。该兼容逻辑不能替代新配置：下一次修改部署时，外部反代应显式使用 `off` 并移除 443 映射，内置 HTTPS 应显式使用 `on-demand`。
+
 ## 反向代理部署
 
 ZweiBlog 本身是一个完整站点。外层反代时应代理整个 HTTP 入口，不要分别代理前台、后台和 API。
 
-默认 `.env` 已将上游 HTTP 入口安全绑定到 `127.0.0.1:8080`，无需修改 Compose。外层代理负责证书和 HTTP → HTTPS 跳转；ZweiBlog 后台中的“HTTPS 自动重定向”必须保持关闭，否则代理到容器 HTTP 端口时可能形成重定向问题。初始化时仍应把站点 URL 填为用户最终访问的 `https://` 地址。
+默认 `.env` 已将上游 HTTP 入口安全绑定到 `127.0.0.1:8080`，无需修改 Compose。容器内 Caddy 只负责将 `/admin`、`/api` 等路径分发给相应内部服务，不监听 443、不申请证书；外层代理负责证书和 HTTP → HTTPS 跳转。不要在此模式下叠加 `docker-compose.https.yml`。初始化时仍应把站点 URL 填为用户最终访问的 `https://` 地址。
 
 ### Nginx 示例
 
@@ -289,6 +304,19 @@ blog.example.com {
 
 Caddy 会自动处理证书和常用代理请求头。若外层代理运行在另一台机器或另一个 Docker 网络，请相应调整监听地址和网络访问控制，不要直接把未加密的 8080 端口开放到公网。
 
+### 上传大小与 413 错误
+
+外层代理和应用都会限制请求大小，实际可上传大小取两者中较小的值：
+
+| 上传类型                       | 应用限制                                         |
+| ------------------------------ | ------------------------------------------------ |
+| 后台、初始化和站点设置中的图片 | 10 MiB                                           |
+| 访客评论图片                   | 5 MiB                                            |
+| 自定义页面单个文件             | 10 MiB                                           |
+| 后台 JSON 备份导入             | 默认 256 MiB；通过容器环境变量最多调整到 512 MiB |
+
+仓库的 Nginx 模板使用 `client_max_body_size 32m`，足以处理图片和自定义页面文件，但会拒绝大于 32 MiB 的备份导入。需要导入更大的备份时，应在确认内存容量和 `ZWEI_BLOG_BACKUP_MAX_BYTES` 后同步提高外层代理限制。出现 HTTP 413 时先检查外层 Nginx、CDN 或面板的请求体限制；文件未超过代理限制但仍被拒绝时，再查看 ZweiBlog 容器日志中的应用错误。
+
 ### 真实访客 IP
 
 评论归属地、限流和后台 IP 都依赖可信的代理链。仅转发 `X-Forwarded-*` 还不够：外层代理连接到 Docker 映射端口时，内置 Caddy 看到的通常是 Docker 网络网关地址。先查看通常作为连接来源的网络网关：
@@ -315,13 +343,13 @@ ZWEI_BLOG_TRUST_PROXY=loopback,172.18.0.1/32
 
 默认编排使用宿主机目录，而不是把重要数据留在容器可写层。下表路径都相对于 `ZWEIBLOG_DATA_DIR`；其默认值是 `docker-compose/` 当前目录：
 
-| 宿主机路径 | 用途 |
-| --- | --- |
-| `data/mongo/` | MongoDB 主数据 |
-| `data/static/` | 内置图床、评论图片、自定义页面、RSS/Sitemap 生成文件等 |
-| `secrets/` | MongoDB 凭据和应用连接 URI |
-| `caddy/data/`、`caddy/config/` | 内置 Caddy 的证书与状态 |
-| `log/` | ZweiBlog 与访问日志 |
+| 宿主机路径                     | 用途                                                   |
+| ------------------------------ | ------------------------------------------------------ |
+| `data/mongo/`                  | MongoDB 主数据                                         |
+| `data/static/`                 | 内置图床、评论图片、自定义页面、RSS/Sitemap 生成文件等 |
+| `secrets/`                     | MongoDB 凭据和应用连接 URI                             |
+| `caddy/data/`、`caddy/config/` | 仅启用内置 HTTPS 时使用的证书与 Caddy 状态             |
+| `log/`                         | ZweiBlog 与访问日志                                    |
 
 因此，删除或重建应用容器不会删除这些绑定目录；但删除宿主机目录仍会造成永久数据丢失。
 
@@ -340,6 +368,8 @@ sudo tar --numeric-owner -C /srv/zweiblog \
 sudo docker compose up -d
 ```
 
+若正在使用内置 HTTPS，上述 `down` 和 `up` 也应使用 `-f docker-compose.yml -f docker-compose.https.yml`；尤其不能在恢复后用不带覆盖文件的 `up` 启动。外部反代模式继续使用基础 Compose 即可。
+
 备份文件包含数据库和密码，应加密保存并限制访问。不要在 MongoDB 运行时直接复制 `data/mongo/`；需要不停机备份时，应使用 MongoDB 的一致性备份工具和经过验证的恢复流程。
 
 上面的命令适用于 `ZWEIBLOG_DATA_DIR=.`。如果数据目录位于仓库外，必须另外归档该目录，不能只备份 Git checkout。
@@ -348,7 +378,7 @@ sudo docker compose up -d
 
 ## 升级与回滚
 
-升级前先完成上面的完整备份，并记录当前源码提交与镜像版本。使用 GHCR 镜像时：
+升级前先完成上面的完整备份，并记录当前源码提交与镜像版本。使用固定版本标签时，先从 Releases 选择要升级到的目标版本，并把 `.env` 中的 `ZWEIBLOG_IMAGE` 改为对应标签；仅执行 `pull` 不会把一个固定标签自动改成新版本。随后：
 
 ```bash
 cd /srv/zweiblog/docker-compose
@@ -360,10 +390,37 @@ git pull --ff-only
 
 cd docker-compose
 sudo sh ./setup-mongo-secrets.sh .
+# 固定版本部署应先确认 .env 中的 ZWEIBLOG_IMAGE 已改为目标标签。
+sudo docker compose config --quiet
 sudo docker compose pull
 sudo docker compose up -d --remove-orphans
 sudo docker compose ps
 sudo docker compose logs --tail=200 zweiblog
+```
+
+使用内置 HTTPS 时，把上面所有 Compose 命令改为：
+
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  config --quiet
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  pull
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  up -d --remove-orphans
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  ps
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  logs --tail=200 zweiblog
 ```
 
 如果使用源码构建覆盖文件，则把拉取应用镜像的步骤换成：
@@ -376,6 +433,21 @@ sudo docker compose \
 sudo docker compose \
   -f docker-compose.yml \
   -f docker-compose.build.yml \
+  up -d --remove-orphans
+```
+
+源码构建同时使用内置 HTTPS 时，使用三份 Compose 文件，并保持基础编排、构建覆盖、HTTPS 覆盖的顺序：
+
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  -f docker-compose.https.yml \
+  build --pull zweiblog
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  -f docker-compose.https.yml \
   up -d --remove-orphans
 ```
 
@@ -394,8 +466,9 @@ sudo docker compose \
 | `ZWEIBLOG_MONGO_VERSION` | MongoDB 镜像版本 | 新部署保持 `8.0`，不要随意切换主要版本 |
 | `TZ` | 容器时区 | 按部署地修改，默认 `Asia/Shanghai` |
 | `ZWEIBLOG_HTTP_BIND` / `ZWEIBLOG_HTTP_PORT` | 宿主机 HTTP 监听 | 反代默认 `127.0.0.1:8080` |
-| `ZWEIBLOG_HTTPS_BIND` / `ZWEIBLOG_HTTPS_PORT` | 宿主机 HTTPS 监听 | 反代默认 `127.0.0.1:8443` |
-| `ACME_EMAIL` | 内置 Caddy 申请证书使用的邮箱 | 仅直连内置 HTTPS 时填写 |
+| `ZWEIBLOG_HTTPS_BIND` / `ZWEIBLOG_HTTPS_PORT` | 宿主机 HTTPS 监听 | 仅 `docker-compose.https.yml` 使用；默认 `127.0.0.1:8443` |
+| `ACME_EMAIL` | 内置 Caddy 申请证书使用的邮箱 | 仅叠加 HTTPS Compose 文件时填写 |
+| `ZWEI_BLOG_CADDY_HTTPS` | 容器内 TLS 模式 | 基础编排固定为 `off`；HTTPS 覆盖文件使用 `on-demand` |
 | `ZWEIBLOG_DATA_DIR` | 数据、凭据、日志与 Caddy 状态根目录 | 默认 `.`；修改后凭据脚本也使用同一路径 |
 | `ZWEIBLOG_WEB_NETWORK` | 对外 Docker 网络名 | 默认 `zweiblog-web` |
 | `ZWEI_BLOG_CADDY_TRUSTED_PROXIES` | 内置 Caddy 信任的外层代理 IP/CIDR | 无外层代理时留空；禁止全网段 |
@@ -429,10 +502,23 @@ pnpm --filter @zweiblog/theme-default exec vitest run
 ## 安全与隐私提示
 
 - 初始化完成后使用高强度管理员密码，并定期备份。
+- 早期 ZweiBlog 镜像的 Caddy 访问日志可能记录自定义 `Token` 请求头。若曾运行早期镜像或把访问日志发送给他人，应立即修改管理员密码以撤销现有登录会话，并在后台删除、重建所有 API Token；仅删除日志不能撤销已经泄露的凭据。
 - `secrets/`、`data/`、`log/`、`caddy/` 和 `.local-runtime/` 都不应提交到 Git；仓库的 [`.gitignore`](./.gitignore) 已排除默认运行目录，提交前仍应检查 `git status`。
 - 评论会处理 IP、IP 归属地和设备信息。公开站点应在隐私政策中说明用途、展示范围、保存周期和删除渠道。
 - 不要公开 MongoDB 端口、Caddy 管理端口或未启用鉴权的调试接口。
 - 启用自定义脚本、流水线执行或 PicGo 插件安装前，应把它们视为可执行代码并审计来源。
+
+更新到已修复镜像后，“清除 Caddy 日志”会同时清空当前运行日志、访问日志及其轮转文件。若更新前需要在服务器上手动处理旧访问日志，先停止应用容器并检查精确列表；默认数据目录下可执行：
+
+```bash
+sudo docker compose stop zweiblog
+sudo find ./log -maxdepth 1 -type f -name 'zweiblog-access*.log*' -print
+# 确认上一步只列出 ZweiBlog 访问日志后：
+sudo find ./log -maxdepth 1 -type f -name 'zweiblog-access*.log*' -delete
+sudo docker compose start zweiblog
+```
+
+若 `.env` 修改了 `ZWEIBLOG_DATA_DIR`，应把 `./log` 换成该目录下的 `log`；不要对不确定的路径使用递归删除或通配删除。
 
 ## 参与和反馈
 

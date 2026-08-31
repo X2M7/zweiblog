@@ -1,13 +1,17 @@
 import { Button, message } from 'antd';
 
 import { getClipboardContents } from '@/services/zwei-blog/clipboard';
+import {
+  getUploadErrorFromUnknown,
+  requireSuccessfulUpload,
+} from '@/components/UploadBtn/uploadResponse';
 
 export interface CopyUploadBtnProps {
   url: string;
   accept: string;
   text: string;
   setLoading: (loading: boolean) => void;
-  onFinish: (data: unknown) => void;
+  onFinish: (data: { src: string; isNew: boolean }) => void;
   onError: () => void;
 }
 
@@ -26,23 +30,19 @@ export default function (props: CopyUploadBtnProps) {
 
     formData.append('file', fileObj);
 
-    return fetch('/api/admin/img/upload?withWaterMark=true', {
+    return fetch(props.url, {
       method: 'POST',
       headers: {
         token: localStorage.getItem('token') || 'null',
       },
       body: formData,
     })
-      .then((res) => res.json())
-      .then(({ statusCode, data }) => {
-        if (statusCode === 200) {
-          props?.onFinish(data);
-        } else {
-          message.error('上传失败！');
-        }
+      .then(requireSuccessfulUpload)
+      .then(({ data }) => {
+        props?.onFinish(data as { src: string; isNew: boolean });
       })
-      .catch(() => {
-        message.error('上传失败！');
+      .catch((error) => {
+        message.error(getUploadErrorFromUnknown(error, fileObj.name));
       })
       .finally(() => {
         props.setLoading(false);

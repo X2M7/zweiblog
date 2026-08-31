@@ -1,6 +1,7 @@
+import { resolveCaddyHttpsMode } from 'src/utils/caddyHttpsMode';
 import { loadConfig } from 'src/utils/loadConfig';
-import { allowUnsafeDevelopmentFeature } from 'src/utils/unsafeFeatures';
 import { readSecretFile, validateMongoUrl } from 'src/utils/secretFile';
+import { allowUnsafeDevelopmentFeature } from 'src/utils/unsafeFeatures';
 
 export interface Config {
   mongoUrl: string;
@@ -15,6 +16,7 @@ export interface Config {
   };
   caddy: {
     allowedDomains: string[];
+    httpsMode: 'off' | 'on-demand';
   };
   /** Legacy database used only by the explicit Waline comment importer. */
   legacyWalineDB: string;
@@ -29,6 +31,16 @@ const allowUnsafePicgoPluginInstall =
   process.env.ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL ??
   loadConfig('picgo.allowUnsafePluginInstall', false);
 const configuredCaddyDomains = loadConfig('caddy.allowedDomains', '');
+const caddyHttpsModeResolution = resolveCaddyHttpsMode(
+  process.env.ZWEI_BLOG_CADDY_HTTPS,
+  loadConfig('caddy.httpsMode', ''),
+  process.env.EMAIL,
+);
+if (caddyHttpsModeResolution.inferredFromLegacyEmail) {
+  console.warn(
+    'Deprecated legacy HTTPS configuration detected from EMAIL; set ZWEI_BLOG_CADDY_HTTPS explicitly',
+  );
+}
 
 export const loadMongoUrl = () => {
   const urlFromEnvironment = process.env.ZWEI_BLOG_DATABASE_URL?.trim();
@@ -89,6 +101,7 @@ export const config: Config = {
     ),
   },
   caddy: {
+    httpsMode: caddyHttpsModeResolution.mode,
     allowedDomains: (Array.isArray(configuredCaddyDomains)
       ? configuredCaddyDomains
       : String(configuredCaddyDomains).split(',')

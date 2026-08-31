@@ -3,6 +3,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NotImplementedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -25,6 +26,8 @@ import { readSafeImageMetadata } from 'src/utils/imageMetadata';
 import { createPinnedHttpAgents } from 'src/utils/safeRemoteUrl';
 @Injectable()
 export class StaticProvider {
+  private readonly logger = new Logger(StaticProvider.name);
+
   constructor(
     @InjectModel('Static')
     private staticModel: Model<StaticDocument>,
@@ -79,13 +82,27 @@ export class StaticProvider {
         // console.log(err);
       }
 
-      if (checkTrue(staticConfigInDB.enableWebp)) {
+      // GIF uploads are explicitly supported by the admin UI. cwebp cannot
+      // convert animated GIFs, and recompressing an existing WebP is both
+      // wasteful and potentially lossy. Optional optimization must not make a
+      // valid image upload fail, so preserve the validated original whenever
+      // conversion is inapplicable or the converter is unavailable.
+      if (
+        checkTrue(staticConfigInDB.enableWebp) &&
+        imageMetadata?.type !== 'gif' &&
+        imageMetadata?.type !== 'webp'
+      ) {
         try {
-          buf = await compressImgToWebp(buf);
-          imageMetadata = readSafeImageMetadata(buf);
-          currentSign = encryptFileMD5(buf);
+          const convertedBuffer = await compressImgToWebp(buf);
+          const convertedMetadata = readSafeImageMetadata(convertedBuffer);
+          // Commit the converted representation only after validating the
+          // complete converter result. A converter that resolves malformed
+          // bytes must not replace the already validated source image.
+          buf = convertedBuffer;
+          imageMetadata = convertedMetadata;
+          currentSign = encryptFileMD5(convertedBuffer);
         } catch (err) {
-          throw new HttpException('Image conversion failed', HttpStatus.UNPROCESSABLE_ENTITY);
+          this.logger.warn('WebP conversion failed; saving the validated original image');
         }
       }
 
@@ -103,9 +120,6 @@ export class StaticProvider {
     let fileName = `${currentSign}.${detectedFileType}`;
     if (type == 'customPage') {
       fileName = customPathname + '/' + file.originalname;
-    }
-    if (type == 'img' && checkTrue(staticConfigInDB.enableWebp)) {
-      fileName = `${currentSign}.webp`;
     }
     const realPath = await this.saveFile(
       detectedFileType,
@@ -149,7 +163,11 @@ export class StaticProvider {
         proxy: false,
         validateStatus: (status) => status >= 200 && status < 300,
       });
-      if (!String(res.headers['content-type'] || '').toLowerCase().startsWith('image/')) {
+      if (
+        !String(res.headers['content-type'] || '')
+          .toLowerCase()
+          .startsWith('image/')
+      ) {
         return null;
       }
       return Buffer.from(res.data);
@@ -324,11 +342,7 @@ export class StaticProvider {
   async deleteCustomPageSubfolder(pathname: string, folderPath: string) {
     return this.localProvider.deleteCustomPageSubfolder(pathname, folderPath);
   }
-  async exportCustomPageProject(
-    pathname: string,
-    type: 'file' | 'folder',
-    html?: string,
-  ) {
+  async exportCustomPageProject(pathname: string, type: 'file' | 'folder', html?: string) {
     return this.localProvider.exportCustomPageProject(pathname, type, html);
   }
 

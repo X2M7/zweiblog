@@ -1,0 +1,11 @@
+# Optional direct-public HTTPS overlay.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+# Set ACME_EMAIL and public 80/443 bind values in .env before enabling it.
+services:
+  zweiblog:
+    environment:
+      ZWEI_BLOG_CADDY_HTTPS: on-demand
+      EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL before enabling bundled HTTPS}
+    ports:
+      - ${ZWEIBLOG_HTTPS_BIND:-127.0.0.1}:${ZWEIBLOG_HTTPS_PORT:-8443}:443

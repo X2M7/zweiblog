@@ -8,12 +8,34 @@
       },
       "log0": {
         "writer": { "filename": "/var/log/zweiblog-access.log", "output": "file" },
-        "encoder": { "format": "json" },
+        "encoder": {
+          "format": "filter",
+          "fields": {
+            "request>headers>Authorization": { "filter": "delete" },
+            "request>headers>Cookie": { "filter": "delete" },
+            "request>headers>Proxy-Authorization": { "filter": "delete" },
+            "request>headers>Token": { "filter": "delete" },
+            "request>headers>X-Api-Key": { "filter": "delete" },
+            "request>headers>X-Auth-Token": { "filter": "delete" }
+          },
+          "wrap": { "format": "json" }
+        },
         "include": ["http.log.access.log0"]
       },
       "log1": {
         "writer": { "filename": "/var/log/zweiblog-access.log", "output": "file" },
-        "encoder": { "format": "json" },
+        "encoder": {
+          "format": "filter",
+          "fields": {
+            "request>headers>Authorization": { "filter": "delete" },
+            "request>headers>Cookie": { "filter": "delete" },
+            "request>headers>Proxy-Authorization": { "filter": "delete" },
+            "request>headers>Token": { "filter": "delete" },
+            "request>headers>X-Api-Key": { "filter": "delete" },
+            "request>headers>X-Auth-Token": { "filter": "delete" }
+          },
+          "wrap": { "format": "json" }
+        },
         "include": ["http.log.access.log1"]
       }
     }
@@ -176,7 +198,7 @@
                       "handle": [
                         {
                           "handler": "rewrite",
-                          "uri_substring": [{ "find": "/feed.xml", "replace": "/rss/atom.xml" }]
+                          "uri_substring": [{ "find": "/atom.xml", "replace": "/rss/atom.xml" }]
                         },
                         { "handler": "reverse_proxy", "upstreams": [{ "dial": "127.0.0.1:3000" }] }
                       ]
@@ -433,7 +455,7 @@
                       "handle": [
                         {
                           "handler": "rewrite",
-                          "uri_substring": [{ "find": "/feed.xml", "replace": "/rss/atom.xml" }]
+                          "uri_substring": [{ "find": "/atom.xml", "replace": "/rss/atom.xml" }]
                         },
                         { "handler": "reverse_proxy", "upstreams": [{ "dial": "127.0.0.1:3000" }] }
                       ]

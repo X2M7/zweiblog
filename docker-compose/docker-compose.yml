@@ -11,8 +11,9 @@ services:
     init: true
     environment:
       TZ: ${TZ:-Asia/Shanghai}
-      # Optional for deployments that use the image's built-in HTTPS endpoint.
-      EMAIL: ${ACME_EMAIL:-}
+      # The base deployment is an HTTP-only upstream for a host reverse proxy.
+      # docker-compose.https.yml explicitly changes this to on-demand.
+      ZWEI_BLOG_CADDY_HTTPS: off
       ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
       # Only the bundled Caddy should connect directly to the API server.
       ZWEI_BLOG_HOST: 127.0.0.1
@@ -30,10 +31,9 @@ services:
       - ${ZWEIBLOG_DATA_DIR:-.}/caddy/config:/home/zweiblog/.config/caddy
       - ${ZWEIBLOG_DATA_DIR:-.}/caddy/data:/home/zweiblog/.local/share/caddy
     # Loopback binding is the safe default for a host-level reverse proxy.
-    # Set the bind addresses to 0.0.0.0 for direct public access.
+    # The optional docker-compose.https.yml overlay publishes port 443.
     ports:
       - ${ZWEIBLOG_HTTP_BIND:-127.0.0.1}:${ZWEIBLOG_HTTP_PORT:-8080}:80
-      - ${ZWEIBLOG_HTTPS_BIND:-127.0.0.1}:${ZWEIBLOG_HTTPS_PORT:-8443}:443
     secrets:
       - mongo_app_uri
     networks:
@@ -49,6 +49,8 @@ services:
         - -e
         - >-
           Promise.all(['http://127.0.0.1:3000/','http://127.0.0.1:3001/','http://127.0.0.1/'].map((url)=>fetch(url,{redirect:'manual'}))).then((responses)=>process.exit(responses.every((response)=>response.status<500)?0:1)).catch(()=>process.exit(1))
+
+
       interval: 30s
       timeout: 10s
       retries: 5

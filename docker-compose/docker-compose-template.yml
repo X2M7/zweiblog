@@ -6,7 +6,8 @@ services:
     environment:
       TZ: 'Asia/Shanghai'
       # Email address used by Caddy when requesting HTTPS certificates.
-      EMAIL: zweiblog_email
+      EMAIL: 'zweiblog_email'
+      ZWEI_BLOG_CADDY_HTTPS: 'zweiblog_caddy_https'
       ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
       ZWEI_BLOG_HOST: 127.0.0.1
       ZWEI_BLOG_TRUST_PROXY: loopback
@@ -19,8 +20,8 @@ services:
       - zweiblog_data_path/caddy/config:/home/zweiblog/.config/caddy
       - zweiblog_data_path/caddy/data:/home/zweiblog/.local/share/caddy
     ports:
-      - 'zweiblog_http_port:80'
-      - 'zweiblog_https_port:443'
+      - 'zweiblog_http_bind:zweiblog_http_port:80'
+      zweiblog_https_mapping
     secrets:
       - mongo_app_uri
     networks:

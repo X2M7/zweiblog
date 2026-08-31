@@ -4,74 +4,60 @@ icon: certificate
 order: 1
 ---
 
-ZweiBlog 镜像内采用了 Caddy 作为反向代理，并支持全自动按需 HTTPS 证书申请配置。
+ZweiBlog 镜像内的 Caddy 始终负责内部路径路由，但容器内 TLS 是可选功能。默认部署由宿主机反向代理管理域名和证书。
 
 <!-- more -->
 
-::: info Caddy
+## 默认：外部反向代理
 
-[Caddy](https://caddyserver.com/) 是一款默认开启并支持自动 HTTPS 、证书申请续期的 Web 服务器。
+基础 Compose 只把 HTTP 上游绑定到 `127.0.0.1:8080`，容器内 Caddy 不监听 443、不申请证书。宿主机 Nginx、Caddy 或其他代理负责：
 
-:::
+- 公网 80/443 监听与证书续期；
+- HTTP 到 HTTPS 跳转；
+- 把整个站点转发到 `http://127.0.0.1:8080`；
+- 设置可信的真实访客 IP 请求头。
 
-## 开启 HTTPS
+该模式不要叠加 `docker-compose.https.yml`。后台的内置 HTTPS 申请、重定向控件在此模式下不可用，证书和跳转应在外层代理配置。完整示例见根目录 README 的 [反向代理部署](https://github.com/X2M7/zweiblog#反向代理部署)。
 
-ZweiBlog 首次运行默认关闭 HTTPS，请通过 HTTP 协议访问。无需多余设置，首次通过 “HTTPS + 域名” 访问时，会自动申请 HTTPS 证书并应用。
+## 可选：直接使用内置 Caddy
 
-::: info 自动 HTTPS 要求
+只有服务器没有其他 Web 服务，并且 ZweiBlog 可以独占公网 80/443 时，才建议启用此模式。
 
-- 在部署时设置了 `EMAIL` 环境变量
-- 对外映射了 `80/443` 端口，确保公网可访问
-- 正在通过要申请证书的域名访问该服务器（已经设置了 DNS 解析）
+使用仓库 Compose 部署时，在 `.env` 中设置公网绑定和 `ACME_EMAIL`，然后显式叠加 HTTPS 覆盖文件：
 
-:::
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.https.yml \
+  up -d
+```
 
-你可以点击 `使用当前访问域名触发按需申请` 按钮手动触发一下证书申请。
+使用 `zweiblog.sh` 新安装时，则在安装提示中选择“直接使用 ZweiBlog 内置 Caddy”，脚本会生成包含 `ZWEI_BLOG_CADDY_HTTPS=on-demand` 的单一 Compose 文件，不需要额外 overlay。
 
-触发请后稍等一会（申请时间取决于网络环境）。若成功，页面将通过 HTTPS 正常加载。
+启用前确认：
 
-![申请证书](https://pic.mereith.com/img/8383fb4f32144be26cb134c2390d6d10.clipboard-2022-08-23.png)
+- 域名 A/AAAA 记录已指向服务器；
+- 公网 80/443 均可达且没有被其他进程占用；
+- 已提供有效的 ACME 邮箱；
+- 初始化时把站点 URL 填为最终的 `https://` 域名。
 
-::: tip
+先通过 HTTP 完成初始化，再在后台的 Caddy/HTTPS 设置中触发当前站点域名的证书申请。只有站点 URL 中已经配置的域名可以申请；IP 地址不能用于公开 HTTPS 证书。
 
-1. 如果超过 5 分钟还是不生效，请检查日志。
-1. 只有域名可以触发证书申请，通过 IP 访问不会触发。
+::: warning 保持 Compose 模式一致
+
+仓库 Compose 一旦启用 HTTPS overlay，后续启动、重建、备份恢复和升级时都必须继续带上 `-f docker-compose.yml -f docker-compose.https.yml`。单独执行 `docker compose up -d` 会恢复默认外部反代模式，关闭容器内 TLS 并移除 443。
 
 :::
 
 ## HTTPS 自动重定向
 
-当你确保可以通过自动申请的证书正常访问的时候，可以选择开启 `https 自动重定向` 功能，开启后所有的 `http` 访问将自动重定向到 HTTPS。
+仅在内置 HTTPS 模式下，并确认域名证书已经正常工作后，才在后台开启 HTTP 自动跳转。外部反代模式应在外层 Nginx/Caddy 配置跳转。
 
-在初始化后，进入后台确认 HTTPS 证书已自动生成，之后可手动开启 https 自动重定请在初始化后进入后台的 `站点管理/系统设置/ HTTPS` 中设置确认 HTTPS 状态后再按需开启 HTTPS 自动重定向。
+## 排查
 
-![开启 https 自动重定向](https://pic.mereith.com/img/d1e7b502279f0bd8225dfaedf89a5140.clipboard-2022-08-23.png)
+- `docker compose ps`：确认容器健康；
+- `docker compose logs --tail=200 zweiblog`：查看整体启动日志；
+- `/var/log/caddy.log`：Caddy 运行日志；
+- `/var/log/zweiblog-access.log`：访问日志。
 
-这个配置将会保存到数据库，每次容器启动的时候都会初始化到 Caddy 中。
-
-::: note
-
-1. 开启后，不能通过 `http + ip` 访问站点
-1. 无论 HTTPS 自动重定向是否开启，均不支持通过 `HTTPS + IP 地址` 来访问。需要 IP 访问请用 HTTP 协议并关闭 HTTPS 自动重定向。
-
-:::
-
-## FAQ
-
-::: info 原理
-
-ZweiBlog 通过 Caddy 的 API 在运行时动态修改配置来开关 HTTPS 自动重定向。
-
-全自动按需申请证书可以参考 [on-demand-tls](https://caddyserver.com/docs/automatic-https#on-demand-tls)
-
-:::
-
-::: tip 问题排查
-
-如果你熟悉 Caddy ，或者想自己排查，可以点击 `查看日志` 或者 `查看配置` 按钮自行排查。
-
-- ZweiBlog 访问日志在容器中的 `/var/log/zweiblog-access.log`
-
-- Caddy 的运行日志储存在 `/var/log/caddy.log`中，除了可以在后台查看外，也可以自行进入容器中或挂载目录查看。
-
-:::
+分享日志前必须移除令牌、Cookie、邮箱、IP 和其他隐私信息。当前部署命令和故障处理始终以仓库根目录 [README](https://github.com/X2M7/zweiblog#readme) 为准。

@@ -6,7 +6,7 @@ cd zweiblog/docker-compose
 cp .env.example .env
 ```
 
-Windows PowerShell 使用 `Copy-Item .env.example .env`。按需编辑 `.env`；默认只监听宿主机 `127.0.0.1:8080/8443`，适合再接一层 Nginx 或 Caddy。
+Windows PowerShell 使用 `Copy-Item .env.example .env`。按需编辑 `.env`；默认只监听宿主机 `127.0.0.1:8080`，容器内 TLS 和 443 均关闭，适合再接一层 Nginx 或 Caddy。直接使用内置 HTTPS 时必须按根目录 README 显式叠加 `docker-compose.https.yml`。
 
 ### 2. 准备编排和数据库凭据
 

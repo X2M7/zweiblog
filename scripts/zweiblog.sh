@@ -10,7 +10,7 @@
 ZWEIBLOG_BASE_PATH="/var/zweiblog"
 ZWEIBLOG_DATA_PATH="${ZWEIBLOG_BASE_PATH}/data"
 ZWEIBLOG_DATA_PATH_RAW="\/var\/zweiblog\/data"
-ZWEIBLOG_SCRIPT_VERSION="v0.3.3"
+ZWEIBLOG_SCRIPT_VERSION="v0.3.4"
 
 ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL:-https://raw.githubusercontent.com/X2M7/zweiblog/main}"
 ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL%/}"
@@ -53,6 +53,33 @@ require_distribution_assets() {
     echo "Set ZWEIBLOG_IMAGE to the image built from this fork."
     return 1
   fi
+}
+
+existing_installation_uses_mongo_8() {
+  local compose_file=''
+  local candidate=''
+  local secret_file=''
+
+  for candidate in \
+    "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml" \
+    "${ZWEIBLOG_BASE_PATH}/docker-compose.yml"; do
+    if [ -f "${candidate}" ]; then
+      compose_file="${candidate}"
+      break
+    fi
+  done
+  [ -n "${compose_file}" ] || return 1
+
+  # Fail closed unless the existing deployment explicitly names MongoDB 8.
+  # Removing quotes first keeps this check compatible with generated YAML.
+  if ! tr -d "\"'" <"${compose_file}" |
+    grep -Eq '^[[:space:]]*image:[[:space:]]*mongo:(8([.-]|[[:space:]]|$)|\$\{ZWEIBLOG_MONGO_VERSION:-8([.]0)?\})'; then
+    return 1
+  fi
+
+  for secret_file in mongo-root-password mongo-app-password mongo-app-uri; do
+    [ -s "${ZWEIBLOG_DATA_PATH}/secrets/${secret_file}" ] || return 1
+  done
 }
 
 
@@ -288,18 +315,22 @@ config() {
   existing_mongo_path="${ZWEIBLOG_DATA_PATH}/data/mongo"
   if [ -d "$existing_mongo_path" ] &&
     [ -n "$(find "$existing_mongo_path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
-    echo -e "${red}Existing MongoDB data was detected at $existing_mongo_path.${plain}"
-    echo "The MongoDB 8.0 template will not be written over an existing data directory."
-    migration_tmp="${ZWEIBLOG_BASE_PATH}/.migrate-mongo.sh.tmp"
-    if wget -t 2 -T 10 -O "$migration_tmp" "$MONGO_MIGRATION_URL" >/dev/null 2>&1; then
-      mv -f -- "$migration_tmp" "${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh"
-      chmod 0755 "${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh"
-      echo "Run ${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh first and review its MIGRATION_REPORT.txt."
+    if existing_installation_uses_mongo_8; then
+      echo -e "${green}Existing MongoDB 8 deployment and complete secret files detected; configuration may be updated safely.${plain}"
     else
-      rm -f -- "$migration_tmp"
-      echo "Download the migration helper from $MONGO_MIGRATION_URL before changing this installation."
+      echo -e "${red}Existing MongoDB data was detected at $existing_mongo_path, but MongoDB 8 compatibility could not be confirmed.${plain}"
+      echo "The MongoDB 8.0 template will not be written over an old or ambiguous data directory."
+      migration_tmp="${ZWEIBLOG_BASE_PATH}/.migrate-mongo.sh.tmp"
+      if wget -t 2 -T 10 -O "$migration_tmp" "$MONGO_MIGRATION_URL" >/dev/null 2>&1; then
+        mv -f -- "$migration_tmp" "${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh"
+        chmod 0755 "${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh"
+        echo "Run ${ZWEIBLOG_BASE_PATH}/migrate-mongo.sh first and review its MIGRATION_REPORT.txt."
+      else
+        rm -f -- "$migration_tmp"
+        echo "Download the migration helper from $MONGO_MIGRATION_URL before changing this installation."
+      fi
+      return 1
     fi
-    return 1
   fi
 
   echo -e "> 修改配置"
@@ -340,35 +371,51 @@ config() {
   fi
 
   # read -ep "请输入您想要安装的版本，默认不填为最新：" zweiblog_version &&
-  read -ep "请输入您的邮箱：" zweiblog_email &&
-    read -ep "请输入 http 端口（默认为 80）：" zweiblog_http_port &&
-    read -ep "请输入 https 端口（默认为 443）：" zweiblog_https_port
+  zweiblog_caddy_https="off"
+  zweiblog_email=""
+  zweiblog_http_bind="127.0.0.1"
+  zweiblog_http_port=""
+  zweiblog_https_port=""
+  zweiblog_https_mapping="# HTTPS is managed by the external reverse proxy."
+
+  echo "部署模式："
+  echo "  1. 外部 Nginx/Caddy 反向代理（推荐，只提供本机 HTTP 上游）"
+  echo "  2. 直接使用 ZweiBlog 内置 Caddy 申请 HTTPS 证书"
+  read -ep "请选择部署模式（默认为 1）：" zweiblog_deploy_mode
+  if [[ -z "${zweiblog_deploy_mode}" || "${zweiblog_deploy_mode}" == "1" ]]; then
+    read -ep "请输入本机 HTTP 上游端口（默认为 8080）：" zweiblog_http_port
+    [[ -z "${zweiblog_http_port}" ]] && zweiblog_http_port=8080
+  elif [[ "${zweiblog_deploy_mode}" == "2" ]]; then
+    zweiblog_caddy_https="on-demand"
+    zweiblog_http_bind="0.0.0.0"
+    read -ep "请输入 ACME 邮箱：" zweiblog_email
+    read -ep "请输入 HTTP 端口（默认为 80）：" zweiblog_http_port
+    read -ep "请输入 HTTPS 端口（默认为 443）：" zweiblog_https_port
+    [[ -z "${zweiblog_http_port}" ]] && zweiblog_http_port=80
+    [[ -z "${zweiblog_https_port}" ]] && zweiblog_https_port=443
+    zweiblog_https_mapping="- '0.0.0.0:${zweiblog_https_port}:443'"
+  else
+    echo -e "${red}部署模式只能选择 1 或 2${plain}"
+    return 1
+  fi
   # echo "接下来您需要输入的域名对应着编排文件中的 ZWEI_BLOG_ALLOW_DOMAINS 变量（不含协议、不可包含通配符、多个域名通过英文逗号分隔）" &&
   # echo "如果用了 cdn 或图床，需要把图床或 cdn 的域名也加上" &&
   # read -ep "请输入您最终要绑定的域名（小写）:" zweiblog_domains
 
-  if [[ -z "${zweiblog_email}" ]]; then
-    echo -e "${red}除了端口外所有选项都不能为空${plain}"
-    before_show_menu
-    return 1
-  fi
-
-  if [[ -z "${zweiblog_http_port}" ]]; then
-    zweiblog_http_port=80
-  fi
-  if [[ -z "${zweiblog_https_port}" ]]; then
-    zweiblog_https_port=443
-  fi
-  if [[ ! "${zweiblog_email}" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+  if [[ "${zweiblog_caddy_https}" == "on-demand" &&
+    ! "${zweiblog_email}" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
     echo -e "${red}邮箱格式无效${plain}"
     return 1
   fi
-  if [[ ! "${zweiblog_http_port}" =~ ^[0-9]+$ || ! "${zweiblog_https_port}" =~ ^[0-9]+$ ]]; then
+  if [[ ! "${zweiblog_http_port}" =~ ^[0-9]+$ ]] ||
+    [[ "${zweiblog_caddy_https}" == "on-demand" &&
+      ! "${zweiblog_https_port}" =~ ^[0-9]+$ ]]; then
     echo -e "${red}端口必须是 1-65535 之间的整数${plain}"
     return 1
   fi
   if ((zweiblog_http_port < 1 || zweiblog_http_port > 65535)) ||
-    ((zweiblog_https_port < 1 || zweiblog_https_port > 65535)); then
+    [[ "${zweiblog_caddy_https}" == "on-demand" &&
+      (zweiblog_https_port -lt 1 || zweiblog_https_port -gt 65535) ]]; then
     echo -e "${red}端口必须是 1-65535 之间的整数${plain}"
     return 1
   fi
@@ -380,8 +427,10 @@ config() {
   cp "${ZWEIBLOG_BASE_PATH}/docker-compose-template.yaml" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml" >/dev/null 2>&1
   sed -i "s/zweiblog_data_path/${ZWEIBLOG_DATA_PATH_RAW}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
   sed -i "s/zweiblog_email/${zweiblog_email}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
+  sed -i "s/zweiblog_caddy_https/${zweiblog_caddy_https}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
+  sed -i "s/zweiblog_http_bind/${zweiblog_http_bind}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
   sed -i "s/zweiblog_http_port/${zweiblog_http_port}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
-  sed -i "s/zweiblog_https_port/${zweiblog_https_port}/g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
+  sed -i "s|zweiblog_https_mapping|${zweiblog_https_mapping}|g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
   # sed -i "s/zweiblog_domains/${zweiblog_domains}/g" ${ZWEIBLOG_BASE_PATH}/docker-compose.yaml
   # sed -i "s/zweiblog_version/${zweiblog_version}/g" ${ZWEIBLOG_BASE_PATH}/docker-compose.yaml
   sed -i "s|zweiblog_image|${Docker_IMG}|g" "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml"
