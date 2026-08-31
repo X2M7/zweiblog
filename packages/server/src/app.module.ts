@@ -97,6 +97,7 @@ import { CommentMaintenanceProvider } from './provider/comment/commentMaintenanc
 import { CommentReaction, CommentReactionSchema } from './scheme/commentReaction.schema';
 import { CommentClientInfoProvider } from './provider/comment/clientInfo.provider';
 import { CommentImageProvider } from './provider/comment/commentImage.provider';
+import { Tag, TagSchema } from './scheme/tag.schema';
 
 @Module({
   imports: [
@@ -115,6 +116,7 @@ import { CommentImageProvider } from './provider/comment/commentImage.provider';
       { name: CustomPage.name, schema: CustomPageSchema },
       { name: Token.name, schema: TokenSchema },
       { name: Category.name, schema: CategorySchema },
+      { name: Tag.name, schema: TagSchema },
       { name: Pipeline.name, schema: PipelineSchema },
       { name: Comment.name, schema: CommentSchema },
       { name: CommentReaction.name, schema: CommentReactionSchema },

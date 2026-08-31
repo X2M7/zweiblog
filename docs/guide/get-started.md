@@ -4,13 +4,13 @@ icon: lightbulb
 order: 1
 ---
 
-欢迎使用 ZweiBlog ，只需几个步骤，你就可以在你的服务器搭建自己的博客服务了。
+欢迎使用 ZweiBlog。推荐通过仓库自带的 Docker Compose 编排部署，应用、MongoDB、静态文件和评论数据均由自己的服务器管理。
 
 <!-- more -->
 
-::: tip
+::: tip 发布说明
 
-目前 ZweiBlog 还在快速迭代中，如果后台出现升级提示，推荐进行升级。
+部署、升级、备份和反向代理配置以仓库根目录的 [README](https://github.com/X2M7/zweiblog#readme) 为准。升级前应先备份数据库和全部持久化目录，不要仅凭后台提示直接覆盖生产环境。
 
 :::
 
@@ -20,40 +20,12 @@ order: 1
 
 ## 配置要求
 
-理论上 ZweiBlog 不需要很高的配置，实际上演示站不算数据库，资源的占用情况如图：
+服务器需要 Docker Engine、Docker Compose v2，以及 MongoDB 8.0 支持的 64 位处理器。镜像运行内存会随文章数量、并发和图片处理任务变化；源码构建还需要额外的 CPU、内存和磁盘空间。
 
-![资源占用](https://www.mereith.com/static/img/bd2a2c983aa92288106652294a892494.clipboard-2022-09-03.png)
-
-不到 `400M` 的内存（有一部分还是静态页面缓存），启动时大概峰值占用处理器一个核心的 `30%`，其余时间基本不占用什么处理器资源。
-
-但比较小的带宽可能会让页面加载变慢（第一次慢，后面的话有缓存加速就会快一些），如果带宽比较小的话可以尝试设置一下 [CDN](../faq/deploy.md#如何部署到-cdn)。
+公网部署建议准备已解析到服务器的域名，并由宿主机 Nginx/Caddy 负责 TLS。MongoDB 无需开放宿主机端口，更不能暴露到公网。
 
 ## 部署方式
 
-:::: tabs#deploy
-
-@tab 脚本
-
-<!-- @include: ./script.snippet.md -->
-
-@tab docker
-
 <!-- @include: ./docker.snippet.md -->
 
-@tab kubernetes
-
-<!-- @include: ./kubernetes.snippet.md -->
-
-@tab 宝塔面板
-
-<!-- @include: ./bt-panel.snippet.md -->
-
-@tab 群晖 NAS
-
-<!-- @include: ./dsm.snippet.md -->
-
-@tab 直接部署
-
-<!-- @include: ./direct.snippet.md -->
-
-::::
+初始化完成后，请继续参考 README 中的 [Nginx/Caddy 反向代理](https://github.com/X2M7/zweiblog#反向代理部署)、真实访客 IP、备份与升级章节。

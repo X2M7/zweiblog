@@ -103,7 +103,7 @@ export default function () {
                         <a
                           target="_blank"
                           rel="noreferrer"
-                          href="https://vanblog.mereith.com/advanced/token.html"
+                          href="https://github.com/X2M7/zweiblog/blob/main/docs/advanced/token.md"
                         >
                           相关文档
                         </a>

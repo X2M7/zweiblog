@@ -4,6 +4,7 @@ import { AuthorCardProps } from "../components/AuthorCard";
 import { checkLogin } from "./auth";
 export interface LayoutProps {
   description: string;
+  descriptionEn?: string;
   ipcNumber: string;
   since: string;
   ipcHref: string;
@@ -14,9 +15,13 @@ export interface LayoutProps {
   copyrightAggreement: string;
   logo: string;
   categories: string[];
+  categoryNamesEn: Record<string, string>;
+  tagNamesEn: Record<string, string>;
   favicon: string;
   siteName: string;
+  siteNameEn?: string;
   siteDesc: string;
+  siteDescEn?: string;
   baiduAnalysisID: string;
   gaAnalysisID: string;
   logoDark: string;
@@ -50,8 +55,19 @@ export interface HeadTag {
 
 export function getLayoutProps(data: PublicMetaProp): LayoutProps {
   const siteInfo = data.meta.siteInfo;
+  const categories = data.meta.categories;
+  const categoryNamesEn = Object.fromEntries(
+    (data.meta.categoryDetails || [])
+      .filter((category) => Boolean(category.nameEn?.trim()))
+      .map((category) => [category.name, category.nameEn as string])
+  );
+  const tagNamesEn = Object.fromEntries(
+    (data.tagDetails || [])
+      .filter((tag) => Boolean(tag.nameEn?.trim()))
+      .map((tag) => [tag.name, tag.nameEn as string])
+  );
   const showSubMenu =
-    Boolean(data.meta.categories.length) && siteInfo?.showSubMenu == "true";
+    Boolean(categories.length) && siteInfo?.showSubMenu == "true";
   let headerLeftContent: "siteLogo" | "siteName" = "siteName";
   if (data.meta.siteInfo.siteLogo && siteInfo.headerLeftContent == "siteLogo") {
     headerLeftContent = "siteLogo";
@@ -130,14 +146,19 @@ export function getLayoutProps(data: PublicMetaProp): LayoutProps {
     logo: siteInfo?.siteLogo || "",
     favicon: siteInfo.favicon,
     siteName: siteInfo.siteName,
+    siteNameEn: siteInfo.siteNameEn || "",
     siteDesc: siteInfo.siteDesc,
+    siteDescEn: siteInfo.siteDescEn || "",
     baiduAnalysisID: siteInfo?.baiduAnalysisId || "",
     gaAnalysisID: siteInfo?.gaAnalysisId || "",
     logoDark: siteInfo?.siteLogoDark || "",
     showExpirationReminder: showExpirationReminder,
     description: siteInfo?.siteDesc || "",
+    descriptionEn: siteInfo?.siteDescEn || "",
     menus: data?.menus || defaultMenu,
-    categories: data.meta.categories,
+    categories,
+    categoryNamesEn,
+    tagNamesEn,
     showSubMenu: showSubMenu ? "true" : "false",
     enableComment: siteInfo?.enableComment || "true",
     defaultTheme: siteInfo?.defaultTheme || "auto",
@@ -164,7 +185,9 @@ export function getAuthorCardProps(data: PublicMetaProp): AuthorCardProps {
     catelogNum: data.meta.categories.length,
     socials: data.meta.socials,
     author: data.meta.siteInfo.author,
+    authorEn: data.meta.siteInfo.authorEn || "",
     desc: data.meta.siteInfo.authorDesc,
+    descEn: data.meta.siteInfo.authorDescEn || "",
     logo: data.meta.siteInfo.authorLogo,
     logoDark: data.meta.siteInfo.authorLogoDark || "",
     showSubMenu: showSubMenu ? "true" : "false",

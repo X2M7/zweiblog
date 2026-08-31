@@ -1,13 +1,9 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 讨论区
-    url: https://github.com/Mereithhh/van-blog/discussions/new
-    about: 前往讨论区与大家交流
+  - name: 先搜索现有问题
+    url: https://github.com/X2M7/zweiblog/issues
+    about: 提交前请先确认同一问题尚未被报告
 
-  - name: 官方 QQ 群
-    url: https://jq.qq.com/?_wv=1027&k=5NRyK2Sw
-    about: '加入 ZweiBlog 用户交流群: 743037540'
-
-  # - name: Telegram
-  #   url: https://t.me/walinejs
-  #   about: 'Official Telegram Group'
+  - name: 部署说明
+    url: https://github.com/X2M7/zweiblog#docker-%E8%87%AA%E6%89%98%E7%AE%A1%E9%83%A8%E7%BD%B2%E6%8E%A8%E8%8D%90
+    about: 查看 Docker、数据持久化、升级与反向代理配置

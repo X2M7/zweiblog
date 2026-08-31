@@ -20,7 +20,7 @@ body:
     attributes:
       label: 复现网址 | Website URL
       description: 请提供下可复现网站地址 | Please supply a website url which can reproduce problem.
-      placeholder: ex. https://blog-demo.mereith.com
+      placeholder: ex. https://blog.example.com
     validations:
       required: false
 

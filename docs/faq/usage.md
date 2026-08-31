@@ -45,7 +45,7 @@ ZweiBlog 自 `v0.42.0` 已舍弃 `ZWEI_BLOG_ALLOW_DOMAINS` 环境变量，如果
 如果你是用的一件脚本安装的，那么重新加载一遍最新版脚本，在里面选择重置 https 设置即可。
 
 ```bash
-curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
+curl -fsSL https://raw.githubusercontent.com/X2M7/zweiblog/main/scripts/zweiblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
 ```
 
 如果你是自己用 docker 部署的运行下面的命令即可：

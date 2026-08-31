@@ -15,12 +15,16 @@ interface IFile {
   children?: IFile[];
 }
 
+function toPortablePath(value: string) {
+  return value.replace(/\\/g, '/');
+}
+
 export function dirSort(a: IFile, b: IFile) {
   if (a.type !== b.type) return FileType[a.type] < FileType[b.type] ? -1 : 1;
   else if (a.mtime !== b.mtime) return a.mtime > b.mtime ? -1 : 1;
 }
 export function readDirs(dir: string, baseDir = '', blacklist: string[] = []) {
-  const relativePath = path.relative(baseDir, dir);
+  const relativePath = toPortablePath(path.relative(baseDir, dir));
   checkOrCreate(dir);
   const files = fs.readdirSync(dir);
   const result: any = files
@@ -31,7 +35,7 @@ export function readDirs(dir: string, baseDir = '', blacklist: string[] = []) {
       if (stats.isSymbolicLink()) {
         return null;
       }
-      const key = path.join(relativePath, file);
+      const key = [relativePath, file].filter(Boolean).join('/');
       if (stats.isDirectory()) {
         return {
           title: file,
@@ -56,14 +60,14 @@ export function readDirs(dir: string, baseDir = '', blacklist: string[] = []) {
 }
 
 export function readDir(dir: string, baseDir = '', blacklist: string[] = []) {
-  const relativePath = path.relative(baseDir, dir);
+  const relativePath = toPortablePath(path.relative(baseDir, dir));
   const files = fs.readdirSync(dir);
   const result: any = files
     .filter((x) => !blacklist.includes(x))
     .map((file: string) => {
       const subPath = path.join(dir, file);
       const stats = fs.statSync(subPath);
-      const key = path.join(relativePath, file);
+      const key = [relativePath, file].filter(Boolean).join('/');
       return {
         title: file,
         type: stats.isDirectory() ? 'directory' : 'file',

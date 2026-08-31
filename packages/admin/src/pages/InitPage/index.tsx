@@ -28,7 +28,7 @@ const InitPage = () => {
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://vanblog.mereith.com/feature/basic/setting.html"
+                href="https://github.com/X2M7/zweiblog#readme"
               >
                 帮助文档
               </a>
@@ -109,7 +109,7 @@ const InitPage = () => {
                     content: (
                       <div>
                         <p>请输入包含完整协议的 URL</p>
-                        <p>例: https://blog-demo.mereith.com</p>
+                        <p>例: https://blog.example.com</p>
                       </div>
                     ),
                   });

@@ -2,12 +2,12 @@
   "name": "zweiblog",
   "version": "0.54.0",
   "private": true,
+  "license": "GPL-3.0-only",
   "scripts": {
     "clean": "rm -rf node_modules && rm -rf packages/*/node_modules && rm -rf packages/*/dist",
     "build": "pnpm --filter @zweiblog/server --filter @zweiblog/theme-default --filter @zweiblog/admin --parallel build",
     "build:admin": "pnpm --filter @zweiblog/admin build",
     "build:server": "pnpm --filter @zweiblog/server build",
-    "build:test": "act -j test --secret-file=.env",
     "build:website": "pnpm --filter @zweiblog/theme-default build",
     "dev": "pnpm --filter @zweiblog/server --filter @zweiblog/admin --parallel dev",
     "dev:server": "pnpm --filter @zweiblog/server dev:noweb ",
@@ -16,15 +16,11 @@
     "docs:build": "pnpm run -r docs:build",
     "docs:dev": "pnpm run -r docs:dev",
     "kill": "sudo bash scripts/kill-all.sh",
-    "release:local": "act -j local-build --secret-file=.env",
     "release": "standard-version",
     "release-note": "node scripts/releaseNote.js",
-    "release-doc": "node scripts/releaseDoc.js",
     "release-major": "standard-version --release-as major",
     "release-minor": "standard-version --release-as minor",
-    "release-patch": "standard-version --release-as patch",
-    "sync-aliyun": "bash scripts/sync-aliyuncs.sh",
-    "webhook": "node scripts/webhook.js"
+    "release-patch": "standard-version --release-as patch"
   },
   "packageManager": "pnpm@8.11.0",
   "pnpm": {

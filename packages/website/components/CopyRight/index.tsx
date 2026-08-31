@@ -1,6 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import CopyToClipboard from "react-copy-to-clipboard";
 import toast from "react-hot-toast";
+import {
+  type Language,
+  useSiteLanguage,
+} from "../../utils/siteLanguage";
+
+type ShareableLocation = Pick<
+  Location,
+  "protocol" | "host" | "pathname" | "search" | "hash"
+>;
+
+export function getShareablePageUrl(location: ShareableLocation): string {
+  return `${location.protocol}//${location.host}${location.pathname}${location.search}${location.hash}`;
+}
+
+export function getCopyrightText(
+  language: Language,
+  copyrightAggreement: string,
+  customCopyRight?: string | null,
+  customCopyRightEn?: string | null,
+): string {
+  const localizedCustomText =
+    language === "en" ? customCopyRightEn?.trim() : customCopyRight?.trim();
+  if (localizedCustomText) return localizedCustomText;
+
+  return language === "en"
+    ? `Unless otherwise stated, all articles on this blog are licensed under the ${copyrightAggreement} license. Please credit the source when sharing.`
+    : `本博客所有文章除特别声明外，均采用 ${copyrightAggreement}
+    许可协议。转载请注明出处！`;
+}
+
+function getReadablePageUrl(url: string): string {
+  try {
+    return decodeURI(url);
+  } catch {
+    return url;
+  }
+}
 
 export default function (props: {
   author: string;
@@ -8,17 +46,32 @@ export default function (props: {
   showDonate: boolean;
   copyrightAggreement: string;
   customCopyRight: string | null;
+  customCopyRightEn?: string | null;
 }) {
   const [url, setUrl] = useState("");
+  const router = useRouter();
+  const { language, t } = useSiteLanguage();
   useEffect(() => {
-    setUrl(`${location.protocol}//${location.host}${location.pathname}`);
-  }, [setUrl]);
+    const updateUrl = () => setUrl(getShareablePageUrl(window.location));
+    updateUrl();
+    window.addEventListener("hashchange", updateUrl);
+    return () => window.removeEventListener("hashchange", updateUrl);
+  }, [router.asPath]);
 
   const text = useMemo(() => {
-    if (props.customCopyRight) return props.customCopyRight;
-    return `本博客所有文章除特别声明外，均采用 ${props.copyrightAggreement}
-    许可协议。转载请注明出处！`;
-  }, [props.customCopyRight, props.copyrightAggreement]);
+    return getCopyrightText(
+      language,
+      props.copyrightAggreement,
+      props.customCopyRight,
+      props.customCopyRightEn,
+    );
+  }, [
+    language,
+    props.customCopyRight,
+    props.customCopyRightEn,
+    props.copyrightAggreement,
+  ]);
+  const readableUrl = useMemo(() => getReadablePageUrl(url), [url]);
 
   return (
     <div
@@ -27,15 +80,15 @@ export default function (props: {
       }`}
     >
       <p>
-        <span className="mr-2">本文作者:</span>
+        <span className="mr-2">{t("本文作者", "Author")}:</span>
         <span>{props.author}</span>
       </p>
       <p>
-        <span className="mr-2">本文链接:</span>
+        <span className="mr-2">{t("本文链接", "Article URL")}:</span>
         <CopyToClipboard
-          text={decodeURIComponent(url)}
+          text={url}
           onCopy={() => {
-            toast.success("复制成功！", {
+            toast.success(t("复制成功！", "Copied."), {
               className: "toast",
             });
           }}
@@ -44,12 +97,12 @@ export default function (props: {
             className="cursor-pointer border-b border-gray-100 hover:border-gray-500 dark:text-dark dark-border-hover dark:border-nav-dark"
             style={{ wordBreak: "break-all" }}
           >
-            {decodeURIComponent(url)}
+            {readableUrl}
           </span>
         </CopyToClipboard>
       </p>
       <p>
-        <span className="mr-2">版权声明:</span>
+        <span className="mr-2">{t("版权声明", "Copyright")}:</span>
         <span>{text}</span>
       </p>
     </div>

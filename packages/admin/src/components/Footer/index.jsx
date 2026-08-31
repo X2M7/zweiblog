@@ -20,8 +20,8 @@ const Footer = () => {
       }
       console.log('🚀欢迎使用 ZweiBlog 博客系统');
       console.log('当前版本：', v);
-      console.log('项目主页：', 'https://vanblog.mereith.com');
-      console.log('开源地址：', 'https://github.com/mereithhh/van-blog');
+      console.log('项目主页：', 'https://github.com/X2M7/zweiblog');
+      console.log('问题反馈：', 'https://github.com/X2M7/zweiblog/issues');
       console.log('喜欢的话可以给个 star 哦🙏');
     }
   }, [initialState, history]);
@@ -31,7 +31,7 @@ const Footer = () => {
   //     <div className="footer" style={{ textAlign: 'center', marginTop: 32 }}>
   //       <p>
   //         <span>Powered By </span>
-  //         <a className="ua" href="https://vanblog.mereith.com" target="_blank" rel="noreferrer">
+  //         <a className="ua" href="https://github.com/X2M7/zweiblog" target="_blank" rel="noreferrer">
   //           ZweiBlog
   //         </a>
   //       </p>

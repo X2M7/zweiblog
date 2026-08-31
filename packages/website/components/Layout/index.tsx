@@ -13,12 +13,25 @@ import { Toaster } from "react-hot-toast";
 import Footer from "../Footer";
 import NavBarMobile from "../NavBarMobile";
 import LayoutBody from "../LayoutBody";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+import { useRouter } from "next/router";
+import { getSiteLanguageMetadata, isPostPath } from "../../utils/siteLanguageMetadata";
 export default function (props: {
   option: LayoutProps;
   title: string;
   sideBar: any;
   children: any;
 }) {
+  const { language } = useSiteLanguage();
+  const router = useRouter();
+  const siteName = language === "en" && props.option.siteNameEn?.trim()
+    ? props.option.siteNameEn
+    : props.option.siteName;
+  const description = language === "en" && props.option.descriptionEn?.trim()
+    ? props.option.descriptionEn
+    : props.option.description;
+  const languageMetadata = getSiteLanguageMetadata(router.asPath || router.pathname || "/", language);
+  const hasArticleMetadata = isPostPath(router.asPath) || isPostPath(router.pathname);
   // console.log("css", props.option.customCss);
   // console.log("html", props.option.customHtml);
   // console.log("script", decode(props.option.customScript as string));
@@ -35,8 +48,8 @@ export default function (props: {
       localStorage.setItem("saidHello", "true");
       console.log("🚀欢迎使用 ZweiBlog 博客系统");
       console.log("当前版本：", props?.option?.version || "未知");
-      console.log("项目主页：", "https://vanblog.mereith.com");
-      console.log("开源地址：", "https://github.com/mereithhh/van-blog");
+      console.log("项目主页：", "https://github.com/X2M7/zweiblog");
+      console.log("问题反馈：", "https://github.com/X2M7/zweiblog/issues");
       console.log("喜欢的话可以给个 star 哦🙏");
       window.onbeforeunload = handleClose;
     }
@@ -49,8 +62,16 @@ export default function (props: {
       <Head>
         <title>{props.title}</title>
         <link rel="icon" href={props.option.favicon}></link>
-        <meta name="description" content={props.option.description}></meta>
+        <meta key="description" name="description" content={description}></meta>
         <meta name="robots" content="index, follow"></meta>
+        {!hasArticleMetadata && (
+          <>
+            <link href={languageMetadata.zhHref} hrefLang="zh-CN" rel="alternate" />
+            <link href={languageMetadata.enHref} hrefLang="en" rel="alternate" />
+            <link href={languageMetadata.xDefaultHref} hrefLang="x-default" rel="alternate" />
+            <link href={languageMetadata.canonicalHref} rel="canonical" />
+          </>
+        )}
       </Head>
       <BackToTopBtn></BackToTopBtn>
       {props.option.baiduAnalysisID != "" &&
@@ -81,9 +102,11 @@ export default function (props: {
             subMenuOffset={props.option.subMenuOffset}
             showAdminButton={props.option.showAdminButton}
             menus={props.option.menus}
-            siteName={props.option.siteName}
+            siteName={siteName}
             logo={props.option.logo}
             categories={props.option.categories}
+            categoryNamesEn={props.option.categoryNamesEn}
+            tagNamesEn={props.option.tagNamesEn}
             isOpen={isOpen}
             setOpen={setIsOpen}
             logoDark={props.option.logoDark}

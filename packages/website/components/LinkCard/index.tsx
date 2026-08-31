@@ -1,7 +1,16 @@
 import { LinkItem } from "../../api/getAllData";
+import React from "react";
 import ImageBox from "../ImageBox";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: { link: LinkItem }) {
+  const { language } = useSiteLanguage();
+  const name = language === "en" && props.link.nameEn?.trim()
+    ? props.link.nameEn
+    : props.link.name;
+  const description = language === "en" && props.link.descEn?.trim()
+    ? props.link.descEn
+    : props.link.desc;
   return (
     <div>
       <a
@@ -14,14 +23,14 @@ export default function (props: { link: LinkItem }) {
         <div className="mr-2 flex-shrink-0 sm:mr-4 flex  items-center justify-center">
           <ImageBox
             src={props.link.logo}
-            alt={props.link.name}
+            alt={name}
             lazyLoad={true}
             className="rounded-full w-10 h-10 sm:w-16 sm:h-16  duration-500 transition-all dark:filter-dark"
           />
         </div>
         <div className="flex flex-col flex-grow-0 overflow-hidden">
           <p
-            title={props.link.name}
+            title={name}
             className="text-sm sm:text-lg font-normal mb-1 dark:text-dark"
             style={{
               overflow: "hidden",
@@ -29,10 +38,10 @@ export default function (props: { link: LinkItem }) {
               whiteSpace: "nowrap",
             }}
           >
-            {props.link.name}
+            {name}
           </p>
           <p
-            title={props.link.desc}
+            title={description}
             style={{
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -40,7 +49,7 @@ export default function (props: { link: LinkItem }) {
             }}
             className="text-xs sm:text-sm font-thin text-gray-600 dark:text-dark"
           >
-            {props.link.desc}
+            {description}
           </p>
         </div>
       </a>

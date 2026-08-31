@@ -1,16 +1,10 @@
-import { checkDemo } from './check';
 import { parseObjToMarkdown } from './parseMarkdownFile';
 import { getArticleById, deleteArticle, deleteDraft, getDraftById } from './api';
 import { Modal } from 'antd';
 
 // 批量操作
 export const batchDelete = (ids: string[], isDraft = false) => {
-  return new Promise((resolve, reject) => {
-    const result = checkDemo();
-    if (!result) {
-      reject();
-      return;
-    }
+  return new Promise((resolve) => {
     Modal.confirm({
       title: '确定要删除选中内容吗？',
       content: '删除后无法恢复',
@@ -40,7 +34,7 @@ export const batchExport = async (ids: string[], isDraft = false) => {
 
 export const exportEachById = async (id: string, isDraft = false) => {
   const fn = isDraft ? getDraftById : getArticleById;
-  const { data: obj } = await getArticleById(id);
+  const { data: obj } = await fn(id);
   const md = parseObjToMarkdown(obj);
   const data = new Blob([md]);
   const url = URL.createObjectURL(data);

@@ -1,0 +1,15 @@
+* text=auto
+
+# Container entrypoints and maintenance scripts must stay Unix-compatible.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Keep binary preview and documentation assets byte-for-byte unchanged.
+*.gif binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary

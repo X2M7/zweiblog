@@ -20,6 +20,8 @@ import {
   uploadCommentImage,
 } from "../../api/comments";
 import CommentMarkdown from "../CommentMarkdown";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+import type { Language } from "../../utils/siteLanguage";
 
 const PAGE_SIZE = 10;
 const PROFILE_KEY = "zweiblog.local-comment-profile";
@@ -27,6 +29,13 @@ const LIKED_KEY = "zweiblog.local-comment-liked";
 const COMMENT_MAX_LENGTH = 50_000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const COMMENT_IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
+const COMMENT_ENVIRONMENT_NAMES_EN: Record<string, string> = {
+  "未知地区": "Unknown location",
+  "本地网络": "Local network",
+  "未知": "Unknown",
+  "未知浏览器": "Unknown browser",
+  "未知系统": "Unknown operating system",
+};
 const EMOJIS = [
   "😀", "😃", "😄", "😁", "😊", "🥰", "😍", "😘",
   "😎", "🤔", "😂", "🤣", "🥲", "😭", "😡", "🤯",
@@ -92,13 +101,20 @@ function normalizeLink(link?: string) {
   }
 }
 
-function displayTime(value: string) {
+function displayTime(value: string, language: Language) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("zh-CN", { hour12: false });
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString(language === "en" ? "en-US" : "zh-CN", { hour12: false });
 }
 
-function Avatar({ nick }: { nick: string }) {
-  const label = Array.from(nick.trim() || "访").slice(0, 2).join("");
+function localizeEnvironmentName(value: string | undefined, language: Language) {
+  if (!value || language !== "en") return value;
+  return COMMENT_ENVIRONMENT_NAMES_EN[value] || value;
+}
+
+function Avatar({ nick, language }: { nick: string; language: Language }) {
+  const label = Array.from(nick.trim() || (language === "en" ? "G" : "访")).slice(0, 2).join("");
   let hue = 0;
   Array.from(nick).forEach((char) => {
     hue = (hue * 31 + (char.codePointAt(0) || 0)) % 360;
@@ -209,8 +225,19 @@ export function CommentItem({
   onReply: (target: ReplyTarget) => void;
   onLike: (comment: LocalComment) => void;
 }) {
+  const { language, t } = useSiteLanguage();
   const link = comment.deleted ? undefined : normalizeLink(comment.link);
-  const environment = [comment.location, comment.browser, comment.os].filter(Boolean);
+  const environment = [comment.location, comment.browser, comment.os]
+    .map((value) => localizeEnvironmentName(value, language))
+    .filter((value): value is string => Boolean(value));
+  const displayNick = comment.deleted
+    ? t("已删除", "Deleted")
+    : comment.nick === "匿名访客"
+      ? t("匿名访客", "Guest")
+      : comment.nick;
+  const replyToNick = comment.replyToNick === "匿名访客"
+    ? t("匿名访客", "Guest")
+    : comment.replyToNick;
   return (
     <article
       className={`${depth ? "mt-4 border-l-2 border-slate-200 pl-3 dark:border-gray-700" : "py-5"} ${
@@ -218,7 +245,7 @@ export function CommentItem({
       }`}
     >
       <div className="flex gap-3">
-        {!comment.deleted && <Avatar nick={comment.nick} />}
+        {!comment.deleted && <Avatar language={language} nick={displayNick} />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {link ? (
@@ -228,24 +255,24 @@ export function CommentItem({
                 rel="nofollow noopener noreferrer ugc"
                 target="_blank"
               >
-                {comment.nick}
+                {displayNick}
               </a>
             ) : (
-              <span className="font-medium text-gray-800 dark:text-gray-200">{comment.nick}</span>
+              <span className="font-medium text-gray-800 dark:text-gray-200">{displayNick}</span>
             )}
             {comment.isAdmin && (
               <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700 dark:bg-slate-700 dark:text-sky-300">
-                站长
+                {t("站长", "Owner")}
               </span>
             )}
-            {comment.replyToNick && <span className="text-xs text-gray-500">回复 @{comment.replyToNick}</span>}
+            {replyToNick && <span className="text-xs text-gray-500">{t("回复", "Replying to")} @{replyToNick}</span>}
             <time className="text-xs text-gray-400" dateTime={comment.createdAt}>
-              {displayTime(comment.createdAt)}
+              {displayTime(comment.createdAt, language)}
             </time>
           </div>
           {!comment.deleted && environment.length > 0 && (
             <p
-              aria-label="评论者所在地区与设备"
+              aria-label={t("评论者所在地区与设备", "Commenter's location and device")}
               className="mt-1 text-xs text-gray-400"
               title={environment.join(" · ")}
             >
@@ -254,13 +281,16 @@ export function CommentItem({
           )}
           <div className="mt-2 overflow-hidden text-sm text-gray-700 dark:text-gray-300">
             {comment.deleted ? (
-              <p className="italic text-gray-400">该评论已删除</p>
+              <p className="italic text-gray-400">{t("该评论已删除", "This comment has been deleted")}</p>
             ) : (
               <>
                 <CommentMarkdown content={comment.content} />
                 {comment.contentTruncated && (
                   <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                    这条旧评论超过 50000 个字符，公开页面已截断；完整内容仍保存在本地备份与后台。
+                    {t(
+                      "这条旧评论超过 50000 个字符，公开页面已截断；完整内容仍保存在本地备份与后台。",
+                      "This legacy comment exceeds 50,000 characters and has been truncated publicly. The full text remains in local backups and the admin dashboard.",
+                    )}
                   </p>
                 )}
               </>
@@ -269,23 +299,23 @@ export function CommentItem({
           {!comment.deleted && (
             <div className="mt-2 flex items-center justify-end gap-1 text-xs text-gray-500">
               <button
-                aria-label={liked.has(comment.id) ? "取消点赞" : "点赞"}
+                aria-label={liked.has(comment.id) ? t("取消点赞", "Remove like") : t("点赞", "Like")}
                 className={`inline-flex min-h-[32px] min-w-[32px] items-center justify-center gap-1 rounded px-2 hover:bg-slate-100 hover:text-rose-500 disabled:cursor-wait disabled:opacity-50 dark:hover:bg-slate-800 ${
                   liked.has(comment.id) ? "text-rose-500" : ""
                 }`}
                 disabled={liking?.has(comment.id)}
                 onClick={() => onLike(comment)}
-                title={liked.has(comment.id) ? "取消点赞" : "点赞"}
+                title={liked.has(comment.id) ? t("取消点赞", "Remove like") : t("点赞", "Like")}
                 type="button"
               >
                 <HeartIcon active={liked.has(comment.id)} />
                 {comment.likes > 0 && <span aria-hidden="true">{comment.likes}</span>}
               </button>
               <button
-                aria-label={`回复 ${comment.nick}`}
+                aria-label={`${t("回复", "Reply to")} ${displayNick}`}
                 className="inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded hover:bg-slate-100 hover:text-sky-600 dark:hover:bg-slate-800"
                 onClick={() => onReply({ id: comment.id, rootId, nick: comment.nick })}
-                title={`回复 ${comment.nick}`}
+                title={`${t("回复", "Reply to")} ${displayNick}`}
                 type="button"
               >
                 <ReplyIcon />
@@ -306,7 +336,7 @@ export function CommentItem({
           ))}
           {comment.repliesTruncated && (
             <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-              回复层级过深，后续内容已折叠。
+              {t("回复层级过深，后续内容已折叠。", "Additional nested replies have been collapsed.")}
             </p>
           )}
         </div>
@@ -317,6 +347,7 @@ export function CommentItem({
 
 function CountLoader() {
   const router = useRouter();
+  const routePath = normalizeCommentPath(router.asPath || "/");
   useEffect(() => {
     const controller = new AbortController();
     const nodes = Array.from(
@@ -344,12 +375,14 @@ function CountLoader() {
         if (error?.name !== "AbortError") console.warn("评论计数加载失败", error);
       });
     return () => controller.abort();
-  }, [router.asPath]);
+  }, [routePath]);
   return null;
 }
 
 function CommentPanel() {
   const router = useRouter();
+  const { language, t } = useSiteLanguage();
+  const routePath = normalizeCommentPath(router.asPath || "/");
   const [path, setPath] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CommentPage>({
@@ -395,7 +428,6 @@ function CommentPanel() {
     // Next can reuse this component while navigating between posts. Reset all
     // target-specific state so a draft/reply can never be sent to the previous
     // article and comment counts are refreshed after client-side navigation.
-    const routePath = router.asPath?.split(/[?#]/, 1)[0] || window.location.pathname || "/";
     setPath(routePath);
     uploadGenerationRef.current += 1;
     setPage(1);
@@ -409,7 +441,7 @@ function CommentPanel() {
     setToolNotice("");
     setMessage("");
     setError("");
-  }, [router.asPath]);
+  }, [routePath]);
 
   const load = useCallback((currentPath: string, currentPage: number) => {
     const controller = new AbortController();
@@ -421,11 +453,17 @@ function CommentPanel() {
         setLiked((current) => mergeServerLiked(nextData.items, current));
       })
       .catch((caught) => {
-        if (caught?.name !== "AbortError") setError(caught?.message || "评论加载失败");
+        if (caught?.name !== "AbortError") {
+          setError(
+            language === "en"
+              ? "Unable to load comments."
+              : caught?.message || "评论加载失败",
+          );
+        }
       })
       .finally(() => setLoading(false));
     return controller;
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     if (!path) return;
@@ -445,7 +483,11 @@ function CommentPanel() {
     const end = textarea?.selectionEnd ?? start;
     const next = `${current.slice(0, start)}${value}${current.slice(end)}`;
     if (next.length > data.maxLength) {
-      setError(`评论最多 ${data.maxLength} 个字符`);
+      setError(
+        language === "en"
+          ? `Comments are limited to ${data.maxLength} characters.`
+          : `评论最多 ${data.maxLength} 个字符`,
+      );
       return false;
     }
     contentRef.current = next;
@@ -457,13 +499,13 @@ function CommentPanel() {
       textarea?.setSelectionRange(cursor, cursor);
     });
     return true;
-  }, [data.maxLength]);
+  }, [data.maxLength, language]);
 
   const insertImage = useCallback((src: string, alt: string) => {
-    const safeAlt = (alt.trim() || "图片").replace(/\\/g, "\\\\").replace(/]/g, "\\]");
+    const safeAlt = (alt.trim() || t("图片", "Image")).replace(/\\/g, "\\\\").replace(/]/g, "\\]");
     const safeSrc = src.trim().replace(/\s/g, "%20").replace(/\(/g, "%28").replace(/\)/g, "%29");
     return insertAtCursor(`\n![${safeAlt}](${safeSrc})\n`);
-  }, [insertAtCursor]);
+  }, [insertAtCursor, t]);
 
   const insertNetworkImage = () => {
     setToolNotice("");
@@ -472,18 +514,18 @@ function CommentPanel() {
     try {
       parsed = new URL(imageUrl.trim());
     } catch {
-      setError("请输入完整的 HTTP 或 HTTPS 图片地址");
+      setError(t("请输入完整的 HTTP 或 HTTPS 图片地址", "Enter a complete HTTP or HTTPS image URL."));
       return;
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      setError("网络图片仅支持 HTTP 或 HTTPS 地址");
+      setError(t("网络图片仅支持 HTTP 或 HTTPS 地址", "Remote images must use an HTTP or HTTPS URL."));
       return;
     }
     if (insertImage(parsed.href, imageAlt)) {
       setImageUrl("");
       setImageAlt("");
       setToolPanel(null);
-      setToolNotice("已在光标处插入网络图片");
+      setToolNotice(t("已在光标处插入网络图片", "Remote image inserted at the cursor."));
     }
   };
 
@@ -496,28 +538,28 @@ function CommentPanel() {
     setMessage("");
     setToolNotice("");
     if (!COMMENT_IMAGE_TYPES.has(file.type.toLowerCase())) {
-      setError("仅支持 PNG、JPG、GIF 和 WebP 图片");
+      setError(t("仅支持 PNG、JPG、GIF 和 WebP 图片", "Only PNG, JPG, GIF, and WebP images are supported."));
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setError("图片不能超过 5 MB");
+      setError(t("图片不能超过 5 MB", "Images must be 5 MB or smaller."));
       return;
     }
     const uploadGeneration = ++uploadGenerationRef.current;
     setUploading(true);
-    setToolNotice(`正在上传 ${file.name}…`);
+    setToolNotice(`${t("正在上传", "Uploading")} ${file.name}…`);
     try {
       const src = await uploadCommentImage(file);
       if (uploadGeneration !== uploadGenerationRef.current) return;
       if (insertImage(src, imageAlt || file.name.replace(/\.[^.]+$/, ""))) {
         setImageAlt("");
         setToolPanel(null);
-        setToolNotice("图片已上传并插入评论，提交评论后即可公开显示");
+        setToolNotice(t("图片已上传并插入评论，提交评论后即可公开显示", "Image uploaded and inserted. It will appear publicly after you submit the comment."));
       }
     } catch (caught: any) {
       if (uploadGeneration !== uploadGenerationRef.current) return;
       setToolNotice("");
-      setError(caught?.message || "图片上传失败");
+      setError(language === "en" ? "Image upload failed." : caught?.message || "图片上传失败");
     } finally {
       if (uploadGeneration === uploadGenerationRef.current) setUploading(false);
     }
@@ -527,8 +569,8 @@ function CommentPanel() {
     event.preventDefault();
     setError("");
     setMessage("");
-    if (uploading) return setError("请等待图片上传完成");
-    if (!content.trim()) return setError("请填写评论内容");
+    if (uploading) return setError(t("请等待图片上传完成", "Wait for the image upload to finish."));
+    if (!content.trim()) return setError(t("请填写评论内容", "Enter a comment before submitting."));
     setSubmitting(true);
     try {
       const result = await createComment({
@@ -548,10 +590,14 @@ function CommentPanel() {
       setToolNotice("");
       setPreview(false);
       const pending = result?.moderated || result?.status === "pending" || result?.comment?.status === "pending";
-      setMessage(pending ? "评论已保存，审核通过后会公开显示。" : "评论发布成功。所有数据仅保存在本站。");
+      setMessage(
+        pending
+          ? t("评论已保存，审核通过后会公开显示。", "Your comment has been saved and will appear after approval.")
+          : t("评论发布成功。所有数据仅保存在本站。", "Comment published. All data is stored on this site only."),
+      );
       if (!pending) page === 1 ? load(path, 1) : setPage(1);
     } catch (caught: any) {
-      setError(caught?.message || "评论发布失败");
+      setError(language === "en" ? "Unable to publish the comment." : caught?.message || "评论发布失败");
     } finally {
       setSubmitting(false);
     }
@@ -583,7 +629,7 @@ function CommentPanel() {
         items: current.items.map((item) => updateLike(item, comment.id, nextLikes)),
       }));
     } catch (caught: any) {
-      setError(caught?.message || "点赞失败");
+      setError(language === "en" ? "Unable to update the like." : caught?.message || "点赞失败");
     } finally {
       setLiking((current) => {
         const next = new Set(current);
@@ -596,8 +642,10 @@ function CommentPanel() {
   return (
     <section className="mt-4 bg-white px-4 py-5 text-gray-700 dark:bg-dark dark:text-dark md:px-6" id="comments">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">评论 {data.total || ""}</h2>
-        <span className="text-xs text-gray-400">本地存储 · Markdown / TeX</span>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          {t("评论", "Comments")} {data.total || ""}
+        </h2>
+        <span className="text-xs text-gray-400">{t("本地存储", "Locally hosted")} · Markdown / TeX</span>
       </div>
       <form className="rounded border border-slate-200 p-3 dark:border-gray-700" onSubmit={submit}>
         <div className="grid gap-2 md:grid-cols-3">
@@ -606,7 +654,8 @@ function CommentPanel() {
             className="rounded border border-slate-200 bg-transparent px-3 py-2 outline-none focus:border-sky-500 dark:border-gray-700"
             maxLength={64}
             onChange={(event) => setProfile({ ...profile, nick: event.target.value })}
-            placeholder="昵称（可选，留空匿名）"
+            aria-label={t("昵称", "Name")}
+            placeholder={t("昵称（可选，留空匿名）", "Name (optional; leave blank to comment anonymously)")}
             value={profile.nick}
           />
           <input
@@ -614,7 +663,8 @@ function CommentPanel() {
             className="rounded border border-slate-200 bg-transparent px-3 py-2 outline-none focus:border-sky-500 dark:border-gray-700"
             maxLength={254}
             onChange={(event) => setProfile({ ...profile, mail: event.target.value })}
-            placeholder="邮箱（仅站长可见）"
+            aria-label={t("邮箱", "Email")}
+            placeholder={t("邮箱（仅站长可见）", "Email (visible to the owner only)")}
             type="email"
             value={profile.mail}
           />
@@ -623,7 +673,8 @@ function CommentPanel() {
             className="rounded border border-slate-200 bg-transparent px-3 py-2 outline-none focus:border-sky-500 dark:border-gray-700"
             maxLength={500}
             onChange={(event) => setProfile({ ...profile, link: event.target.value })}
-            placeholder="个人网址（可选）"
+            aria-label={t("个人网址", "Website")}
+            placeholder={t("个人网址（可选）", "Website (optional)")}
             type="url"
             value={profile.link}
           />
@@ -639,7 +690,7 @@ function CommentPanel() {
               }}
               type="checkbox"
             />
-            在此设备记住昵称、邮箱和网址
+            {t("在此设备记住昵称、邮箱和网址", "Remember my name, email, and website on this device")}
           </label>
           <button
             className="hover:text-sky-600"
@@ -650,13 +701,13 @@ function CommentPanel() {
             }}
             type="button"
           >
-            清除本地资料
+            {t("清除本地资料", "Clear saved details")}
           </button>
         </div>
         {replyTo && (
           <div className="mt-3 flex items-center justify-between rounded bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:bg-slate-800 dark:text-sky-300">
-            <span>正在回复 @{replyTo.nick}</span>
-            <button onClick={() => setReplyTo(null)} type="button">取消</button>
+            <span>{t("正在回复", "Replying to")} @{replyTo.nick === "匿名访客" ? t("匿名访客", "Guest") : replyTo.nick}</span>
+            <button onClick={() => setReplyTo(null)} type="button">{t("取消", "Cancel")}</button>
           </div>
         )}
         <textarea
@@ -666,61 +717,65 @@ function CommentPanel() {
             contentRef.current = event.target.value;
             setContent(event.target.value);
           }}
-          placeholder={"支持 Markdown、网络图片与 TeX，例如：$E = mc^2$ 或 $$\\int_0^1 x^2 dx$$"}
+          aria-label={t("评论内容", "Comment")}
+          placeholder={t(
+            "支持 Markdown、网络图片与 TeX，例如：$E = mc^2$ 或 $$\\int_0^1 x^2 dx$$",
+            "Markdown, remote images, and TeX are supported, for example: $E = mc^2$ or $$\\int_0^1 x^2 dx$$",
+          )}
           ref={textareaRef}
           value={content}
         />
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 py-2 text-xs dark:border-gray-700">
-          <div aria-label="评论编辑工具" className="flex items-center gap-1" role="toolbar">
+          <div aria-label={t("评论编辑工具", "Comment editor tools")} className="flex items-center gap-1" role="toolbar">
             <button
               aria-expanded={toolPanel === "emoji"}
-              aria-label="插入表情"
+              aria-label={t("插入表情", "Insert emoji")}
               className={`inline-flex h-9 w-9 items-center justify-center rounded hover:bg-slate-100 hover:text-sky-600 dark:hover:bg-slate-800 ${
                 toolPanel === "emoji" ? "bg-slate-100 text-sky-600 dark:bg-slate-800" : ""
               }`}
               onClick={() => setToolPanel((current) => current === "emoji" ? null : "emoji")}
-              title="插入表情"
+              title={t("插入表情", "Insert emoji")}
               type="button"
             >
               <EmojiIcon />
             </button>
             <button
               aria-expanded={toolPanel === "image"}
-              aria-label="插入图片"
+              aria-label={t("插入图片", "Insert image")}
               className={`inline-flex h-9 w-9 items-center justify-center rounded hover:bg-slate-100 hover:text-sky-600 dark:hover:bg-slate-800 ${
                 toolPanel === "image" ? "bg-slate-100 text-sky-600 dark:bg-slate-800" : ""
               }`}
               disabled={uploading}
               onClick={() => setToolPanel((current) => current === "image" ? null : "image")}
-              title="上传本地图片或插入网络图片"
+              title={t("上传本地图片或插入网络图片", "Upload a local image or insert a remote image")}
               type="button"
             >
               <ImageIcon />
             </button>
             <button
               aria-expanded={preview}
-              aria-label={preview ? "收起预览" : "展开预览"}
+              aria-label={preview ? t("收起预览", "Close preview") : t("展开预览", "Open preview")}
               className={`inline-flex h-9 w-9 items-center justify-center rounded hover:bg-slate-100 hover:text-sky-600 dark:hover:bg-slate-800 ${
                 preview ? "bg-slate-100 text-sky-600 dark:bg-slate-800" : ""
               }`}
               onClick={() => setPreview((current) => !current)}
-              title={preview ? "收起预览" : "预览 Markdown 与 TeX"}
+              title={preview ? t("收起预览", "Close preview") : t("预览 Markdown 与 TeX", "Preview Markdown and TeX")}
               type="button"
             >
               <PreviewIcon />
             </button>
           </div>
-          <span className="text-gray-400">{content.length}/{data.maxLength} · 请勿提交隐私信息</span>
+          <span className="text-gray-400">{content.length}/{data.maxLength} · {t("请勿提交隐私信息", "Do not submit private information")}</span>
         </div>
         {toolPanel === "emoji" && (
           <div className="grid grid-cols-8 gap-1 border-t border-slate-100 px-2 py-3 sm:grid-cols-12 dark:border-gray-700">
             {EMOJIS.map((emoji) => (
               <button
-                aria-label={`插入表情 ${emoji}`}
+                aria-label={`${t("插入表情", "Insert emoji")} ${emoji}`}
                 className="rounded p-1.5 text-xl hover:bg-slate-100 dark:hover:bg-slate-800"
                 key={emoji}
                 onClick={() => insertAtCursor(emoji)}
-                title={`插入 ${emoji}`}
+                title={`${t("插入", "Insert")} ${emoji}`}
                 type="button"
               >
                 {emoji}
@@ -744,9 +799,9 @@ function CommentPanel() {
                 onClick={() => fileInputRef.current?.click()}
                 type="button"
               >
-                {uploading ? "上传中…" : "上传本地图片"}
+                {uploading ? t("上传中…", "Uploading…") : t("上传本地图片", "Upload local image")}
               </button>
-              <span className="text-xs text-gray-400">支持 PNG、JPG、GIF、WebP，最大 5 MB</span>
+              <span className="text-xs text-gray-400">{t("支持 PNG、JPG、GIF、WebP，最大 5 MB", "PNG, JPG, GIF, and WebP up to 5 MB")}</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
               <input
@@ -760,7 +815,8 @@ function CommentPanel() {
                 className="rounded border border-slate-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-sky-500 dark:border-gray-700"
                 maxLength={120}
                 onChange={(event) => setImageAlt(event.target.value)}
-                placeholder="图片描述（可选）"
+                aria-label={t("图片描述", "Image description")}
+                placeholder={t("图片描述（可选）", "Image description (optional)")}
                 value={imageAlt}
               />
               <button
@@ -769,7 +825,7 @@ function CommentPanel() {
                 onClick={insertNetworkImage}
                 type="button"
               >
-                插入网络图片
+                {t("插入网络图片", "Insert remote image")}
               </button>
             </div>
           </div>
@@ -781,8 +837,8 @@ function CommentPanel() {
         )}
         {preview && (
           <div className="min-h-[100px] border-t border-slate-100 px-2 py-3 dark:border-gray-700">
-            <p className="mb-2 text-xs font-medium text-gray-400">预览（Markdown / TeX）</p>
-            {content.trim() ? <CommentMarkdown content={content} /> : <span className="text-sm text-gray-400">暂无预览内容</span>}
+            <p className="mb-2 text-xs font-medium text-gray-400">{t("预览", "Preview")} (Markdown / TeX)</p>
+            {content.trim() ? <CommentMarkdown content={content} /> : <span className="text-sm text-gray-400">{t("暂无预览内容", "Nothing to preview")}</span>}
           </div>
         )}
         <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-gray-700">
@@ -791,7 +847,13 @@ function CommentPanel() {
             disabled={submitting || uploading}
             type="submit"
           >
-            {uploading ? "图片上传中…" : submitting ? "提交中…" : replyTo ? "提交回复" : "发表评论"}
+            {uploading
+              ? t("图片上传中…", "Uploading image…")
+              : submitting
+                ? t("提交中…", "Submitting…")
+                : replyTo
+                  ? t("提交回复", "Submit reply")
+                  : t("发表评论", "Post comment")}
           </button>
         </div>
       </form>
@@ -799,7 +861,7 @@ function CommentPanel() {
       {error && <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-slate-800 dark:text-red-400">{error}</p>}
       <div className="mt-3 divide-y divide-slate-100 dark:divide-gray-700">
         {loading ? (
-          <p className="py-8 text-center text-sm text-gray-400">评论加载中…</p>
+          <p className="py-8 text-center text-sm text-gray-400">{t("评论加载中…", "Loading comments…")}</p>
         ) : data.items.length ? (
           data.items.map((comment) => (
             <CommentItem
@@ -818,19 +880,19 @@ function CommentPanel() {
             />
           ))
         ) : (
-          <p className="py-8 text-center text-sm text-gray-400">还没有评论，来留下第一条吧。</p>
+          <p className="py-8 text-center text-sm text-gray-400">{t("还没有评论，来留下第一条吧。", "No comments yet. Be the first to leave one.")}</p>
         )}
       </div>
       {data.truncatedReplies && (
         <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-slate-800 dark:text-amber-400">
-          本页回复数量过多，部分回复未加载，请由站长清理或拆分页查看。
+          {t("本页回复数量过多，部分回复未加载，请由站长清理或拆分页查看。", "This page contains too many replies; some were not loaded. The owner can clean them up or view them across pages.")}
         </p>
       )}
       {totalPages > 1 && (
-        <nav aria-label="评论分页" className="mt-4 flex items-center justify-center gap-3 text-sm">
-          <button className="rounded border px-3 py-1 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} type="button">上一页</button>
+        <nav aria-label={t("评论分页", "Comment pages")} className="mt-4 flex items-center justify-center gap-3 text-sm">
+          <button className="rounded border px-3 py-1 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} type="button">{t("上一页", "Previous")}</button>
           <span>{page} / {totalPages}</span>
-          <button className="rounded border px-3 py-1 disabled:opacity-40" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} type="button">下一页</button>
+          <button className="rounded border px-3 py-1 disabled:opacity-40" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} type="button">{t("下一页", "Next")}</button>
         </nav>
       )}
     </section>

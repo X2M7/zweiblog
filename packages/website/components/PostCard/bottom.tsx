@@ -3,15 +3,35 @@ import { useMemo } from "react";
 import { encodeQuerystring } from "../../utils/encode";
 import { getTarget } from "../Link/tools";
 import { getArticlePath } from "../../utils/getArticlePath";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+
+type NeighborArticle = {
+  id: number;
+  title: string;
+  pathname?: string;
+  hasEnglishVersion?: boolean;
+};
+
+export function getNeighborArticleHref(
+  article: NeighborArticle,
+  language?: "zh" | "en",
+) {
+  const englishQuery =
+    language === "en" && article.hasEnglishVersion ? "?lang=en" : "";
+  return `/post/${getArticlePath(article)}${englishQuery}`;
+}
 
 export function PostBottom(props: {
   type: "overview" | "article" | "about";
   lock: boolean;
   tags?: string[];
-  next?: { id: number; title: string; pathname?: string };
-  pre?: { id: number; title: string; pathname?: string };
+  tagsEn?: string[];
+  next?: NeighborArticle;
+  pre?: NeighborArticle;
   openArticleLinksInNewWindow: boolean;
+  language?: "zh" | "en";
 }) {
+  const { language, localizedPath } = useSiteLanguage();
   const show = useMemo(() => {
     if (props.type == "article" && !props.lock) {
       return true;
@@ -22,13 +42,15 @@ export function PostBottom(props: {
     <div className="mt-4">
       {props.tags && props.tags.length > 0 && (
         <div className="text-sm flex-wrap text-gray-500 flex justify-center space-x-2 select-none dark:text-dark">
-          {props.tags.map((tag) => (
+          {props.tags.map((tag, index) => (
             <div key={`article-tag-${tag}`}>
               <Link
-                href={`/tag/${encodeQuerystring(tag)}`}
+                href={localizedPath(`/tag/${encodeQuerystring(tag)}`)}
                 target={getTarget(props.openArticleLinksInNewWindow)}
               >
-                <div className=" border-b border-white hover:border-gray-500 dark:border-dark dark:hover:border-gray-300 dark:hover:text-gray-300">{`${tag}`}</div>
+                <div className=" border-b border-white hover:border-gray-500 dark:border-dark dark:hover:border-gray-300 dark:hover:text-gray-300">
+                  {language === "en" && props.tagsEn?.[index]?.trim() ? props.tagsEn[index] : tag}
+                </div>
               </Link>
             </div>
           ))}
@@ -39,7 +61,7 @@ export function PostBottom(props: {
         <div className="" style={{ maxWidth: "50%" }}>
           {props.pre?.id && (
             <Link
-              href={`/post/${getArticlePath(props.pre)}`}
+              href={localizedPath(`/post/${getArticlePath(props.pre)}`)}
               target={getTarget(props.openArticleLinksInNewWindow)}
             >
               <div
@@ -52,7 +74,7 @@ export function PostBottom(props: {
         <div className="" style={{ maxWidth: "50%" }}>
           {props.next?.id && (
             <Link
-              href={`/post/${getArticlePath(props.next)}`}
+              href={localizedPath(`/post/${getArticlePath(props.next)}`)}
               target={getTarget(props.openArticleLinksInNewWindow)}
             >
               <div

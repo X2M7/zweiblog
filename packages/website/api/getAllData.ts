@@ -1,12 +1,7 @@
 import { HeadTag } from "../utils/getLayoutProps";
 import { config } from "../utils/loadConfig";
-export type SocialType =
-  | "bilibili"
-  | "email"
-  | "github"
-  | "wechat"
-  | "gitee"
-  | "wechat-dark";
+import type { SocialType } from "../utils/socialCatalog";
+export type { SocialType } from "../utils/socialCatalog";
 export const defaultMenu: MenuItem[] = [
   {
     id: 0,
@@ -61,6 +56,7 @@ export interface SocialItem {
 export interface MenuItem {
   id: number;
   name: string;
+  nameEn?: string;
   value: string;
   level: number;
   children?: MenuItem[];
@@ -72,29 +68,43 @@ export interface DonateItem {
 }
 export interface LinkItem {
   name: string;
+  nameEn?: string;
   desc: string;
+  descEn?: string;
   logo: string;
   url: string;
   updatedAt: string;
 }
+export interface LinkPageContent {
+  updatedAt?: string;
+  content: string;
+  contentEn?: string;
+}
 export interface MetaProps {
   links: LinkItem[];
+  linkPage?: LinkPageContent;
   socials: SocialItem[];
   rewards: DonateItem[];
   categories: string[];
+  categoryDetails?: LocalizedNameItem[];
   about: {
     updatedAt: string;
     content: string;
+    contentEn?: string;
   };
   siteInfo: {
     author: string;
+    authorEn?: string;
     authorDesc: string;
+    authorDescEn?: string;
     authorLogo: string;
     authorLogoDark?: string;
     siteLogo: string;
     favicon: string;
     siteName: string;
+    siteNameEn?: string;
     siteDesc: string;
+    siteDescEn?: string;
     beianNumber: string;
     beianUrl: string;
     gaBeianNumber: string;
@@ -131,6 +141,7 @@ export interface MetaProps {
 export interface PublicMetaProp {
   version: string;
   tags: string[];
+  tagDetails?: LocalizedNameItem[];
   totalArticles: number;
   meta: MetaProps;
   menus: MenuItem[];
@@ -141,6 +152,11 @@ export interface PublicMetaProp {
     html?: string;
     head?: HeadTag[];
   };
+}
+
+export interface LocalizedNameItem {
+  name: string;
+  nameEn?: string;
 }
 
 export const version = process.env["ZWEI_BLOG_VERSION"] || "dev";

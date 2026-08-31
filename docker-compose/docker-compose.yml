@@ -1,29 +1,39 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: ${ZWEIBLOG_LOG_MAX_SIZE:-10m}
+    max-file: ${ZWEIBLOG_LOG_MAX_FILES:-3}
+
 services:
   zweiblog:
-    # Build this zweiblog checkout. Pulling the upstream image here would not
-    # include the native local-comment and security changes in this project.
-    image: zweiblog:local
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        ZWEI_BLOG_VERSIONS: zweiblog-local
+    image: ${ZWEIBLOG_IMAGE:-ghcr.io/x2m7/zweiblog:latest}
     restart: unless-stopped
+    init: true
     environment:
-      TZ: 'Asia/Shanghai'
-      # Email address used by Caddy when requesting HTTPS certificates.
-      EMAIL: 'someone@example.com'
-      # The URI is read from a Docker secret instead of being exposed by
-      # `docker inspect` as an environment variable.
+      TZ: ${TZ:-Asia/Shanghai}
+      # Optional for deployments that use the image's built-in HTTPS endpoint.
+      EMAIL: ${ACME_EMAIL:-}
       ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
+      # Only the bundled Caddy should connect directly to the API server.
+      ZWEI_BLOG_HOST: 127.0.0.1
+      # Extend this with only the exact address/CIDR of a trusted outer proxy.
+      ZWEI_BLOG_TRUST_PROXY: ${ZWEI_BLOG_TRUST_PROXY:-loopback}
+      # The same outer proxy must also be trusted by the bundled Caddy so its
+      # sanitized X-Forwarded-For chain reaches the API server.
+      ZWEI_BLOG_CADDY_TRUSTED_PROXIES: ${ZWEI_BLOG_CADDY_TRUSTED_PROXIES:-}
+      ZWEI_BLOG_ENABLE_SWAGGER: ${ZWEI_BLOG_ENABLE_SWAGGER:-false}
+      ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION: ${ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION:-false}
+      ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL: ${ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL:-false}
     volumes:
-      - ${PWD}/data/static:/app/static
-      - ${PWD}/log:/var/log
-      - ${PWD}/caddy/config:/home/zweiblog/.config/caddy
-      - ${PWD}/caddy/data:/home/zweiblog/.local/share/caddy
+      - ${ZWEIBLOG_DATA_DIR:-.}/data/static:/app/static
+      - ${ZWEIBLOG_DATA_DIR:-.}/log:/var/log
+      - ${ZWEIBLOG_DATA_DIR:-.}/caddy/config:/home/zweiblog/.config/caddy
+      - ${ZWEIBLOG_DATA_DIR:-.}/caddy/data:/home/zweiblog/.local/share/caddy
+    # Loopback binding is the safe default for a host-level reverse proxy.
+    # Set the bind addresses to 0.0.0.0 for direct public access.
     ports:
-      - '80:80'
-      - '443:443'
+      - ${ZWEIBLOG_HTTP_BIND:-127.0.0.1}:${ZWEIBLOG_HTTP_PORT:-8080}:80
+      - ${ZWEIBLOG_HTTPS_BIND:-127.0.0.1}:${ZWEIBLOG_HTTPS_PORT:-8443}:443
     secrets:
       - mongo_app_uri
     networks:
@@ -32,22 +42,41 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
-    security_opt:
-      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          Promise.all(['http://127.0.0.1:3000/','http://127.0.0.1:3001/','http://127.0.0.1/'].map((url)=>fetch(url,{redirect:'manual'}))).then((responses)=>process.exit(responses.every((response)=>response.status<500)?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    stop_grace_period: 30s
+    # Caddy is a non-root process with a file capability for ports 80/443.
+    # Keep only that capability in the container's bounding set. Docker's
+    # no-new-privileges option cannot be used here because it disables file
+    # capabilities before Caddy starts.
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    logging: *default-logging
 
   mongo:
-    # MongoDB 8.0 is a supported major release. Do not point this image at a
-    # MongoDB 4.4 data directory; use scripts/migrate-mongo.sh instead.
-    image: mongo:8.0
+    # Never mount a MongoDB 4.x data directory into MongoDB 8.0 directly.
+    # Use scripts/migrate-mongo.sh for an existing installation.
+    image: mongo:${ZWEIBLOG_MONGO_VERSION:-8.0}
     restart: unless-stopped
     environment:
-      TZ: 'Asia/Shanghai'
+      TZ: ${TZ:-Asia/Shanghai}
       MONGO_INITDB_ROOT_USERNAME: zweiblog-root
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
     volumes:
-      - ${PWD}/data/mongo:/data/db
-      - ${PWD}/mongo-init.js:/docker-entrypoint-initdb.d/10-zweiblog-user.js:ro
-      - ${PWD}/mongo-healthcheck.js:/opt/zweiblog/mongo-healthcheck.js:ro
+      - ${ZWEIBLOG_DATA_DIR:-.}/data/mongo:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/10-zweiblog-user.js:ro
+      - ./mongo-healthcheck.js:/opt/zweiblog/mongo-healthcheck.js:ro
     secrets:
       - mongo_root_password
       - mongo_app_password
@@ -55,7 +84,7 @@ services:
     networks:
       - database
     healthcheck:
-      test: ['CMD', 'mongosh', '--nodb', '--quiet', '--file', '/opt/zweiblog/mongo-healthcheck.js']
+      test: [CMD, mongosh, --nodb, --quiet, --file, /opt/zweiblog/mongo-healthcheck.js]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -63,17 +92,19 @@ services:
     stop_grace_period: 60s
     security_opt:
       - no-new-privileges:true
+    logging: *default-logging
 
 secrets:
   mongo_root_password:
-    file: ${PWD}/secrets/mongo-root-password
+    file: ${ZWEIBLOG_DATA_DIR:-.}/secrets/mongo-root-password
   mongo_app_password:
-    file: ${PWD}/secrets/mongo-app-password
+    file: ${ZWEIBLOG_DATA_DIR:-.}/secrets/mongo-app-password
   mongo_app_uri:
-    file: ${PWD}/secrets/mongo-app-uri
+    file: ${ZWEIBLOG_DATA_DIR:-.}/secrets/mongo-app-uri
 
 networks:
   web:
+    name: ${ZWEIBLOG_WEB_NETWORK:-zweiblog-web}
     driver: bridge
   database:
     driver: bridge

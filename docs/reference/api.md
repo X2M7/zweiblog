@@ -15,13 +15,13 @@ order: 6
 ::: note
 
 - swagger 路径： `/swagger`
-- 参考（demo 站的）： [https://blog-demo.mereith.com/swagger](https://blog-demo.mereith.com/swagger)
+- 在自己的站点访问 `/swagger`（生产环境需显式设置 `ZWEI_BLOG_ENABLE_SWAGGER=true`，使用后建议关闭）。
 
 :::
 
 举个例子，你可以通过 `GET /api/public/article/:id` ，获取置顶文章的 JSON 内容。
 
-你可以点击这个链接看一下效果： [https://blog-demo.mereith.com/api/public/article/28](https://blog-demo.mereith.com/api/public/article/28)
+部署后可在自己的域名下访问对应公开接口，例如 `/api/public/article/1`。
 
 ## 鉴权
 

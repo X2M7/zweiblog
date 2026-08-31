@@ -15,9 +15,9 @@ icon: retweet
 
 ```bash
 # 执行一键脚本自动打包备份文件
-curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh backup
+curl -fsSL https://raw.githubusercontent.com/X2M7/zweiblog/main/scripts/zweiblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh backup
 # 复制备份文件到新机器后，再次执行一键脚本恢复备份即可
-curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh restore
+curl -fsSL https://raw.githubusercontent.com/X2M7/zweiblog/main/scripts/zweiblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh restore
 ```
 
 @tab docker 手动部署时

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 
 import style from "../../styles/back-to-top.module.css";
 import { scrollTo } from "../../utils/scroll";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 const getScrollTop = (): number =>
   window.pageYOffset ||
@@ -19,6 +20,7 @@ const scrollToTop = () =>
 
 export default () => {
   const [display, setDisplay] = useState(false);
+  const { t } = useSiteLanguage();
 
   useEffect(() => {
     const onScroll = throttle((event: any) => {
@@ -36,7 +38,8 @@ export default () => {
     <>
       {display && (
         <div
-          title="返回顶部"
+          aria-label={t("返回顶部", "Back to top")}
+          title={t("返回顶部", "Back to top")}
           className={`${style.backToTop} dark:nav-shadow-dark text-gray-600 rounded-xl transform  transition-all  dark:bg-dark hover:scale-110 fill-dark dark:text-dark`}
           onClick={scrollToTop}
         >

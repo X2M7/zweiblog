@@ -4,15 +4,14 @@ import { hopeTheme } from 'vuepress-theme-hope';
 const __dirname = getDirname(import.meta.url);
 
 export default hopeTheme({
-  hostname: 'https://vanblog.mereith.com',
+  hostname: 'https://x2m7.github.io/zweiblog',
 
-  // This is the real upstream repository used by the edit links.
-  docsRepo: 'Mereithhh/vanblog',
-  docsBranch: 'master',
+  docsRepo: 'X2M7/zweiblog',
+  docsBranch: 'main',
   docsDir: 'docs',
   author: {
-    name: 'Mereith',
-    url: 'https://www.mereith.com',
+    name: 'ZweiBlog Contributors',
+    url: 'https://github.com/X2M7/zweiblog/graphs/contributors',
   },
 
   darkmode: 'switch',
@@ -20,7 +19,7 @@ export default hopeTheme({
 
   logo: '/logo.svg',
 
-  repo: 'Mereithhh/van-blog',
+  repo: 'X2M7/zweiblog',
 
   // navbar
   navbar: [
@@ -29,19 +28,9 @@ export default hopeTheme({
     '/features/',
     '/faq/',
     {
-      text: 'API',
-      icon: 'fas fa-book',
-      link: 'https://blog-demo.mereith.com/swagger',
-    },
-    {
-      text: 'Demo',
-      icon: 'laptop-code',
-      link: 'https://blog-demo.mereith.com',
-    },
-    {
-      text: '交流群',
-      icon: 'fab fa-qq',
-      link: 'https://jq.qq.com/?_wv=1027&k=5NRyK2Sw',
+      text: '部署',
+      icon: 'fas fa-server',
+      link: 'https://github.com/X2M7/zweiblog#docker-%E8%87%AA%E6%89%98%E7%AE%A1%E9%83%A8%E7%BD%B2%E6%8E%A8%E8%8D%90',
     },
   ],
 
@@ -54,14 +43,6 @@ export default hopeTheme({
   pageInfo: ['Author', 'Original', 'Date', 'Category', 'Tag', 'ReadingTime'],
 
   plugins: {
-    comment: {
-      provider: 'Giscus',
-      repo: 'mereithhh/vanblog-comment',
-      repoId: 'R_kgDOHtQfpQ',
-      category: 'Announcements',
-      categoryId: 'DIC_kwDOHtQfpc4CQZcs',
-    },
-
     mdEnhance: {
       align: true,
       codetabs: true,

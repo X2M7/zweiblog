@@ -41,7 +41,7 @@ describe('CategoryProvider content password security', () => {
     );
 
     await expect(provider.getAllCategories(true)).resolves.toEqual([
-      { id: 1, name: 'notes', private: true, hasPassword: true },
+      { id: 1, name: 'notes', nameEn: '', private: true, hasPassword: true },
     ]);
   });
 
@@ -100,6 +100,16 @@ describe('CategoryProvider content password security', () => {
     });
     await provider.updateCategoryByName('notes', { private: false });
     expect(categoryModel.updateOne.mock.calls[0][1].$unset).toEqual({ password: 1 });
+  });
+
+  it('updates the English display name without changing the canonical category key', async () => {
+    const { provider, categoryModel } = makeProvider();
+    await provider.updateCategoryByName('notes', { nameEn: 'Notes' });
+
+    expect(categoryModel.updateOne).toHaveBeenCalledWith(
+      { name: 'notes' },
+      expect.objectContaining({ $set: expect.objectContaining({ nameEn: 'Notes' }) }),
+    );
   });
 
   it('round-trips trusted backup hashes and hashes legacy plaintext', async () => {

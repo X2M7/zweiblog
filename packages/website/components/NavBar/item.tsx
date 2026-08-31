@@ -1,6 +1,23 @@
 import Link from "next/link";
 import { MouseEventHandler, useMemo, useRef, useState } from "react";
 import { MenuItem } from "../../api/getAllData";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+
+const BUILT_IN_MENU_ENGLISH: Record<string, string> = {
+  首页: "Home",
+  标签: "Tags",
+  分类: "Categories",
+  时间线: "Timeline",
+  友链: "Friends",
+  关于: "About",
+  笔记: "Notes",
+  公开课: "Open Courses",
+  工具: "Tools",
+};
+
+export function getEnglishMenuName(name: string, nameEn?: string): string {
+  return nameEn?.trim() || BUILT_IN_MENU_ENGLISH[name.trim()] || name;
+}
 
 function LinkItemAtom(props: {
   item: MenuItem;
@@ -11,6 +28,8 @@ function LinkItemAtom(props: {
   cls?: string;
 }) {
   const { item } = props;
+  const { localizedPath, t } = useSiteLanguage();
+  const itemName = t(item.name, getEnglishMenuName(item.name, item.nameEn));
   const cls = `nav-item transform hover:scale-110 dark:border-nav-dark  dark:transition-all ua`;
   const clsA = `h-full flex items-center px-2 md:px-4 `;
   if (item.value.includes("http")) {
@@ -26,7 +45,7 @@ function LinkItemAtom(props: {
           href={item.value}
           target="_blank"
         >
-          {item.name}
+          {itemName}
         </a>
         {props?.children}
       </li>
@@ -39,8 +58,8 @@ function LinkItemAtom(props: {
         key={item.id}
         className={props.cls ? props.cls : cls}
       >
-        <Link href={item.value} style={{ height: "100%" }}>
-          <div className={props.clsA ? props.clsA : clsA}>{item.name}</div>
+        <Link href={localizedPath(item.value)} style={{ height: "100%" }}>
+          <div className={props.clsA ? props.clsA : clsA}>{itemName}</div>
         </Link>
       </li>
     );

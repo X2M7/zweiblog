@@ -24,6 +24,7 @@ import {
   verifyContentPassword,
 } from 'src/utils/contentPassword';
 import { isScryptPasswordHash } from 'src/utils/crypto';
+import { assertLocalizedArticleFields } from 'src/utils/localizedArticleFields';
 
 export type ArticleView = 'admin' | 'public' | 'list';
 
@@ -136,7 +137,11 @@ export class ArticleProvider {
   }
   publicView = {
     title: 1,
+    titleEn: 1,
     content: 1,
+    contentEn: 1,
+    summary: 1,
+    summaryEn: 1,
     tags: 1,
     category: 1,
     updatedAt: 1,
@@ -151,12 +156,17 @@ export class ArticleProvider {
     hidden: 1,
     author: 1,
     copyright: 1,
+    copyrightEn: 1,
     pathname: 1,
   };
 
   adminView = {
     title: 1,
+    titleEn: 1,
     content: 1,
+    contentEn: 1,
+    summary: 1,
+    summaryEn: 1,
     tags: 1,
     category: 1,
     lastVisitedTime: 1,
@@ -171,11 +181,13 @@ export class ArticleProvider {
     visited: 1,
     author: 1,
     copyright: 1,
+    copyrightEn: 1,
     pathname: 1,
   };
 
   listView = {
     title: 1,
+    titleEn: 1,
     tags: 1,
     category: 1,
     updatedAt: 1,
@@ -190,20 +202,97 @@ export class ArticleProvider {
     visited: 1,
     author: 1,
     copyright: 1,
+    copyrightEn: 1,
     pathname: 1,
   };
 
+  /**
+   * `contentEn` is selected only long enough to derive the completeness flag
+   * used by bilingual list UIs. Every list serializer removes the body before
+   * the value can leave this provider.
+   */
+  private readonly listLookupView = {
+    ...this.listView,
+    contentEn: 1,
+  };
+
+  /**
+   * Neighbor lookups need the English body only to determine whether the
+   * translation is complete. The serializer below removes it before the
+   * record leaves this provider.
+   */
+  private readonly neighborLookupView = {
+    ...this.listView,
+    contentEn: 1,
+  };
+
+  private articleRecord(article: any): Record<string, any> {
+    return typeof article?.toObject === 'function'
+      ? article.toObject()
+      : { ...(article?._doc || article) };
+  }
+
+  private hasCompleteEnglishVersion(article: any): boolean {
+    if (typeof article?.hasEnglishVersion === 'boolean') {
+      return article.hasEnglishVersion;
+    }
+    return Boolean(
+      typeof article?.titleEn === 'string' &&
+        article.titleEn.trim() &&
+        typeof article?.contentEn === 'string' &&
+        article.contentEn.trim(),
+    );
+  }
+
+  private publicListArticle(article: any): Record<string, any> {
+    const result = this.articleRecord(article);
+    const hasEnglishVersion = this.hasCompleteEnglishVersion(result);
+    delete result.content;
+    delete result.contentEn;
+    delete result.summary;
+    delete result.summaryEn;
+    delete result.password;
+    return { ...result, hasEnglishVersion };
+  }
+
+  private protectedPublicArticle(article: any): Record<string, any> {
+    const result = this.articleRecord(article);
+    const hasEnglishVersion = this.hasCompleteEnglishVersion(result);
+    delete result.content;
+    delete result.contentEn;
+    delete result.summary;
+    delete result.summaryEn;
+    delete result.password;
+    result.private = true;
+    return { ...result, hasEnglishVersion };
+  }
+
+  private publicNeighbor(article: any): Record<string, any> {
+    const result = this.articleRecord(article);
+    const hasEnglishVersion = this.hasCompleteEnglishVersion(result);
+    delete result.content;
+    delete result.contentEn;
+    delete result.summary;
+    delete result.summaryEn;
+    delete result.password;
+    return { ...result, hasEnglishVersion };
+  }
+
   toPublic(oldArticles: Article[]) {
     return oldArticles.map((item) => {
+      const article = this.publicListArticle(item);
       return {
-        title: item.title,
-        content: item.content,
-        tags: item.tags,
-        category: item.category,
-        updatedAt: item.updatedAt,
-        createdAt: item.createdAt,
-        id: item.id,
-        top: item.top,
+        title: article.title,
+        titleEn: article.titleEn,
+        tags: article.tags,
+        category: article.category,
+        updatedAt: article.updatedAt,
+        createdAt: article.createdAt,
+        id: article.id,
+        top: article.top,
+        pathname: article.pathname,
+        private: article.private,
+        hasEnglishVersion: article.hasEnglishVersion,
       };
     });
   }
@@ -215,6 +304,7 @@ export class ArticleProvider {
   ): Promise<Article> {
     const data = { ...(createArticleDto as any) } as CreateArticleDto & Record<string, unknown>;
     this.assertNoBodyIdentityFields(data);
+    assertLocalizedArticleFields(data);
     if (id !== undefined && (!Number.isSafeInteger(id) || id <= 0)) {
       throw new BadRequestException('Article id must be a positive safe integer');
     }
@@ -260,13 +350,17 @@ export class ArticleProvider {
   async searchArticlesByLink(link: string) {
     const artciles = await this.articleModel.find(
       {
-        content: { $regex: link, $options: 'i' },
-        $or: [
+        $and: [
           {
-            deleted: false,
+            $or: [
+              { content: { $regex: link, $options: 'i' } },
+              { contentEn: { $regex: link, $options: 'i' } },
+              { summary: { $regex: link, $options: 'i' } },
+              { summaryEn: { $regex: link, $options: 'i' } },
+            ],
           },
           {
-            deleted: { $exists: false },
+            $or: [{ deleted: false }, { deleted: { $exists: false } }],
           },
         ],
       },
@@ -287,7 +381,13 @@ export class ArticleProvider {
       ],
     });
     for (const article of articles) {
-      const eachLinks = parseImgLinksOfMarkdown(article.content || '');
+      const eachLinks = Array.from(
+        new Set(
+          [article.content, article.contentEn, article.summary, article.summaryEn].flatMap(
+            (value) => parseImgLinksOfMarkdown(value || ''),
+          ),
+        ),
+      );
       res.push({
         articleId: article.id,
         title: article.title,
@@ -539,7 +639,7 @@ export class ArticleProvider {
     includeHidden: boolean,
     includeDelete?: boolean,
   ): Promise<Article[]> {
-    const thisView: any = this.getView(view);
+    const thisView: any = view === 'list' ? this.listLookupView : this.getView(view);
     const $and: any = [];
     if (!includeDelete) {
       $and.push({
@@ -577,7 +677,9 @@ export class ArticleProvider {
       )
       .sort({ createdAt: -1 })
       .exec();
-    return articles;
+    return view === 'list'
+      ? (articles.map((article) => this.publicListArticle(article)) as Article[])
+      : articles;
   }
 
   /** Only call from the AdminGuard-protected backup controller. */
@@ -622,7 +724,7 @@ export class ArticleProvider {
             },
           ],
         },
-        this.listView,
+        this.listLookupView,
       )
       .sort({ createdAt: -1 })
       .exec();
@@ -630,7 +732,9 @@ export class ArticleProvider {
     const dates = Array.from(new Set(articles.map((a) => a.createdAt.getFullYear())));
     const res: Record<string, Article[]> = {};
     dates.forEach((date) => {
-      res[date] = articles.filter((a) => a.createdAt.getFullYear() == date);
+      res[date] = articles
+        .filter((a) => a.createdAt.getFullYear() == date)
+        .map((article) => this.publicListArticle(article)) as Article[];
     });
     return res;
   }
@@ -716,9 +820,8 @@ export class ArticleProvider {
       }
     }
     if (option.title) {
-      and.push({
-        title: { $regex: escapeRegexLiteral(option.title), $options: 'i' },
-      });
+      const title = { $regex: escapeRegexLiteral(option.title), $options: 'i' };
+      and.push({ $or: [{ title }, { titleEn: title }] });
     }
     if (option.startTime || option.endTime) {
       const obj: any = {};
@@ -740,7 +843,7 @@ export class ArticleProvider {
     // console.log(JSON.stringify(sort, null, 2));
     let view: any = isPublic ? this.publicView : this.adminView;
     if (option.toListView) {
-      view = this.listView;
+      view = this.listLookupView;
     }
     if (option.withWordCount) {
       view = isPublic ? this.publicView : this.adminView;
@@ -780,13 +883,7 @@ export class ArticleProvider {
         const isPrivateInCategory = privateCategoryNames.has(a?._doc?.category || a?.category);
         const isPrivate = isPrivateInArticle || isPrivateInCategory;
         if (isPrivate) {
-          tmpArticles.push({
-            //@ts-ignore
-            ...(a?._doc || a),
-            content: undefined,
-            password: undefined,
-            private: true,
-          });
+          tmpArticles.push(this.protectedPublicArticle(a));
         } else {
           tmpArticles.push({
             //@ts-ignore
@@ -804,13 +901,10 @@ export class ArticleProvider {
       });
       resData.totalWordCount = totalWordCount;
     }
-    if (option.withWordCount && option.toListView) {
-      // 重置视图
-      resData.articles = articles.map((a: any) => ({
-        ...(a?._doc || a),
-        content: undefined,
-        password: undefined,
-      }));
+    if (option.toListView) {
+      // The lookup may select the English body internally, but list responses
+      // expose only a boolean completeness marker.
+      resData.articles = articles.map((article) => this.publicListArticle(article));
     } else {
       resData.articles = articles;
     }
@@ -850,15 +944,18 @@ export class ArticleProvider {
       },
     ];
 
-    return await this.articleModel
+    const article = await this.articleModel
       .findOne(
         {
           pathname: normalizedPathname,
           $and,
         },
-        this.getView(view),
+        view === 'list' ? this.listLookupView : this.getView(view),
       )
       .exec();
+    return view === 'list' && article
+      ? (this.publicListArticle(article) as Article)
+      : article;
   }
 
   async getById(id: number, view: ArticleView): Promise<Article> {
@@ -875,15 +972,18 @@ export class ArticleProvider {
       },
     ];
 
-    return await this.articleModel
+    const article = await this.articleModel
       .findOne(
         {
           id,
           $and,
         },
-        this.getView(view),
+        view === 'list' ? this.listLookupView : this.getView(view),
       )
       .exec();
+    return view === 'list' && article
+      ? (this.publicListArticle(article) as Article)
+      : article;
   }
   async getByIdWithPassword(id: number | string, password: string): Promise<any> {
     if (!isValidContentPasswordLength(password)) {
@@ -980,19 +1080,24 @@ export class ArticleProvider {
         throw new NotFoundException('该文章是隐藏文章！');
       }
     }
-    if (curArticle.private) {
-      curArticle.content = undefined;
-    } else {
+    const articleRecord = this.articleRecord(curArticle);
+    const hasEnglishVersion = this.hasCompleteEnglishVersion(articleRecord);
+    let requiresPassword = Boolean(curArticle.private);
+    if (!requiresPassword) {
       // 检查分类是不是加密了
       const category = await this.categoryModal.findOne({
         name: curArticle.category,
       });
       if (category && category.private) {
-        curArticle.private = true;
-        curArticle.content = undefined;
+        requiresPassword = true;
       }
     }
-    const res: any = { article: curArticle };
+    const publicArticle = requiresPassword
+      ? this.protectedPublicArticle(articleRecord)
+      : articleRecord;
+    const res: any = {
+      article: { ...publicArticle, hasEnglishVersion },
+    };
     // 找它的前一个和后一个。
     const preArticle = await this.getPreArticleByArticle(curArticle, 'list');
     const nextArticle = await this.getNextArticleByArticle(curArticle, 'list');
@@ -1004,7 +1109,7 @@ export class ArticleProvider {
     }
     return res;
   }
-  async getPreArticleByArticle(article: Article, view: ArticleView, includeHidden?: boolean) {
+  async getPreArticleByArticle(article: Article, _view: ArticleView, includeHidden?: boolean) {
     const $and: any = [
       {
         $or: [
@@ -1035,16 +1140,16 @@ export class ArticleProvider {
         {
           $and,
         },
-        this.getView(view),
+        this.neighborLookupView,
       )
       .sort({ createdAt: -1 })
       .limit(1);
     if (result.length) {
-      return result[0];
+      return this.publicNeighbor(result[0]);
     }
     return null;
   }
-  async getNextArticleByArticle(article: Article, view: ArticleView, includeHidden?: boolean) {
+  async getNextArticleByArticle(article: Article, _view: ArticleView, includeHidden?: boolean) {
     const $and: any = [
       {
         $or: [
@@ -1075,12 +1180,12 @@ export class ArticleProvider {
         {
           $and,
         },
-        this.getView(view),
+        this.neighborLookupView,
       )
       .sort({ createdAt: 1 })
       .limit(1);
     if (result.length) {
-      return result[0];
+      return this.publicNeighbor(result[0]);
     }
     return null;
   }
@@ -1092,6 +1197,10 @@ export class ArticleProvider {
   toSearchResult(articles: Article[]) {
     return articles.map((each) => ({
       title: each.title,
+      titleEn: each.titleEn,
+      summary: each.summary,
+      summaryEn: each.summaryEn,
+      hasEnglishVersion: this.hasCompleteEnglishVersion(each),
       id: each.id,
       category: each.category,
       tags: each.tags,
@@ -1102,11 +1211,24 @@ export class ArticleProvider {
 
   async searchByString(str: string, includeHidden: boolean): Promise<Article[]> {
     const safeSearch = escapeRegexLiteral(str);
+    const privateCategories = await this.categoryModal
+      .find({ private: true }, { name: 1, _id: 0 })
+      .lean()
+      .exec();
+    const privateCategoryNames = new Set<string>(
+      privateCategories
+        .map((category) => category?.name)
+        .filter((name): name is string => typeof name === 'string'),
+    );
     const $and: any = [
       {
         $or: [
           { content: { $regex: safeSearch, $options: 'i' } },
+          { contentEn: { $regex: safeSearch, $options: 'i' } },
+          { summary: { $regex: safeSearch, $options: 'i' } },
+          { summaryEn: { $regex: safeSearch, $options: 'i' } },
           { title: { $regex: safeSearch, $options: 'i' } },
+          { titleEn: { $regex: safeSearch, $options: 'i' } },
           { category: { $regex: safeSearch, $options: 'i' } },
           { tags: { $regex: safeSearch, $options: 'i' } },
         ],
@@ -1121,7 +1243,13 @@ export class ArticleProvider {
           },
         ],
       },
+      {
+        $or: [{ private: false }, { private: { $exists: false } }],
+      },
     ];
+    if (privateCategoryNames.size) {
+      $and.push({ category: { $nin: Array.from(privateCategoryNames) } });
+    }
     if (!includeHidden) {
       $and.push({
         $or: [
@@ -1141,11 +1269,24 @@ export class ArticleProvider {
       .limit(100)
       .maxTimeMS(2_000)
       .exec();
+    // Keep a second application-level guard so a stale/incomplete database
+    // query cannot accidentally turn protected matches into public results.
+    const publicData = rawData.filter(
+      (each) => !each.private && !privateCategoryNames.has(each.category),
+    );
     const s = str.toLocaleLowerCase();
-    const titleData = rawData.filter((each) => each.title.toLocaleLowerCase().includes(s));
-    const contentData = rawData.filter((each) => each.content.toLocaleLowerCase().includes(s));
-    const categoryData = rawData.filter((each) => each.category.toLocaleLowerCase().includes(s));
-    const tagData = rawData.filter((each) =>
+    const titleData = publicData.filter((each) =>
+      [each.title, each.titleEn].some(
+        (value) => typeof value === 'string' && value.toLocaleLowerCase().includes(s),
+      ),
+    );
+    const contentData = publicData.filter((each) =>
+      [each.content, each.contentEn, each.summary, each.summaryEn].some(
+        (value) => typeof value === 'string' && value.toLocaleLowerCase().includes(s),
+      ),
+    );
+    const categoryData = publicData.filter((each) => each.category.toLocaleLowerCase().includes(s));
+    const tagData = publicData.filter((each) =>
       each.tags.map((t) => t.toLocaleLowerCase()).includes(s),
     );
     const sortedData = [...titleData, ...contentData, ...tagData, ...categoryData];
@@ -1176,6 +1317,7 @@ export class ArticleProvider {
     const updateData = { ...(updateArticleDto as any) } as UpdateArticleDto &
       Record<string, unknown>;
     this.assertNoBodyIdentityFields(updateData);
+    assertLocalizedArticleFields(updateData);
     if (updateData.pathname !== undefined) {
       updateData.pathname = this.normalizeArticlePathname(updateData.pathname);
     }

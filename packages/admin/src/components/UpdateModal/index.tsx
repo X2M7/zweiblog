@@ -1,8 +1,24 @@
-import { getAllCategories, getTags, updateArticle, updateDraft } from '@/services/zwei-blog/api';
-import { ModalForm, ProFormDateTimePicker, ProFormSelect, ProFormText } from '@ant-design/pro-form';
-import { Form, message, Modal } from 'antd';
+import {
+  getAllCategories,
+  getArticleById,
+  getTags,
+  updateArticle,
+  updateDraft,
+} from '@/services/zwei-blog/api';
+import {
+  needsLocalizedMetadataHydration,
+  SUMMARY_MAX_LENGTH,
+} from '@/pages/Editor/bilingualContent';
+import {
+  ModalForm,
+  ProFormDateTimePicker,
+  ProFormSelect,
+  ProFormText,
+  ProFormTextArea,
+} from '@ant-design/pro-form';
+import { Form, message } from 'antd';
 import moment from 'moment';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AuthorField from '../AuthorField';
 export default function (props: {
   currObj: any;
@@ -12,11 +28,28 @@ export default function (props: {
 }) {
   const { currObj, setLoading, type, onFinish } = props;
   const [form] = Form.useForm();
+  const requiresFullArticle = type == 'article' && needsLocalizedMetadataHydration(currObj);
+  const [localizedMetadataReady, setLocalizedMetadataReady] = useState(!requiresFullArticle);
   useEffect(() => {
     if (form && form.setFieldsValue) {
+      form.resetFields();
       form.setFieldsValue({ ...(currObj || {}), password: undefined });
     }
-  }, [currObj, form]);
+    setLocalizedMetadataReady(!requiresFullArticle);
+  }, [currObj, form, requiresFullArticle]);
+
+  const hydrateLocalizedMetadata = async (visible: boolean) => {
+    if (!visible || !requiresFullArticle || !currObj?.id) return;
+    setLocalizedMetadataReady(false);
+    try {
+      const { data } = await getArticleById(currObj.id);
+      if (!data) throw new Error('Article detail is unavailable');
+      form.setFieldsValue({ ...data, password: undefined });
+      setLocalizedMetadataReady(true);
+    } catch (err) {
+      message.error('加载完整中英文摘要失败，已阻止提交以避免覆盖原数据');
+    }
+  };
   return (
     <ModalForm
       form={form}
@@ -26,19 +59,22 @@ export default function (props: {
           修改信息
         </a>
       }
-      width={450}
+      width={640}
       autoFocusFirstInput
       submitTimeout={3000}
       initialValues={{ ...(currObj || {}), password: undefined }}
+      onVisibleChange={hydrateLocalizedMetadata}
+      submitter={{
+        submitButtonProps: {
+          loading: requiresFullArticle && !localizedMetadataReady,
+        },
+      }}
       onFinish={async (values) => {
-        if (location.hostname == 'blog-demo.mereith.com' && type != 'draft') {
-          Modal.info({
-            title: '演示站禁止修改信息！',
-            content: '本来是可以的，但有个人在演示站首页放黄色信息，所以关了这个权限了。',
-          });
-          return;
-        }
         if (!currObj || !currObj.id) {
+          return false;
+        }
+        if (requiresFullArticle && !localizedMetadataReady) {
+          message.error('完整中英文摘要尚未加载，请稍后再提交');
           return false;
         }
         const submission = { ...values };
@@ -52,12 +88,12 @@ export default function (props: {
         setLoading(true);
         if (type == 'article') {
           await updateArticle(currObj?.id, submission);
-          onFinish();
+          onFinish(submission);
           message.success('修改文章成功！');
           setLoading(false);
         } else if (type == 'draft') {
           await updateDraft(currObj?.id, submission);
-          onFinish();
+          onFinish(submission);
           message.success('修改草稿成功！');
           setLoading(false);
         } else {
@@ -79,6 +115,37 @@ export default function (props: {
         label="文章标题"
         placeholder="请输入标题"
         rules={[{ required: true, message: '这是必填项' }]}
+      />
+      <ProFormText
+        width="md"
+        id="titleEn"
+        name="titleEn"
+        label="英文标题"
+        placeholder="可选；填写英文正文时建议同时填写"
+      />
+      <ProFormTextArea
+        width="md"
+        id="summary"
+        name="summary"
+        label="中文摘要"
+        placeholder="可选；留空时前台从中文正文自动截取"
+        fieldProps={{
+          autoSize: { minRows: 2, maxRows: 5 },
+          maxLength: SUMMARY_MAX_LENGTH,
+          showCount: true,
+        }}
+      />
+      <ProFormTextArea
+        width="md"
+        id="summaryEn"
+        name="summaryEn"
+        label="英文摘要"
+        placeholder="可选；留空时前台从英文正文自动截取"
+        fieldProps={{
+          autoSize: { minRows: 2, maxRows: 5 },
+          maxLength: SUMMARY_MAX_LENGTH,
+          showCount: true,
+        }}
       />
       <AuthorField />
       <ProFormSelect
@@ -193,6 +260,14 @@ export default function (props: {
             label="版权声明"
             tooltip="设置后会替换掉文章页底部默认的版权声明文字，留空则根据系统设置中的相关选项进行展示"
             placeholder="设置后会替换掉文章底部默认的版权"
+          />
+          <ProFormText
+            width="md"
+            id="copyrightEn"
+            name="copyrightEn"
+            label="英文版权声明"
+            tooltip="英文站的自定义版权声明；留空时使用系统生成的英文默认声明"
+            placeholder="可选，仅替换英文文章页底部的版权声明"
           />
         </>
       )}

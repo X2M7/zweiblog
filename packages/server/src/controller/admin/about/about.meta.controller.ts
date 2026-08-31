@@ -5,6 +5,7 @@ import { ISRProvider } from 'src/provider/isr/isr.provider';
 import { MetaProvider } from 'src/provider/meta/meta.provider';
 import { config } from 'src/config';
 import { ApiToken } from 'src/provider/swagger/token';
+import { UpdateAboutDto } from 'src/types/about.dto';
 @ApiTags('about')
 @ApiToken
 @UseGuards(...AdminGuard)
@@ -25,14 +26,14 @@ export class AboutMetaController {
   }
 
   @Put()
-  async updateAbout(@Body() updateAboutDto: { content: string }) {
+  async updateAbout(@Body() updateAboutDto: UpdateAboutDto) {
     if (config.demo && config.demo == 'true') {
       return {
         statusCode: 401,
         message: '演示站禁止修改此项！',
       };
     }
-    const data = await this.metaProvider.updateAbout(updateAboutDto.content);
+    const data = await this.metaProvider.updateAbout(updateAboutDto);
     this.isrProvider.activeAbout('更新 about 触发增量渲染！');
     return {
       statusCode: 200,

@@ -40,13 +40,12 @@ version: '3'
 services:
   zweiblog:
     # 阿里云镜像源
-    # image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:latest
-    image: mereith/van-blog:latest
+    image: ghcr.io/x2m7/zweiblog:latest
     restart: always
     environment:
       TZ: 'Asia/Shanghai'
       # 邮箱地址，用于自动申请 https 证书
-      EMAIL: 'someone@mereith.com'
+      EMAIL: 'admin@example.com'
     volumes:
       # 图床文件的存放地址，按需修改。
       - /var/zweiblog/data/static:/app/static

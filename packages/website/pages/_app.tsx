@@ -14,8 +14,16 @@ import type { AppProps } from "next/app";
 import { GlobalContext, GlobalState } from "../utils/globalContext";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { getPageview, updatePageview } from "../api/pageview";
+import {
+  getPageview,
+  shouldUpdatePageviewForRouteChange,
+  updatePageview,
+} from "../api/pageview";
 import Head from "next/head";
+import {
+  Language,
+  SiteLanguageProvider,
+} from "../utils/siteLanguage";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const { current } = useRef({ hasInit: false });
@@ -26,6 +34,8 @@ function MyApp({ Component, pageProps }: AppProps) {
   });
 
   const router = useRouter();
+  const initialLanguage: Language =
+    pageProps?.initialLanguage === "en" ? "en" : "zh";
   const reloadViewer = useCallback(
     async (reason: string) => {
       const pathname = window.location.pathname;
@@ -43,9 +53,10 @@ function MyApp({ Component, pageProps }: AppProps) {
     [globalState, setGlobalState]
   );
   const handleRouteChange = (
-    url: string,
+    _url: string,
     { shallow }: { shallow: boolean }
   ) => {
+    if (!shouldUpdatePageviewForRouteChange({ shallow })) return;
     reloadViewer(`页面跳转`);
   };
   useEffect(() => {
@@ -64,11 +75,13 @@ function MyApp({ Component, pageProps }: AppProps) {
           content="width=device-width, initial-scale=1, user-scalable=no"
         />
       </Head>
-      <GlobalContext.Provider
-        value={{ state: globalState, setState: setGlobalState }}
-      >
-        <Component {...pageProps} />
-      </GlobalContext.Provider>
+      <SiteLanguageProvider initialLanguage={initialLanguage}>
+        <GlobalContext.Provider
+          value={{ state: globalState, setState: setGlobalState }}
+        >
+          <Component {...pageProps} />
+        </GlobalContext.Provider>
+      </SiteLanguageProvider>
     </>
   );
 }

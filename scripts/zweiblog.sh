@@ -4,7 +4,7 @@
 #   System Required: CentOS 7+ / Debian 8+ / Ubuntu 16+ /
 #     Arch 未测试
 #   Description: zweiblog 安装脚本
-#   Github: https://github.com/mereithhh/van-blog
+#   GitHub: https://github.com/X2M7/zweiblog
 #========================================================
 
 ZWEIBLOG_BASE_PATH="/var/zweiblog"
@@ -12,17 +12,20 @@ ZWEIBLOG_DATA_PATH="${ZWEIBLOG_BASE_PATH}/data"
 ZWEIBLOG_DATA_PATH_RAW="\/var\/zweiblog\/data"
 ZWEIBLOG_SCRIPT_VERSION="v0.3.2"
 
+ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL:-https://raw.githubusercontent.com/X2M7/zweiblog/main}"
+ZWEIBLOG_RELEASE_BASE_URL="${ZWEIBLOG_RELEASE_BASE_URL%/}"
+ZWEIBLOG_ASSET_BASE_URL="${ZWEIBLOG_ASSET_BASE_URL:-${ZWEIBLOG_RELEASE_BASE_URL}/docker-compose}"
 ZWEIBLOG_ASSET_BASE_URL="${ZWEIBLOG_ASSET_BASE_URL%/}"
 COMPOSE_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/docker-compose-template.yml}"
 MONGO_INIT_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/mongo-init.js}"
 MONGO_HEALTHCHECK_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/mongo-healthcheck.js}"
 MONGO_SECRET_SETUP_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/setup-mongo-secrets.sh}"
-MONGO_MIGRATION_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/migrate-mongo.sh}"
-SCRIPT_URL="${ZWEIBLOG_ASSET_BASE_URL:+${ZWEIBLOG_ASSET_BASE_URL}/zweiblog.sh}"
+MONGO_MIGRATION_URL="${ZWEIBLOG_MONGO_MIGRATION_URL:-${ZWEIBLOG_RELEASE_BASE_URL}/scripts/migrate-mongo.sh}"
+SCRIPT_URL="${ZWEIBLOG_INSTALLER_URL:-${ZWEIBLOG_RELEASE_BASE_URL}/scripts/zweiblog.sh}"
 GITHUB_URL="dn-dao-github-mirror.daocloud.io"
 Get_Docker_URL="${ZWEIBLOG_DOCKER_INSTALL_HOST:-get.docker.com}"
 Get_Docker_Argu=" -s docker --mirror Aliyun"
-Docker_IMG="${ZWEIBLOG_IMAGE:-}"
+Docker_IMG="${ZWEIBLOG_IMAGE:-ghcr.io/x2m7/zweiblog:latest}"
 ZWEIBLOG_OLD_IMAGE="${ZWEIBLOG_OLD_IMAGE:-zweiblog:previous}"
 
 red='\033[0;31m'
@@ -37,7 +40,7 @@ require_asset_base() {
   if [[ -z "${ZWEIBLOG_ASSET_BASE_URL}" ]]; then
     echo -e "${red}No ZweiBlog distribution URL is configured.${plain}"
     echo "Set ZWEIBLOG_ASSET_BASE_URL to a location containing this fork's synchronized deployment assets."
-    echo "For this local checkout, use docker compose up --build in the docker-compose directory instead."
+    echo "For this local checkout, use docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build in the docker-compose directory."
     return 1
   fi
 }
@@ -572,7 +575,7 @@ show_usage() {
 show_menu() {
   echo -e "
     ${green}ZweiBlog 管理脚本${plain} ${red}${ZWEIBLOG_SCRIPT_VERSION}${plain}
-    --- https://github.com/mereithhh/van-blog ---
+    --- https://github.com/X2M7/zweiblog ---
     ${green}1.${plain}  安装 ZweiBlog
     ${green}2.${plain}  修改配置
     ${green}3.${plain}  启动服务

@@ -21,6 +21,12 @@ const columns = [
     // },
   },
   {
+    dataIndex: 'nameEn',
+    title: '英文标签名',
+    search: false,
+    render: (_, record) => record.nameEn || '-',
+  },
+  {
     title: '操作',
     valueType: 'option',
     width: 200,
@@ -35,16 +41,23 @@ const columns = [
       </a>,
       <ModalForm
         key={`editCateoryC%{${record.name}}`}
-        title={`批量修改标签 "${record.name}"`}
-        trigger={<a key={'editC' + record.name}>批量改名</a>}
+        title={`编辑标签 "${record.name}"`}
+        trigger={<a key={'editC' + record.name}>编辑</a>}
         autoFocusFirstInput
         submitTimeout={3000}
+        initialValues={{ newName: record.name, nameEn: record.nameEn || '' }}
         onFinish={async (values) => {
           Modal.confirm({
-            content: `确定修改标签 "${record.name}" 为 "${values.newName}" 吗？所有文章的该标签都将被更新为新名称!`,
+            content:
+              values.newName === record.name
+                ? `确定更新标签 "${record.name}" 的英文名称吗？`
+                : `确定修改标签 "${record.name}" 为 "${values.newName}" 吗？所有文章的该标签都将被更新为新名称!`,
             onOk: async () => {
-              await updateTag(record.name, values.newName);
-              message.success('更新成功！所有文章该标签都将变为新名称！');
+              await updateTag(record.name, {
+                name: values.newName,
+                nameEn: values.nameEn || '',
+              });
+              message.success('标签中英文信息更新成功！');
               action?.reload();
               return true;
             },
@@ -61,6 +74,13 @@ const columns = [
           tooltip="所有文章的该标签都将被更新为新名称"
           required
           rules={[{ required: true, message: '这是必填项' }]}
+        />
+        <ProFormText
+          width="lg"
+          name="nameEn"
+          label="英文标签名"
+          placeholder="可选；留空时沿用中文标签名"
+          fieldProps={{ maxLength: 200 }}
         />
       </ModalForm>,
       <a
@@ -85,10 +105,10 @@ const columns = [
 ];
 export default function () {
   const fetchData = async () => {
-    const { data: res } = await getTags();
+    const { data: res } = await getTags(true);
     return res.map((item) => ({
-      key: item,
-      name: item,
+      key: item.name,
+      ...item,
     }));
   };
   const actionRef = useRef();
@@ -109,7 +129,7 @@ export default function () {
         request={async (params = {}) => {
           let data = await fetchData();
           if (params?.name) {
-            data = [{ key: params?.name, name: params?.name }];
+            data = data.filter((item) => item.name === params.name);
           }
           return {
             data,

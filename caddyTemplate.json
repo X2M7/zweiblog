@@ -542,12 +542,17 @@
           {
             "issuers": [
               { "email": "ZWEI_BLOG_EMAIL", "module": "acme" },
-              { "email": "ZWEI_BLOG_EMAIL", "module": "zerossl" }
+              { "module": "zerossl" }
             ],
             "on_demand": true
           }
         ],
-        "on_demand": { "ask": "http://127.0.0.1:3000/api/admin/caddy/ask" }
+        "on_demand": {
+          "permission": {
+            "module": "http",
+            "endpoint": "http://127.0.0.1:3000/api/admin/caddy/ask"
+          }
+        }
       }
     }
   }

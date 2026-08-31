@@ -183,3 +183,77 @@ body .ua-link::before {
 #nav li a {
   word-break: keep-all;
 }
+
+/* Site language switch: matches the compact diagonal “中 / En” control used
+   by the reference navigation on desktop and mobile. */
+.site-language-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  margin-left: -6px;
+  margin-right: 12px;
+}
+
+.site-language-switch {
+  position: relative;
+  display: block;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #111;
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+  transform: translateZ(0);
+  transition: transform 0.15s ease;
+  user-select: none;
+  appearance: none;
+}
+
+.site-language-switch:hover {
+  transform: scale(1.15);
+}
+
+.site-language-switch:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+
+.dark .site-language-switch,
+[data-theme="dark"] .site-language-switch {
+  color: #fff;
+}
+
+.site-language-switch span {
+  position: absolute;
+  color: currentColor;
+  font-family: system-ui, -apple-system, "Segoe UI", Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+
+.site-language-switch-zh {
+  top: 5px;
+  left: 6px;
+}
+
+.site-language-switch-en {
+  right: 5px;
+  bottom: 5px;
+}
+
+.site-language-switch[data-language="zh"] .site-language-switch-zh,
+.site-language-switch[data-language="en"] .site-language-switch-en {
+  opacity: 1;
+}
+
+.site-language-switch::before,
+.site-language-switch::after {
+  content: none !important;
+}

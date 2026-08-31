@@ -12,6 +12,8 @@ import { getPagePagesProps } from "../../utils/getPageProps";
 import { getArticlesKeyWord } from "../../utils/keywords";
 import { revalidate } from "../../utils/loadConfig";
 import Custom404 from "../404";
+import { hasEnglishArticle, localizeArticle } from "../../utils/articleLanguage";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export interface PagePagesProps {
   layoutProps: LayoutProps;
   authorCardProps: AuthorCardProps;
@@ -19,23 +21,33 @@ export interface PagePagesProps {
   articles: Article[];
 }
 const PagePages = (props: PagePagesProps) => {
+  const { language } = useSiteLanguage();
   if (props.articles.length == 0) {
     return <Custom404 name="页码" />;
   }
   return (
     <Layout
       option={props.layoutProps}
-      title={props.layoutProps.siteName}
+      title={language === "en" && props.layoutProps.siteNameEn?.trim()
+        ? props.layoutProps.siteNameEn
+        : props.layoutProps.siteName}
       sideBar={<AuthorCard option={props.authorCardProps}></AuthorCard>}
     >
       <Head>
         <meta
           name="keywords"
-          content={getArticlesKeyWord(props.articles).join(",")}
+          content={getArticlesKeyWord(
+            props.articles,
+            language,
+            props.layoutProps.categoryNamesEn,
+            props.layoutProps.tagNamesEn,
+          ).join(",")}
         ></meta>
       </Head>
       <div className="space-y-2 md:space-y-4">
-        {props.articles.map((article) => (
+        {props.articles.map((article) => {
+          const localized = localizeArticle(article, language);
+          return (
           <PostCard
           
             showEditButton={props.layoutProps.showEditButton === "true"}
@@ -51,16 +63,19 @@ const PagePages = (props: PagePagesProps) => {
             top={article.top || 0}
             id={getArticlePath(article)}
             key={article.id}
-            title={article.title}
+            title={localized.title}
             updatedAt={new Date(article.updatedAt)}
             createdAt={new Date(article.createdAt)}
             catelog={article.category}
-            content={article.content || ""}
+            catelogEn={article.categoryEn || props.layoutProps.categoryNamesEn[article.category]}
+            content={localized.content || ""}
+            language={language === "en" && hasEnglishArticle(article) ? "en" : "zh"}
             type={"overview"}
             enableComment={props.layoutProps.enableComment}
             private={article.private}
           ></PostCard>
-        ))}
+          );
+        })}
       </div>
       <PageNav
         total={props.authorCardProps.postNum}

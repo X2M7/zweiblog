@@ -1,11 +1,13 @@
 import { useContext, useLayoutEffect, useRef } from "react";
 import { applyTheme, getTheme, initTheme } from "../../utils/theme";
 import { ThemeContext } from "../../utils/themeContext";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: { defaultTheme: "auto" | "dark" | "light" }) {
   const { current } = useRef<any>({ hasInit: false });
   const { current: currentTimer } = useRef<any>({ timer: null });
   const { theme, setTheme: setState } = useContext(ThemeContext);
+  const { t } = useSiteLanguage();
   const setTheme = (newTheme: "auto" | "light" | "dark") => {
     // console.log(`[setTheme] ${newTheme}`);
     clearTimer();
@@ -31,12 +33,12 @@ export default function (props: { defaultTheme: "auto" | "dark" | "light" }) {
   };
   const getThemeTitleAuto = () => {
     if ((theme as any) == "auto") {
-      return "自动模式";
+      return t("自动模式", "Automatic theme");
     }
     if (theme.includes("light")) {
-      return "自动模式-亮色";
+      return t("自动模式-亮色", "Automatic theme — light");
     } else {
-      return "自动模式-暗色";
+      return t("自动模式-暗色", "Automatic theme — dark");
     }
   };
 
@@ -77,7 +79,7 @@ export default function (props: { defaultTheme: "auto" | "dark" | "light" }) {
           height: 20,
         }}
         className="dark:text-dark "
-        title="亮色模式"
+        title={t("亮色模式", "Light theme")}
       >
         <svg
           className="fill-gray-600"
@@ -97,7 +99,7 @@ export default function (props: { defaultTheme: "auto" | "dark" | "light" }) {
           display: theme == "dark" ? "block" : "none",
           height: 20,
         }}
-        title="暗色模式"
+        title={t("暗色模式", "Dark theme")}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

@@ -10,37 +10,79 @@ import {
   getAbout,
   getArticleById,
   getDraftById,
+  getLinkPage,
   updateAbout,
   updateArticle,
   updateDraft,
+  updateLinkPage,
 } from '@/services/zwei-blog/api';
 import { getPathname } from '@/services/zwei-blog/getPathname';
 import { parseMarkdownFile, parseObjToMarkdown } from '@/services/zwei-blog/parseMarkdownFile';
 import { useCacheState } from '@/services/zwei-blog/useCacheState';
 import { DownOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-layout';
-import { Button, Dropdown, Input, Menu, message, Modal, Space, Tag, Upload } from 'antd';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Dropdown, Input, Menu, message, Modal, Segmented, Space, Tag, Upload } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { history } from 'umi';
-import moment from 'moment';
+import {
+  buildBilingualSavePayload,
+  createEditorCache,
+  getContentLanguageStatus,
+  getLanguageFields,
+  getLanguageStatus,
+  getLocalizedPreviewUrl,
+  mergeBilingualMetadata,
+  mergeEditorCache,
+  normalizeBilingualDocument,
+  SUMMARY_MAX_LENGTH,
+  selectImportedContent,
+  shouldRestoreEditorCache,
+} from './bilingualContent';
+import { getStandalonePageConfig } from './standalonePageConfig';
+import './index.less';
 
 export default function () {
-  const [value, setValue] = useState('');
+  const [localizedDocument, setLocalizedDocument] = useState(() => normalizeBilingualDocument({}));
+  const [activeLanguage, setActiveLanguage] = useState('zh');
   const [currObj, setCurrObj] = useState({});
   const [loading, setLoading] = useState(true);
   const [editorConfig, setEditorConfig] = useCacheState(
     { afterSave: 'stay', useLocalCache: 'close' },
     'editorConfig',
   );
+  const editorConfigRef = useRef(editorConfig);
+  editorConfigRef.current = editorConfig;
   const type = history.location.query?.type || 'article';
+  const standalonePage = getStandalonePageConfig(type);
+  const isStandalonePage = Boolean(standalonePage);
   const getCacheKey = () => `${type}-${history.location.query?.id || '0'}`;
+
+  const persistLocalCache = useCallback(
+    (document) => {
+      if (editorConfig?.useLocalCache == 'open') {
+        window.localStorage.setItem(getCacheKey(), JSON.stringify(createEditorCache(document)));
+      }
+    },
+    [editorConfig?.useLocalCache, type],
+  );
+
+  const updateLocalizedField = useCallback(
+    (field, fieldValue) => {
+      setLocalizedDocument((current) => {
+        const next = { ...current, [field]: fieldValue };
+        persistLocalCache(next);
+        return next;
+      });
+    },
+    [persistLocalCache],
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [currObj, value, type]);
+  }, [currObj, localizedDocument, type]);
   const onKeyDown = (ev) => {
     let save = false;
     if (ev.metaKey == true && ev.key.toLocaleLowerCase() == 's') {
@@ -50,7 +92,6 @@ export default function () {
       save = true;
     }
     if (save) {
-      event?.preventDefault();
       ev?.preventDefault();
       handleSave();
     }
@@ -61,6 +102,7 @@ export default function () {
     article: '文章',
     draft: '草稿',
     about: '关于',
+    link: '友链',
   };
   const fetchData = useCallback(
     async (noMessage) => {
@@ -79,57 +121,42 @@ export default function () {
         const clear = () => {
           window.localStorage.removeItem(getCacheKey());
         };
-        if (editorConfig?.useLocalCache == 'close') {
+        if (editorConfigRef.current?.useLocalCache == 'close') {
           clear();
-          return false;
+          return null;
         }
-        if (!cacheObj || !cacheObj?.content) {
+        if (!shouldRestoreEditorCache(cacheObj, data, data?.updatedAt)) {
           clear();
-          return false;
+          return null;
         }
-        if (cacheObj?.content == data?.content) {
-          clear();
-          return false;
-        }
-        const updatedAt = data?.updatedAt;
-        if (!updatedAt) {
-          clear();
-          return false;
-        }
-        const cacheTime = cacheObj?.time;
-        if (moment(updatedAt).isAfter(cacheTime)) {
-          clear();
-          return false;
-        } else {
-          console.log('[缓存检查] 本地缓存时间晚于服务器更新时间，使用缓存');
-          return cacheObj?.content;
-        }
+        console.log('[缓存检查] 本地缓存时间晚于服务器更新时间，使用缓存');
+        return mergeEditorCache(cacheObj, data);
       };
 
-      if (type == 'about') {
-        const { data } = await getAbout();
+      if (type == 'about' || type == 'link') {
+        const { data } = type == 'link' ? await getLinkPage() : await getAbout();
         const cache = checkCache(data);
         if (cache) {
           if (!noMessage) {
             message.success('从缓存中恢复状态！');
           }
-          setValue(cache);
+          setLocalizedDocument(cache);
         } else {
-          setValue(data?.content || '');
+          setLocalizedDocument(normalizeBilingualDocument(data));
         }
-        document.title = `关于 - ZweiBlog 编辑器`;
+        document.title = `${getStandalonePageConfig(type)?.title || ''} - ZweiBlog 编辑器`;
         setCurrObj(data);
       }
       if (type == 'article' && id) {
         const { data } = await getArticleById(id);
         const cache = checkCache(data);
         if (cache) {
-          setValue(cache);
+          setLocalizedDocument(cache);
           if (!noMessage) {
             message.success('从缓存中恢复状态！');
           }
         } else {
-          setValue(data?.content || '');
+          setLocalizedDocument(normalizeBilingualDocument(data));
         }
         document.title = `${data?.title || ''} - ZweiBlog 编辑器`;
         setCurrObj(data);
@@ -141,16 +168,16 @@ export default function () {
           if (!noMessage) {
             message.success('从缓存中恢复状态！');
           }
-          setValue(cache);
+          setLocalizedDocument(cache);
         } else {
-          setValue(data?.content || '');
+          setLocalizedDocument(normalizeBilingualDocument(data));
         }
         setCurrObj(data);
         document.title = `${data?.title || ''} - ZweiBlog 编辑器`;
       }
       setLoading(false);
     },
-    [history, setLoading, setValue, type],
+    [history, type],
   );
 
   useEffect(() => {
@@ -166,92 +193,117 @@ export default function () {
   }, []);
 
   const saveFn = async () => {
-    const v = value;
+    const payload = buildBilingualSavePayload(localizedDocument);
     setLoading(true);
-    if (type == 'article') {
-      await updateArticle(currObj?.id, { content: v });
-      await fetchData();
-      message.success('保存成功！');
-    } else if (type == 'draft') {
-      await updateDraft(currObj?.id, { content: v });
-      await fetchData();
-      message.success('保存成功！');
-    } else if (type == 'about') {
-      await updateAbout({ content: v });
-      await fetchData();
-      message.success('保存成功！');
-    } else {
+    try {
+      if (type == 'article') {
+        await updateArticle(currObj?.id, payload);
+        await fetchData();
+        message.success('中英文内容保存成功！');
+      } else if (type == 'draft') {
+        await updateDraft(currObj?.id, payload);
+        await fetchData();
+        message.success('中英文草稿保存成功！');
+      } else if (type == 'about') {
+        await updateAbout({ content: payload.content, contentEn: payload.contentEn });
+        await fetchData();
+        message.success('中英文关于内容保存成功！');
+      } else if (type == 'link') {
+        await updateLinkPage({ content: payload.content, contentEn: payload.contentEn });
+        await fetchData();
+        message.success('中英文友链内容保存成功！');
+      }
+      if (editorConfig.afterSave && editorConfig.afterSave == 'goBack') {
+        history.go(-1);
+      }
+    } finally {
+      setLoading(false);
     }
-    if (editorConfig.afterSave && editorConfig.afterSave == 'goBack') {
-      history.go(-1);
-    }
-    setLoading(false);
   };
 
   const handleSave = async () => {
-    if (location.hostname == 'blog-demo.mereith.com' && type != 'draft') {
-      Modal.info({
-        title: '演示站禁止修改此信息！',
-        content: '本来是可以的，但有个人在演示站首页放黄色信息，所以关了这个权限了。',
-      });
+    if (!isStandalonePage && !localizedDocument.title.trim()) {
+      message.error('中文标题不能为空');
       return;
     }
-    // 先检查一下有没有 more .
-    let hasMore = true;
-    if (['article', 'draft'].includes(history.location.query?.type)) {
-      if (!value?.includes('<!-- more -->')) {
-        hasMore = false;
+    if (
+      localizedDocument.summary.length > SUMMARY_MAX_LENGTH ||
+      localizedDocument.summaryEn.length > SUMMARY_MAX_LENGTH
+    ) {
+      message.error(`中英文摘要均不能超过 ${SUMMARY_MAX_LENGTH} 字符`);
+      return;
+    }
+
+    const englishStatus =
+      isStandalonePage
+        ? getContentLanguageStatus(localizedDocument, 'en')
+        : getLanguageStatus(localizedDocument, 'en');
+    const missingMoreLanguages = [];
+    if (['article', 'draft'].includes(type)) {
+      if (localizedDocument.content && !localizedDocument.content.includes('<!-- more -->')) {
+        missingMoreLanguages.push('中文');
+      }
+      if (localizedDocument.contentEn && !localizedDocument.contentEn.includes('<!-- more -->')) {
+        missingMoreLanguages.push('English');
       }
     }
-    let hasTags =
-      ['article', 'draft'].includes(history.location.query?.type) &&
-      currObj?.tags &&
-      currObj.tags.length > 0;
-    if (history.location.query?.type == 'about') {
+    let hasTags = ['article', 'draft'].includes(type) && currObj?.tags && currObj.tags.length > 0;
+    if (isStandalonePage) {
       hasTags = true;
     }
+    const warnings = [];
+    if (!hasTags) warnings.push('此文章还没有设置标签。');
+    if (missingMoreLanguages.length) {
+      warnings.push(
+        `${missingMoreLanguages.join(
+          '、',
+        )}正文没有 <!-- more --> 标记；摘要留空时，列表摘要会自动截取正文。`,
+      );
+    }
+    if (englishStatus == 'partial') {
+      warnings.push('英文内容尚不完整；前台应继续回退到中文，直到英文标题和正文都填写完成。');
+    }
     Modal.confirm({
-      title: `确定保存吗？${hasTags ? '' : '此文章还没设置标签呢'}`,
-      content: hasMore ? undefined : (
+      title: '确定保存中英文内容吗？',
+      content: warnings.length ? (
         <div style={{ marginTop: 8 }}>
-          <p>缺少完整的 more 标记！</p>
-          <p>这可能会造成阅读全文前的图片语句被截断从而无法正常显示！</p>
-          <p>默认将截取指定的字符数量作为阅读全文前的内容。</p>
-          <p>
-            您可以点击编辑器工具栏最后第一个按钮在合适的地方插入标记。
-            <a
-              target={'_blank'}
-              rel="noreferrer"
-              href="https://vanblog.mereith.com/feature/basic/editor.html#%E4%B8%80%E9%94%AE%E6%8F%92%E5%85%A5-more-%E6%A0%87%E8%AE%B0"
-            >
-              相关文档
-            </a>
-          </p>
-          <img src="/more.png" alt="more" width={200}></img>
+          {warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
         </div>
-      ),
+      ) : undefined,
       onOk: saveFn,
     });
   };
   const handleExport = async () => {
-    const md = parseObjToMarkdown(currObj);
+    const exportTitle = isStandalonePage
+      ? standalonePage?.title
+      : localizedDocument.title || localizedDocument.titleEn || '未命名';
+    const md = parseObjToMarkdown({
+      ...currObj,
+      ...localizedDocument,
+      title: exportTitle,
+    });
     const data = new Blob([md]);
     const url = URL.createObjectURL(data);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${currObj?.title || '关于'}.md`;
+    link.download = `${exportTitle || '未命名'}.md`;
     link.click();
+    URL.revokeObjectURL(url);
   };
   const handleImport = async (file) => {
     setLoading(true);
     try {
-      const { content } = await parseMarkdownFile(file);
+      const importedDocument = await parseMarkdownFile(file);
+      const content = selectImportedContent(importedDocument, activeLanguage);
       Modal.confirm({
         title: '确认内容',
         content: <Input.TextArea value={content} autoSize={{ maxRows: 10, minRows: 5 }} />,
         onOk: () => {
-          setValue(content);
-          message.success('导入成功！');
+          const fields = getLanguageFields(activeLanguage);
+          updateLocalizedField(fields.content, content);
+          message.success(`已导入${activeLanguage == 'en' ? '英文' : '中文'}正文！`);
         },
       });
     } catch (err) {
@@ -264,22 +316,42 @@ export default function () {
       items={[
         {
           key: 'resetBtn',
-          label: '重置',
+          label: '重置当前语言',
           onClick: () => {
-            setValue(currObj?.content || '');
-            message.success('重置为初始值成功！');
+            const fields = getLanguageFields(activeLanguage);
+            const serverDocument = normalizeBilingualDocument(currObj);
+            setLocalizedDocument((current) => {
+              const next = {
+                ...current,
+                [fields.title]: serverDocument[fields.title],
+                [fields.summary]: serverDocument[fields.summary],
+                [fields.content]: serverDocument[fields.content],
+              };
+              persistLocalCache(next);
+              return next;
+            });
+            message.success(`已重置${activeLanguage == 'en' ? '英文' : '中文'}内容！`);
           },
         },
-        type != 'about'
+        !isStandalonePage
           ? {
               key: 'updateModalBtn',
               label: (
                 <UpdateModal
-                  onFinish={() => {
-                    fetchData(true);
+                  onFinish={(submission) => {
+                    setCurrObj((current) => ({
+                      ...current,
+                      ...submission,
+                      updatedAt: new Date().toISOString(),
+                    }));
+                    setLocalizedDocument((current) => {
+                      const next = mergeBilingualMetadata(current, submission);
+                      persistLocalCache(next);
+                      return next;
+                    });
                   }}
                   type={type}
-                  currObj={currObj}
+                  currObj={{ ...currObj, ...localizedDocument }}
                   setLoading={setLoading}
                 />
               ),
@@ -290,9 +362,10 @@ export default function () {
               key: 'publishBtn',
               label: (
                 <PublishDraftModal
-                  title={currObj?.title}
+                  title={localizedDocument.title || currObj?.title}
                   key="publishModal1"
                   id={currObj?.id}
+                  localizedDocument={localizedDocument}
                   trigger={<a key={'publishBtn' + currObj?.id}>发布草稿</a>}
                   onFinish={() => {
                     history.push(`/article`);
@@ -303,7 +376,7 @@ export default function () {
           : null,
         {
           key: 'importBtn',
-          label: '导入内容',
+          label: `导入${activeLanguage == 'en' ? '英文' : '中文'}正文`,
           onClick: () => {
             const el = document.querySelector('#importBtn');
             if (el) {
@@ -313,7 +386,7 @@ export default function () {
         },
         {
           key: 'exportBtn',
-          label: `导出${typeMap[type]}`,
+          label: isStandalonePage ? standalonePage?.exportLabel : `导出双语${typeMap[type]}`,
           onClick: handleExport,
         },
         type != 'draft'
@@ -345,7 +418,10 @@ export default function () {
                         </div>
                       ),
                       onOk: () => {
-                        window.open(`/post/${getPathname(currObj)}`, '_blank');
+                        window.open(
+                          getLocalizedPreviewUrl(`/post/${getPathname(currObj)}`, activeLanguage),
+                          '_blank',
+                        );
                         return true;
                       },
                       okText: '仍然访问',
@@ -353,28 +429,22 @@ export default function () {
                     });
                     return;
                   }
-                  url = `/post/${getPathname(currObj)}`;
-                } else {
-                  url = '/about';
+                  url = getLocalizedPreviewUrl(`/post/${getPathname(currObj)}`, activeLanguage);
+                } else if (standalonePage) {
+                  url = getLocalizedPreviewUrl(standalonePage.previewPath, activeLanguage);
                 }
                 window.open(url, '_blank');
               },
             }
           : undefined,
-        type != 'about'
+        !isStandalonePage
           ? {
               key: 'deleteBtn',
               label: `删除${typeMap[type]}`,
               onClick: () => {
                 Modal.confirm({
-                  title: `确定删除 “${currObj.title}” 吗？`,
+                  title: `确定删除 “${localizedDocument.title || currObj.title}” 吗？`,
                   onOk: async () => {
-                    if (location.hostname == 'blog-demo.mereith.com' && type == 'article') {
-                      if ([28, 29].includes(currObj.id)) {
-                        message.warn('演示站禁止删除此文章！');
-                        return false;
-                      }
-                    }
                     if (type == 'article') {
                       await deleteArticle(currObj.id);
                       message.success('删除文章成功！返回列表页！');
@@ -411,7 +481,7 @@ export default function () {
               cancelText: '返回',
               onOk: () => {
                 window.localStorage.removeItem(getCacheKey());
-                setValue(currObj?.content || '');
+                setLocalizedDocument(normalizeBilingualDocument(currObj));
                 message.success('清除实时保存缓存成功！已重置为服务端返回数据');
               },
             });
@@ -421,12 +491,29 @@ export default function () {
           key: 'helpBtn',
           label: '帮助文档',
           onClick: () => {
-            window.open('https://vanblog.mereith.com/feature/basic/editor.html', '_blank');
+            window.open(
+              'https://github.com/X2M7/zweiblog/blob/main/docs/features/editor.md',
+              '_blank',
+            );
           },
         },
       ]}
     ></Menu>
   );
+  const activeFields = getLanguageFields(activeLanguage);
+  const englishStatus =
+    isStandalonePage
+      ? getContentLanguageStatus(localizedDocument, 'en')
+      : getLanguageStatus(localizedDocument, 'en');
+  const languageStatus = {
+    empty: { color: 'default', text: '未填写' },
+    partial: { color: 'orange', text: '未完成' },
+    complete: { color: 'green', text: '已完成' },
+  }[englishStatus];
+  const activeTitle =
+    isStandalonePage
+      ? standalonePage?.title
+      : localizedDocument[activeFields.title] || localizedDocument.title || currObj?.title;
   return (
     <PageContainer
       className="editor-full"
@@ -434,10 +521,8 @@ export default function () {
       header={{
         title: (
           <Space>
-            <span title={type == 'about' ? '关于' : currObj?.title}>
-              {type == 'about' ? '关于' : currObj?.title}
-            </span>
-            {type != 'about' && (
+            <span title={activeTitle}>{activeTitle}</span>
+            {!isStandalonePage && (
               <>
                 <Tag color="green">{typeMap[type] || '-'}</Tag>
                 <Tag color="blue">{currObj?.category || '-'}</Tag>
@@ -469,7 +554,7 @@ export default function () {
       }}
       footer={null}
     >
-      <div style={{ height: '100%' }}>
+      <div className="bilingual-editor-shell">
         <div style={{ height: '0' }}>
           <Upload
             showUploadList={false}
@@ -479,27 +564,75 @@ export default function () {
             style={{ display: 'none', height: 0 }}
           >
             <a key="importBtn" type="link" style={{ display: 'none' }} id="importBtn">
-              导入内容
+              导入当前语言正文
             </a>
           </Upload>
         </div>
-        <Editor
-          loading={loading}
-          setLoading={setLoading}
-          value={value}
-          onChange={(val) => {
-            setValue(val);
-            if (editorConfig?.useLocalCache && editorConfig?.useLocalCache == 'open') {
-              window.localStorage.setItem(
-                getCacheKey(),
-                JSON.stringify({
-                  content: val,
-                  time: new Date().valueOf(),
-                }),
-              );
-            }
-          }}
-        />
+        <section className="bilingual-editor-meta" aria-label="中英文内容信息">
+          <div className="bilingual-editor-toolbar">
+            <Segmented
+              aria-label="选择编辑语言"
+              value={activeLanguage}
+              onChange={(language) => setActiveLanguage(language)}
+              options={[
+                { label: '中文内容', value: 'zh' },
+                { label: 'English', value: 'en' },
+              ]}
+            />
+            <div className="bilingual-editor-status">
+              <Tag color={languageStatus.color}>英文：{languageStatus.text}</Tag>
+              <span>
+                {isStandalonePage
+                  ? standalonePage?.emptyEnglishHint
+                  : '英文标题和正文完整后，前台才会提供英文切换；否则自动显示中文。'}
+              </span>
+            </div>
+          </div>
+          {!isStandalonePage && (
+            <div className="bilingual-editor-fields">
+              <label>
+                <span className="bilingual-editor-field-label">
+                  {activeLanguage == 'en' ? 'English title' : '中文标题'}
+                </span>
+                <Input
+                  value={localizedDocument[activeFields.title]}
+                  onChange={(event) => updateLocalizedField(activeFields.title, event.target.value)}
+                  placeholder={
+                    activeLanguage == 'en' ? 'Write the English title' : '请输入中文标题'
+                  }
+                />
+              </label>
+              <label>
+                <span className="bilingual-editor-field-label">
+                  {activeLanguage == 'en' ? 'English summary' : '中文摘要'}（可选）
+                </span>
+                <Input.TextArea
+                  value={localizedDocument[activeFields.summary]}
+                  onChange={(event) =>
+                    updateLocalizedField(activeFields.summary, event.target.value)
+                  }
+                  placeholder={
+                    activeLanguage == 'en'
+                      ? 'Write a separate English summary; leave blank to extract it from the body'
+                      : '单独编写中文摘要；留空则从正文自动截取'
+                  }
+                  autoSize={{ minRows: 1, maxRows: 3 }}
+                  maxLength={SUMMARY_MAX_LENGTH}
+                  showCount
+                />
+              </label>
+            </div>
+          )}
+        </section>
+        <div className="bilingual-editor-body">
+          <Editor
+            key={`editor-${type}-${activeLanguage}`}
+            loading={loading}
+            setLoading={setLoading}
+            value={localizedDocument[activeFields.content]}
+            onChange={(val) => updateLocalizedField(activeFields.content, val)}
+          />
+        </div>
       </div>
     </PageContainer>
   );

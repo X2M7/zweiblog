@@ -2,11 +2,17 @@ services:
   zweiblog:
     image: zweiblog_image
     restart: unless-stopped
+    init: true
     environment:
       TZ: 'Asia/Shanghai'
       # Email address used by Caddy when requesting HTTPS certificates.
       EMAIL: zweiblog_email
       ZWEI_BLOG_DATABASE_URL_FILE: /run/secrets/mongo_app_uri
+      ZWEI_BLOG_HOST: 127.0.0.1
+      ZWEI_BLOG_TRUST_PROXY: loopback
+      ZWEI_BLOG_CADDY_TRUSTED_PROXIES: ''
+      ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION: 'false'
+      ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL: 'false'
     volumes:
       - zweiblog_data_path/data/static:/app/static
       - zweiblog_data_path/log:/var/log
@@ -23,8 +29,22 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
-    security_opt:
-      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          Promise.all(['http://127.0.0.1:3000/','http://127.0.0.1:3001/','http://127.0.0.1/'].map((url)=>fetch(url,{redirect:'manual'}))).then((responses)=>process.exit(responses.every((response)=>response.status<500)?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    stop_grace_period: 30s
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
 
   mongo:
     # Existing MongoDB 4.4 data must be migrated; never upgrade its data files

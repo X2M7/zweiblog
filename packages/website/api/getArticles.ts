@@ -94,10 +94,22 @@ export const getArticleByIdOrPathname = async (id: string) => {
     const { article, pre, next } = data;
     const r: any = { article };
     if (pre) {
-      r.pre = { title: pre.title, id: pre.id, pathname: pre.pathname };
+      r.pre = {
+        title: pre.title,
+        titleEn: pre.titleEn,
+        hasEnglishVersion: pre.hasEnglishVersion,
+        id: pre.id,
+        pathname: pre.pathname,
+      };
     }
     if (next) {
-      r.next = { title: next.title, id: next.id, pathname: next.pathname };
+      r.next = {
+        title: next.title,
+        titleEn: next.titleEn,
+        hasEnglishVersion: next.hasEnglishVersion,
+        id: next.id,
+        pathname: next.pathname,
+      };
     }
     return r;
   } catch (err) {

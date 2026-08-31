@@ -165,13 +165,15 @@ export async function createCustomPage(body) {
   });
 }
 export async function createCustomFile(path, subPath) {
-  return request(`/api/admin/customPage/file?path=${path}&subPath=${subPath}`, {
+  return request('/api/admin/customPage/file', {
     method: 'POST',
+    params: { path, subPath },
   });
 }
 export async function createCustomFolder(path, subPath) {
-  return request(`/api/admin/customPage/file?path=${path}&subPath=${subPath}`, {
+  return request('/api/admin/customPage/folder', {
     method: 'POST',
+    params: { path, subPath },
   });
 }
 export async function updateCustomPage(body) {
@@ -190,9 +192,41 @@ export async function updateCustomPageFileInFolder(pathname, filePath, content) 
     },
   });
 }
-export async function deleteCustomPageByPath(path) {
-  return request('/api/admin/customPage?path=' + path, {
+export async function renameCustomPageFile(pathname, filePath, newBaseName) {
+  return request('/api/admin/customPage/file', {
+    method: 'PATCH',
+    data: {
+      pathname,
+      filePath,
+      newBaseName,
+    },
+  });
+}
+export async function deleteCustomPageFile(pathname, filePath) {
+  return request('/api/admin/customPage/file', {
     method: 'DELETE',
+    params: { pathname, filePath },
+  });
+}
+export async function deleteCustomPageFolder(pathname, folderPath) {
+  return request('/api/admin/customPage/folder', {
+    method: 'DELETE',
+    params: { pathname, folderPath },
+  });
+}
+export async function exportCustomPage(path) {
+  return request('/api/admin/customPage/export', {
+    method: 'GET',
+    params: { path },
+    responseType: 'blob',
+    getResponse: true,
+    skipErrorHandler: true,
+  });
+}
+export async function deleteCustomPageByPath(path) {
+  return request('/api/admin/customPage', {
+    method: 'DELETE',
+    params: { path },
   });
 }
 export async function getCustomPages() {
@@ -201,18 +235,21 @@ export async function getCustomPages() {
   });
 }
 export async function getCustomPageByPath(path) {
-  return request('/api/admin/customPage?path=' + path, {
+  return request('/api/admin/customPage', {
     method: 'GET',
+    params: { path },
   });
 }
 export async function getCustomPageFolderTreeByPath(path) {
-  return request('/api/admin/customPage/folder?path=' + path, {
+  return request('/api/admin/customPage/folder', {
     method: 'GET',
+    params: { path },
   });
 }
 export async function getCustomPageFileDataByPath(path, key) {
-  return request('/api/admin/customPage/file?path=' + path + '&key=' + key, {
+  return request('/api/admin/customPage/file', {
     method: 'GET',
+    params: { path, key },
   });
 }
 export async function updateCollaborator(body) {
@@ -261,18 +298,20 @@ export async function createCategory(body) {
   });
 }
 export async function updateCategory(name, value) {
-  return request(`/api/admin/category/${name}`, {
+  return request(`/api/admin/category/${encodeQuerystring(name)}`, {
     method: 'PUT',
     data: value,
   });
 }
 export async function updateTag(name, value) {
-  return request(`/api/admin/tag/${name}?value=${value}`, {
+  const data = typeof value === 'string' ? { name: value } : value;
+  return request(`/api/admin/tag/${encodeQuerystring(name)}`, {
     method: 'PUT',
+    data,
   });
 }
 export async function deleteTag(name) {
-  return request(`/api/admin/tag/${name}`, {
+  return request(`/api/admin/tag/${encodeQuerystring(name)}`, {
     method: 'DELETE',
   });
 }
@@ -310,9 +349,26 @@ export async function updateLink(body) {
     data: body,
   });
 }
+export async function updateLinkOrder(names) {
+  return request(`/api/admin/meta/link/order`, {
+    method: 'PUT',
+    data: { names },
+  });
+}
 export async function getLink() {
   return request(`/api/admin/meta/link`, {
     method: 'GET',
+  });
+}
+export async function getLinkPage() {
+  return request(`/api/admin/meta/link/page`, {
+    method: 'GET',
+  });
+}
+export async function updateLinkPage(body) {
+  return request(`/api/admin/meta/link/page`, {
+    method: 'PUT',
+    data: body,
   });
 }
 export async function updateMenu(body) {
@@ -327,7 +383,7 @@ export async function getMenu() {
   });
 }
 export async function deleteLink(name) {
-  return request(`/api/admin/meta/link/${name}`, {
+  return request(`/api/admin/meta/link/${encodeQuerystring(name)}`, {
     method: 'DELETE',
   });
 }
@@ -370,8 +426,8 @@ export async function getSocialTypes() {
     method: 'GET',
   });
 }
-export async function getTags() {
-  return request(`/api/admin/tag/all`, {
+export async function getTags(withDetails = false) {
+  return request(`/api/admin/tag/all?detail=${withDetails ? 'true' : 'false'}`, {
     method: 'GET',
   });
 }

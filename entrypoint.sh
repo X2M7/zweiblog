@@ -1,12 +1,13 @@
 #!/bin/sh
+set -eu
+
 echo "============================================="
 echo "欢迎使用 ZweiBlog 博客系统"
-echo "Github: https://github.com/mereithhh/vanblog"
+echo "GitHub: https://github.com/X2M7/zweiblog"
 echo "Version(Env): ${ZWEI_BLOG_VERSION}"
 echo "============================================="
 
-
-sed "s/ZWEI_BLOG_EMAIL/${EMAIL}/g" /app/caddyTemplate.json >/app/caddy.json
+node /app/render-caddy-config.js /app/caddyTemplate.json /app/caddy.json
 caddy start --config /app/caddy.json
 
-node start.js
+exec node start.js

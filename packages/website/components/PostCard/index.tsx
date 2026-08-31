@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import AlertCard from "../AlertCard";
 import CopyRight from "../CopyRight";
 import Reward from "../Reward";
@@ -12,6 +12,8 @@ import { getTarget } from "../Link/tools";
 import TocMobile from "../TocMobile";
 import { hasToc } from "../../utils/hasToc";
 import Markdown from "../Markdown";
+import type { Article } from "../../types/article";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: {
   id: number | string;
@@ -19,6 +21,7 @@ export default function (props: {
   updatedAt: Date;
   createdAt: Date;
   catelog: string;
+  catelogEn?: string;
   content: string;
   setContent: (content: string) => void;
   type: "overview" | "article" | "about";
@@ -26,8 +29,19 @@ export default function (props: {
   payDark?: string[];
   author?: string;
   tags?: string[];
-  next?: { id: number; title: string; pathname?: string };
-  pre?: { id: number; title: string; pathname?: string };
+  tagsEn?: string[];
+  next?: {
+    id: number;
+    title: string;
+    pathname?: string;
+    hasEnglishVersion?: boolean;
+  };
+  pre?: {
+    id: number;
+    title: string;
+    pathname?: string;
+    hasEnglishVersion?: boolean;
+  };
   enableComment: "true" | "false";
   top: number;
   private: boolean;
@@ -37,10 +51,15 @@ export default function (props: {
   openArticleLinksInNewWindow: boolean;
   copyrightAggreement: string;
   customCopyRight: string | null;
+  customCopyRightEn?: string | null;
   showExpirationReminder: boolean;
   showEditButton: boolean;
+  language?: "zh" | "en";
+  languageSwitch?: ReactNode;
+  onUnlock?: (article: Article) => void;
 }) {
   const [lock, setLock] = useState(props.type != "overview" && props.private);
+  const { language, localizedPath, t } = useSiteLanguage();
   const { content, setContent } = props;
   const showDonate = useMemo(() => {
     if (lock) {
@@ -64,7 +83,10 @@ export default function (props: {
   const calContent = useMemo(() => {
     if (props.type == "overview") {
       if (props.private) {
-        return "该文章已加密，点击 `阅读全文` 并输入密码后方可查看。";
+        return t(
+          "该文章已加密，点击 `阅读全文` 并输入密码后方可查看。",
+          "This article is protected. Select `Read more` and enter the password to continue.",
+        );
       }
       const r = content.split("<!-- more -->");
       if (r.length > 1) {
@@ -75,13 +97,21 @@ export default function (props: {
     } else {
       return content.replace("<!-- more -->", "");
     }
-  }, [props, lock, content]);
+  }, [props, lock, content, language, t]);
 
   const showToc = useMemo(() => {
     if (!hasToc(props.content)) return false;
     if (props.type == "article") return true;
     return false;
   }, [props.type, props.content]);
+
+  const contentLanguage = props.language === "en" ? "en" : "zh-CN";
+  const titleLanguage =
+    props.type === "about"
+      ? language === "en"
+        ? "en"
+        : "zh"
+      : props.language;
 
   return (
     <div className="post-card-wrapper">
@@ -95,9 +125,11 @@ export default function (props: {
           type={props.type}
           id={props.id}
           title={props.title}
+          language={titleLanguage}
           openArticleLinksInNewWindow={props.openArticleLinksInNewWindow}
           showEditButton={props.showEditButton}
         />
+        {props.type === "article" && props.languageSwitch}
 
         <SubTitle
           openArticleLinksInNewWindow={props.openArticleLinksInNewWindow}
@@ -106,6 +138,7 @@ export default function (props: {
           updatedAt={props.updatedAt}
           createdAt={props.createdAt}
           catelog={props.catelog}
+          catelogEn={props.catelogEn}
           enableComment={props.private ? "false" : props.enableComment}
         />
         <div className="text-sm md:text-base  text-gray-600 mt-4 mx-2">
@@ -121,11 +154,15 @@ export default function (props: {
               setLock={setLock}
               setContent={setContent}
               id={props.id}
+              language={language}
+              onUnlock={props.onUnlock}
             />
           ) : (
             <>
-              {showToc && <TocMobile content={calContent} />}
-              <Markdown content={calContent}></Markdown>
+              <div lang={contentLanguage}>
+                {showToc && <TocMobile content={calContent} />}
+                <Markdown content={calContent}></Markdown>
+              </div>
             </>
           )}
         </div>
@@ -133,11 +170,11 @@ export default function (props: {
         {props.type == "overview" && (
           <div className="w-full flex justify-center mt-4 ">
             <Link
-              href={`/post/${props.id}`}
+              href={localizedPath(`/post/${props.id}`)}
               target={getTarget(props.openArticleLinksInNewWindow)}
             >
               <div className=" dark:bg-dark dark:hover:bg-dark-light dark:hover:text-dark-r dark:border-dark dark:text-dark hover:bg-gray-800 hover:text-gray-50 border-2 border-gray-800 text-sm md:text-base text-gray-700 px-2 py-1 transition-all rounded">
-                阅读全文
+                {t("阅读全文", "Read more")}
               </div>
             </Link>
           </div>
@@ -155,6 +192,7 @@ export default function (props: {
         {props.type == "article" && !lock && !props?.hideCopyRight && (
           <CopyRight
             customCopyRight={props.customCopyRight}
+            customCopyRightEn={props.customCopyRightEn}
             author={props.author as any}
             id={props.id}
             showDonate={showDonate}
@@ -166,8 +204,10 @@ export default function (props: {
           type={props.type}
           lock={lock}
           tags={props.tags}
+          tagsEn={props.tagsEn}
           next={props.next}
           pre={props.pre}
+          language={language}
           openArticleLinksInNewWindow={props.openArticleLinksInNewWindow}
         />
         <div

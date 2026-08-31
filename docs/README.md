@@ -3,62 +3,46 @@ home: true
 icon: home
 index: false
 heroText: ZweiBlog
-heroImage: /merge.png
-tagline: 一款简洁实用优雅的高性能个人博客系统。
+heroImage: /logo.svg
+tagline: 支持整站中英文、本地评论与项目化自定义页面的自托管博客系统。
 actions:
-  - text: 💡 快速上手
-    link: /guide/get-started.html
+  - text: 🐳 Docker 部署
+    link: https://github.com/X2M7/zweiblog#docker-%E8%87%AA%E6%89%98%E7%AE%A1%E9%83%A8%E7%BD%B2%E6%8E%A8%E8%8D%90
     type: primary
 
   - text: ℹ️ 介绍
     link: /intro.html
     type: secondary
 
-  - text: ✈️ Demo
-    link: https://blog-demo.mereith.com
-    type: secondary
-
 features:
-  - title: 优雅
-    icon: clover
-    details: 前后台都响应式、都支持暗色模式且能自动切换
+  - title: 整站双语
+    icon: language
+    details: 文章、导航、分类、标签、关于、友情链接与常用界面文案均可中英文切换
 
-  - title: 功能强大
-    icon: jet-fighter
-    details: 草稿、分类、标签、搜索、TOC、内嵌评论系统、图标和数学公式支持
+  - title: 本地评论
+    icon: comments
+    details: 匿名评论、回复、点赞、图片、Markdown 与 TeX 均由自己的服务和 MongoDB 保存
 
-  - title: 定制化
-    icon: wand-magic-sparkles
-    details: 可添加自定义 HTML、CSS、JS，强大的流水线功能，后续将支持主题与插件
+  - title: 项目化页面
+    icon: folder-tree
+    details: 单文件与多文件自定义页面支持文件树、重命名、递归删除和 ZIP 导出
 
-  - title: 内置图床
+  - title: 内容管理
     icon: image
-    details: 本地图床，OSS 图床，Github 图床都支持，可一键上传剪切板图片，自动添加水印，自动压缩图片
+    details: Markdown、草稿、分类、标签、图床、搜索、RSS、Sitemap、备份与统计一体化管理
 
-  - title: 高性能
-    icon: bolt
-    details: 快到极致的静态页面，秒响应的增量渲染，Lighthouse 近满分
-
-  - title: SEO 友好
-    icon: search
-    details: Lighthouse SEO 近满分，支持百度分析和 GA，支持自定义文章路径
-
-  - title: 可量化
-    icon: chart-area
-    details: 内置强大分析系统与精美看板，同时支持百度和GA，同时具有完善的日志
-
-  - title: 现代后台
+  - title: 现代界面
     icon: chess-king
-    details: 功能齐全的后台，精心优化的编辑器，极致的写作体验
+    details: 响应式前后台、深色模式、移动端适配和统一 Markdown 展示
 
-  - title: 安全第一
+  - title: 自托管优先
     icon: key
-    details: 内置了可以自定义权限的协作者模式，未来将支持更多登录安全策略
+    details: 数据、评论、图片和页面文件均可留在自己的服务器，默认不公开 MongoDB
 
-  - title: 易于部署
+  - title: Docker 部署
     icon: rocket
-    details: Docker 一键部署，全自动 HTTPS 证书自动申请续期，支持 ARM
+    details: 提供 GHCR 多架构镜像、Compose、持久化目录与 Nginx/Caddy 反向代理示例
 
 copyright: false
-footer: GPL-3.0 协议 | Copyright © 2022-present Mereith
+footer: GPL-3.0 | ZweiBlog 基于 VanBlog 修改
 ---

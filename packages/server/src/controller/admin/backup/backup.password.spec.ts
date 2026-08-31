@@ -10,7 +10,11 @@ const makeController = () => {
     exportForBackup: jest.fn().mockResolvedValue([{ name: 'locked', password: 'category-hash' }]),
     importFromBackup: jest.fn().mockResolvedValue(undefined),
   };
-  const tag: any = { getAllTags: jest.fn().mockResolvedValue([]) };
+  const tag: any = {
+    getAllTags: jest.fn().mockResolvedValue([]),
+    exportForBackup: jest.fn().mockResolvedValue([{ name: 'tag', nameEn: 'Tag' }]),
+    importFromBackup: jest.fn().mockResolvedValue(undefined),
+  };
   const meta: any = {
     getAll: jest.fn().mockResolvedValue({}),
     update: jest.fn().mockResolvedValue(undefined),
@@ -34,6 +38,7 @@ const makeController = () => {
   const setting: any = {
     getStaticSetting: jest.fn().mockResolvedValue({}),
     getCommentSetting: jest.fn().mockResolvedValue({}),
+    getMenuSetting: jest.fn().mockResolvedValue({ data: [] }),
     importSetting: jest.fn().mockResolvedValue(undefined),
   };
   const staticProvider: any = {
@@ -71,7 +76,7 @@ const makeController = () => {
     comment,
     maintenance,
   );
-  return { controller, article, category, comment };
+  return { controller, article, category, tag, comment };
 };
 
 describe('backup password round trip', () => {
@@ -87,10 +92,12 @@ describe('backup password round trip', () => {
     const backup = JSON.parse(response.send.mock.calls[0][0]);
     expect(backup.articles[0].password).toBe('article-hash');
     expect(backup.categories[0].password).toBe('category-hash');
+    expect(backup.tagDetails).toEqual([{ name: 'tag', nameEn: 'Tag' }]);
+    expect(backup.setting.menu).toEqual({ data: [] });
   });
 
   it('restores categories before articles so privacy metadata is available', async () => {
-    const { controller, article, category, comment } = makeController();
+    const { controller, article, category, tag, comment } = makeController();
     const backup = {
       articles: [{ id: 1, private: true, password: 'article-hash' }],
       categories: [{ name: 'locked', private: true, password: 'category-hash' }],
@@ -108,6 +115,7 @@ describe('backup password round trip', () => {
 
     expect(category.importFromBackup).toHaveBeenCalledWith(backup.categories);
     expect(article.importArticles).toHaveBeenCalledWith(backup.articles);
+    expect(tag.importFromBackup).toHaveBeenCalledWith(undefined);
     expect(comment.validateBackup.mock.invocationCallOrder[0]).toBeLessThan(
       category.importFromBackup.mock.invocationCallOrder[0],
     );

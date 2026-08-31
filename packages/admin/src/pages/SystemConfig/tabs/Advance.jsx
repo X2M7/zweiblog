@@ -6,7 +6,7 @@ import {
   updateLoginConfig,
 } from '@/services/zwei-blog/api';
 import { ProForm, ProFormDigit, ProFormSelect } from '@ant-design/pro-components';
-import { Alert, Button, Card, message, Modal } from 'antd';
+import { Alert, Button, Card, message } from 'antd';
 import { useState } from 'react';
 
 const defaultLoginConfig = {
@@ -40,10 +40,6 @@ export default function (props) {
           }}
           syncToInitialValues={true}
           onFinish={async (data) => {
-            if (location.hostname == 'blog-demo.mereith.com') {
-              Modal.info({ title: '演示站禁止修改登录安全策略！' });
-              return;
-            }
             await updateLoginConfig(data);
             message.success('更新成功！');
           }}
@@ -99,7 +95,7 @@ export default function (props) {
             <a
               rel="noreferrer"
               target="_blank"
-              href="https://vanblog.mereith.com/feature/advance/isr.html"
+              href="https://github.com/X2M7/zweiblog/blob/main/docs/advanced/isr.md"
             >
               帮助文档
             </a>
@@ -121,10 +117,6 @@ export default function (props) {
           }}
           syncToInitialValues={true}
           onFinish={async (data) => {
-            if (location.hostname == 'blog-demo.mereith.com') {
-              Modal.info({ title: '演示站禁止修改静态页面更新策略！' });
-              return;
-            }
             await updateISRConfig(data);
             message.success('更新成功！');
           }}

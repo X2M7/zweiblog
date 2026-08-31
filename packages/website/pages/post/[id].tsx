@@ -5,6 +5,15 @@ import Layout from "../../components/Layout";
 import PostCard from "../../components/PostCard";
 import Toc from "../../components/Toc";
 import { Article } from "../../types/article";
+import {
+  ArticleLanguage,
+  getArticleLanguageMetadata,
+  hasEnglishArticle,
+  localizeArticle,
+  markdownSummary,
+  resolveArticleLocalizedFields,
+  resolveEffectiveArticleLanguage,
+} from "../../utils/articleLanguage";
 import { getArticlePath } from "../../utils/getArticlePath";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getPostPagesProps } from "../../utils/getPageProps";
@@ -12,6 +21,15 @@ import { hasToc } from "../../utils/hasToc";
 import { getArticlesKeyWord } from "../../utils/keywords";
 import { revalidate } from "../../utils/loadConfig";
 import Custom404 from "../404";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+
+export interface NeighborArticle {
+  id: number;
+  title: string;
+  titleEn?: string;
+  hasEnglishVersion?: boolean;
+  pathname?: string;
+}
 
 export interface PostPagesProps {
   layoutProps: LayoutProps;
@@ -19,31 +37,80 @@ export interface PostPagesProps {
   pay: string[];
   payDark: string[];
   author: string;
-  pre: {
-    id: number;
-    title: string;
-    pathname?: string;
-  };
-  next: {
-    id: number;
-    title: string;
-    pathname?: string;
-  };
+  authorEn?: string;
+  pre?: NeighborArticle;
+  next?: NeighborArticle;
   showSubMenu: "true" | "false";
+  initialLanguage?: ArticleLanguage;
 }
+
 const PostPages = (props: PostPagesProps) => {
-  const [content, setContent] = useState(props?.article?.content || "");
+  const { language } = useSiteLanguage();
+  const articleId = props?.article?.id;
+  const articlePath = props.article ? `/post/${getArticlePath(props.article)}` : "";
+  const [localizedState, setLocalizedState] = useState(() => ({
+    articleId,
+    content: props?.article?.content || "",
+    contentEn: props?.article?.contentEn || "",
+    summary: props?.article?.summary || "",
+    summaryEn: props?.article?.summaryEn || "",
+  }));
+  // Next may reuse this page while moving between articles. Never combine
+  // the next article's metadata with the previous (possibly unlocked) body
+  // during the render before effects run.
+  const localizedFields = props.article
+    ? resolveArticleLocalizedFields(props.article, localizedState)
+    : { content: "", contentEn: "", summary: "", summaryEn: "" };
+
+  const articleWithUnlockedContent = props?.article
+    ? { ...props.article, ...localizedFields }
+    : null;
+  const englishAvailable = hasEnglishArticle(articleWithUnlockedContent);
+  const articleLanguage = resolveEffectiveArticleLanguage(
+    language,
+    englishAvailable,
+  );
+  const localized = articleWithUnlockedContent
+    ? localizeArticle(articleWithUnlockedContent, articleLanguage)
+    : { title: "", content: "", summary: "" };
+  const content = localized.content;
+
   useEffect(() => {
-    // nextjs 切换页面时，不会重新设置 content ，需要手动更新
-    setContent(props?.article?.content || "")
-  }, [props.article])
+    setLocalizedState({
+      articleId,
+      content: props?.article?.content || "",
+      contentEn: props?.article?.contentEn || "",
+      summary: props?.article?.summary || "",
+      summaryEn: props?.article?.summaryEn || "",
+    });
+  }, [articleId, props.article]);
+
   if (!props.article) {
     return <Custom404 name="文章" />;
   }
+
+  const description = localized.summary || markdownSummary(content);
+  const languageMetadata = getArticleLanguageMetadata(
+    articlePath,
+    articleLanguage,
+  );
+  const localizeNeighbor = (neighbor?: NeighborArticle) =>
+    neighbor
+      ? {
+          ...neighbor,
+          title:
+            language === "en" &&
+            neighbor.hasEnglishVersion &&
+            neighbor.titleEn?.trim()
+              ? neighbor.titleEn
+              : neighbor.title,
+        }
+      : undefined;
+
   return (
     <Layout
       option={props.layoutProps}
-      title={props.article.title}
+      title={localized.title}
       sideBar={
         hasToc(content) ? (
           <Toc content={content} showSubMenu={props.showSubMenu} />
@@ -51,10 +118,29 @@ const PostPages = (props: PostPagesProps) => {
       }
     >
       <Head>
+        <meta key="description" name="description" content={description} />
         <meta
           name="keywords"
-          content={getArticlesKeyWord([props.article]).join(",")}
-        ></meta>
+          content={getArticlesKeyWord(
+            [props.article],
+            language,
+            props.layoutProps.categoryNamesEn,
+            props.layoutProps.tagNamesEn,
+          ).join(",")}
+        />
+        <link href={articlePath} hrefLang="zh-CN" rel="alternate" />
+        <link href={articlePath} hrefLang="x-default" rel="alternate" />
+        {englishAvailable && (
+          <link href={`${articlePath}?lang=en`} hrefLang="en" rel="alternate" />
+        )}
+        <link
+          href={languageMetadata.canonicalHref}
+          rel="canonical"
+        />
+        <meta
+          content={languageMetadata.openGraphLocale}
+          property="og:locale"
+        />
       </Head>
       <PostCard
         showEditButton={props.layoutProps.showEditButton === "true"}
@@ -66,27 +152,54 @@ const PostPages = (props: PostPagesProps) => {
           props.layoutProps.openArticleLinksInNewWindow == "true"
         }
         customCopyRight={props.article.copyright || null}
+        customCopyRightEn={props.article.copyrightEn || null}
         top={props.article.top || 0}
         id={getArticlePath(props.article)}
         key={props.article.id}
-        title={props.article.title}
+        title={localized.title}
         updatedAt={new Date(props.article.updatedAt)}
         createdAt={new Date(props.article.createdAt)}
         catelog={props.article.category}
+        catelogEn={props.article.categoryEn || props.layoutProps.categoryNamesEn[props.article.category]}
         content={content}
-        setContent={setContent}
-        type={"article"}
+        setContent={(nextContent) => {
+          setLocalizedState({
+            articleId,
+            content:
+              articleLanguage === "zh"
+                ? nextContent
+                : localizedFields.content,
+            contentEn:
+              articleLanguage === "en"
+                ? nextContent
+                : localizedFields.contentEn,
+            summary: localizedFields.summary,
+            summaryEn: localizedFields.summaryEn,
+          });
+        }}
+        type="article"
         pay={props.pay}
         payDark={props.payDark}
         private={props.article.private}
-        author={props.author}
+        author={language === "en" && props.authorEn?.trim() ? props.authorEn : props.author}
         tags={props.article.tags}
-        pre={props.pre}
-        next={props.next}
+        tagsEn={props.article.tagsEn || props.article.tags.map((tag) => props.layoutProps.tagNamesEn[tag] || "")}
+        pre={localizeNeighbor(props.pre)}
+        next={localizeNeighbor(props.next)}
+        language={articleLanguage}
+        onUnlock={(article) => {
+          setLocalizedState({
+            articleId,
+            content: article.content || "",
+            contentEn: article.contentEn || "",
+            summary: article.summary || "",
+            summaryEn: article.summaryEn || "",
+          });
+        }}
         enableComment={props.layoutProps.enableComment}
         hideDonate={props.layoutProps.showDonateButton == "false"}
         hideCopyRight={props.layoutProps.showCopyRight == "false"}
-      ></PostCard>
+      />
     </Layout>
   );
 };

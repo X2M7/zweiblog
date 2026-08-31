@@ -13,10 +13,27 @@ case "$install_root" in
     ;;
 esac
 
+if [ -L "$install_root" ]; then
+  echo "Refusing symbolic-link installation root: $install_root" >&2
+  exit 1
+fi
+
 mkdir -p -- "$install_root"
 install_root=$(CDPATH= cd -- "$install_root" && pwd -P)
+case "$install_root" in
+  '' | /)
+    echo "Refusing unsafe resolved installation root: $install_root" >&2
+    exit 1
+    ;;
+esac
 secret_dir="$install_root/secrets"
+data_dir="$install_root/data"
 mongo_data_dir="$install_root/data/mongo"
+static_dir="$install_root/data/static"
+log_dir="$install_root/log"
+caddy_config_dir="$install_root/caddy/config"
+caddy_data_dir="$install_root/caddy/data"
+caddy_dir="$install_root/caddy"
 root_password_file="$secret_dir/mongo-root-password"
 app_password_file="$secret_dir/mongo-app-password"
 app_uri_file="$secret_dir/mongo-app-uri"
@@ -32,6 +49,28 @@ for file in "$root_password_file" "$app_password_file" "$app_uri_file"; do
     exit 1
   fi
 done
+
+for directory in \
+  "$secret_dir" \
+  "$data_dir" \
+  "$mongo_data_dir" \
+  "$static_dir" \
+  "$log_dir" \
+  "$caddy_dir" \
+  "$caddy_config_dir" \
+  "$caddy_data_dir"; do
+  if [ -L "$directory" ]; then
+    echo "Refusing symbolic-link deployment path: $directory" >&2
+    exit 1
+  fi
+done
+
+mkdir -p -- "$secret_dir" "$mongo_data_dir" "$static_dir" "$log_dir" "$caddy_config_dir" "$caddy_data_dir"
+
+# The application image runs as uid/gid 10001. Preparing these bind mounts
+# here avoids Docker creating root-owned directories on first startup.
+chown -R 10001:10001 "$static_dir" "$log_dir" "$caddy_dir"
+chmod 0750 "$static_dir" "$log_dir" "$caddy_dir" "$caddy_config_dir" "$caddy_data_dir"
 
 existing=0
 for file in "$root_password_file" "$app_password_file" "$app_uri_file"; do

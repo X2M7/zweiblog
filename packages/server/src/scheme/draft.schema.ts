@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import { ARTICLE_SUMMARY_MAX_LENGTH } from 'src/utils/localizedArticleFields';
 
 export type DraftDocument = Draft & Document;
 
@@ -11,8 +12,20 @@ export class Draft extends Document {
   @Prop({ index: true })
   title: string;
 
+  @Prop({ default: '', index: true })
+  titleEn?: string;
+
   @Prop({ default: '' })
   content: string;
+
+  @Prop({ default: '' })
+  contentEn?: string;
+
+  @Prop({ default: '', maxlength: ARTICLE_SUMMARY_MAX_LENGTH })
+  summary?: string;
+
+  @Prop({ default: '', maxlength: ARTICLE_SUMMARY_MAX_LENGTH })
+  summaryEn?: string;
 
   @Prop({ default: [], index: true })
   tags: string[];

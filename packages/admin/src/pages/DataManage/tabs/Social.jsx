@@ -2,38 +2,86 @@ import { deleteSocial, getSocial, getSocialTypes, updateSocial } from '@/service
 import { EditableProTable } from '@ant-design/pro-components';
 import { Modal, Spin } from 'antd';
 import { useRef, useState } from 'react';
+import {
+  filterSocialTypeOption,
+  getSocialTypeLabel,
+  getSocialValueGuidance,
+  normalizeSocialTypeOptions,
+  SOCIAL_VALUE_MAX_LENGTH,
+} from './socialField';
 
 export default function () {
   const [loading, setLoading] = useState(true);
   const [editableKeys, setEditableRowKeys] = useState([]);
+  const [socialTypeOptions, setSocialTypeOptions] = useState([]);
   const actionRef = useRef();
+  const socialTypeOptionsRef = useRef([]);
+
+  const fetchSocialTypes = async () => {
+    const { data } = await getSocialTypes();
+    const options = normalizeSocialTypeOptions(data);
+    socialTypeOptionsRef.current = options;
+    setSocialTypeOptions(options);
+    return options;
+  };
+
   const fetchData = async () => {
     setLoading(true);
-    const { data } = await getSocial();
-
-    setLoading(false);
-    return data.map((item) => ({ key: item.type, ...item }));
+    try {
+      const [{ data }] = await Promise.all([getSocial(), fetchSocialTypes()]);
+      return (data || []).map((item) => ({ key: item.type, ...item }));
+    } finally {
+      setLoading(false);
+    }
   };
   const columns = [
     {
       title: '类型',
       dataIndex: 'type',
-      formItemProps: (form, { rowIndex }) => {
+      valueType: 'select',
+      width: 240,
+      formItemProps: () => {
         return {
           rules: [{ required: true, message: '此项为必填项' }],
         };
       },
-      request: async () => {
-        const { data } = await getSocialTypes();
-        return data || [];
+      fieldProps: {
+        showSearch: true,
+        optionFilterProp: 'label',
+        filterOption: filterSocialTypeOption,
+        placeholder: '请选择或搜索联系方式类型',
       },
+      request: async () => {
+        if (socialTypeOptionsRef.current.length) return socialTypeOptionsRef.current;
+        return fetchSocialTypes();
+      },
+      render: (_, record) => getSocialTypeLabel(socialTypeOptions, record.type),
     },
     {
       title: '值',
       dataIndex: 'value',
-      formItemProps: (form, { rowIndex }) => {
+      width: 520,
+      formItemProps: (form, { rowKey }) => {
+        const type = form?.getFieldValue?.(rowKey)?.type;
+        const guidance = getSocialValueGuidance(type);
         return {
-          rules: [{ required: true, message: '此项为必填项' }],
+          extra: guidance.help,
+          rules: [
+            { required: true, message: '此项为必填项' },
+            {
+              max: SOCIAL_VALUE_MAX_LENGTH,
+              message: `最多可填写 ${SOCIAL_VALUE_MAX_LENGTH} 个字符`,
+            },
+          ],
+        };
+      },
+      fieldProps: (form, { rowKey }) => {
+        const type = form?.getFieldValue?.(rowKey)?.type;
+        const guidance = getSocialValueGuidance(type);
+        return {
+          maxLength: SOCIAL_VALUE_MAX_LENGTH,
+          showCount: true,
+          placeholder: guidance.placeholder,
         };
       },
     },
@@ -70,7 +118,7 @@ export default function () {
                 await deleteSocial(record.type);
                 action?.reload();
               },
-              title: `确认删除"${record.type}"吗?`,
+              title: `确认删除"${getSocialTypeLabel(socialTypeOptions, record.type)}"吗?`,
             });
           }}
         >
@@ -107,10 +155,6 @@ export default function () {
             type: 'multiple',
             editableKeys,
             onSave: async (rowKey, data, row) => {
-              if (location.hostname == 'blog-demo.mereith.com') {
-                Modal.info({ title: '演示站禁止修改此项！' });
-                return;
-              }
               const toSaveObj = {
                 type: data.type,
                 value: data.value,

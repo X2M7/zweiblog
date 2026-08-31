@@ -1,0 +1,6 @@
+# Replace blog.example.com, then point its DNS record at this host.
+# ZweiBlog's Compose HTTP port is bound to 127.0.0.1:8080 by default.
+blog.example.com {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:8080
+}

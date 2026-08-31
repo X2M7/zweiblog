@@ -79,6 +79,7 @@ export async function getLinkPageProps(): Promise<LinkPageProps> {
     layoutProps,
     authorCardProps,
     links: data.meta.links,
+    ...(data.meta.linkPage ? { linkPage: data.meta.linkPage } : {}),
   };
 }
 export async function getAboutPageProps(): Promise<AboutPageProps> {
@@ -169,12 +170,19 @@ export async function getPostPagesProps(
   };
   const currArticleProps = await getArticleByIdOrPathname(curId);
   const { article } = currArticleProps;
-  const author = article?.author || data.meta.siteInfo.author;
+  const siteAuthor = data.meta.siteInfo.author;
+  const articleAuthor = article?.author;
+  const usesSiteAuthor = !articleAuthor?.trim() || articleAuthor === siteAuthor;
+  const author = articleAuthor?.trim() ? articleAuthor : siteAuthor;
+  const authorEn = usesSiteAuthor
+    ? data.meta.siteInfo.authorEn?.trim() || author
+    : author;
   return {
     layoutProps,
     ...currArticleProps,
     ...payProps,
     author,
+    authorEn,
     showSubMenu: layoutProps.showSubMenu,
   };
 }

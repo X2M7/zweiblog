@@ -2,6 +2,18 @@ import { getAllCategories } from '@/services/zwei-blog/api';
 import { message, Modal } from 'antd';
 import fm from 'front-matter';
 
+const parsePrivateAttribute = (value) => {
+  if (value === undefined || value === null || value === false || value === 0) return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || ['false', '0', 'no', 'off', 'null'].includes(normalized)) return false;
+    // Common true values and every other non-empty, unrecognized value fail
+    // closed. A malformed privacy marker must never make an export public.
+    return true;
+  }
+  return true;
+};
+
 export const parseMarkdownFile = async (file, allowNotExistCategory) => {
   const name = file.name.split('.')[0];
   const type = file.name.split('.').pop();
@@ -13,6 +25,10 @@ export const parseMarkdownFile = async (file, allowNotExistCategory) => {
 
   const { attributes, body } = fm(txt);
   const title = attributes?.title || name;
+  const titleEn = typeof attributes?.titleEn === 'string' ? attributes.titleEn : '';
+  const summary = typeof attributes?.summary === 'string' ? attributes.summary : '';
+  const summaryEn = typeof attributes?.summaryEn === 'string' ? attributes.summaryEn : '';
+  const contentEn = typeof attributes?.contentEn === 'string' ? attributes.contentEn : '';
   const categoris = attributes?.categories || [];
   let allCategories = undefined;
   try {
@@ -58,11 +74,18 @@ export const parseMarkdownFile = async (file, allowNotExistCategory) => {
       updatedAt = new Date(attributes?.updated).toISOString();
     }
   } catch (err) {}
-  const password = attributes?.password || undefined;
-  const privateAttr = password ? true : false;
+  const password =
+    typeof attributes?.password === 'string' && attributes.password.trim()
+      ? attributes.password
+      : undefined;
+  const explicitPrivate = parsePrivateAttribute(attributes?.private);
+  const privateAttr = explicitPrivate || Boolean(password);
   const hidden = attributes?.hidden || attributes?.hide || false;
   const vals = {
     title,
+    titleEn,
+    summary,
+    summaryEn,
     top,
     tags,
     category,
@@ -71,6 +94,7 @@ export const parseMarkdownFile = async (file, allowNotExistCategory) => {
     hidden,
     createdAt,
     content: body,
+    contentEn,
     updatedAt,
   };
   return vals;
@@ -80,13 +104,17 @@ export const parseObjToMarkdown = (obj) => {
   const frontmatter = {};
   for (const key of [
     'title',
+    'titleEn',
+    'summary',
+    'summaryEn',
+    'contentEn',
     'category',
     'tags',
     'top',
     'updatedAt',
     'createdAt',
     'hidden',
-    'password',
+    'private',
   ]) {
     if (Object.keys(obj).includes(key)) {
       if (['updatedAt', 'createdAt'].includes(key)) {
@@ -108,9 +136,21 @@ export const parseObjToMarkdown = (obj) => {
   }
   let result = '---';
   for (const [k, v] of Object.entries(frontmatter)) {
-    result = result + `\n${k}: ${v}`;
+    if (typeof v === 'string' && v.includes('\n')) {
+      const block = v
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map((line) => `  ${line}`)
+        .join('\n');
+      result = result + `\n${k}: |-\n${block}`;
+    } else {
+      result = result + `\n${k}: ${JSON.stringify(v)}`;
+    }
   }
   result = result + '\n---\n\n';
   result = result + obj.content;
   return result;
 };
+
+export const needsPrivateImportPassword = (obj) =>
+  Boolean(obj?.private && !(typeof obj?.password === 'string' && obj.password.trim()));

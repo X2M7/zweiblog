@@ -6,6 +6,7 @@ import { Article } from "../../types/article";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getCategoryPagesProps } from "../../utils/getPageProps";
 import { revalidate } from "../../utils/loadConfig";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export interface CategoryPagesProps {
   layoutProps: LayoutProps;
   authorCardProps: AuthorCardProps;
@@ -15,18 +16,26 @@ export interface CategoryPagesProps {
   wordTotal: number;
 }
 const CategoryPages = (props: CategoryPagesProps) => {
+  const { language } = useSiteLanguage();
+  const categoryTitle = language === "en" && props.layoutProps.categoryNamesEn[props.curCategory]?.trim()
+    ? props.layoutProps.categoryNamesEn[props.curCategory]
+    : props.curCategory;
   return (
     <Layout
       option={props.layoutProps}
-      title={props.curCategory}
+      title={categoryTitle}
       sideBar={<AuthorCard option={props.authorCardProps}></AuthorCard>}
     >
       <div className="bg-white card-shadow dark:bg-dark dark:card-shadow-dark py-4 px-8 md:py-6 md:px-8">
         <div>
           <div className="text-2xl md:text-3xl text-gray-700 text-center dark:text-dark">
-            {props.curCategory}
+            {categoryTitle}
           </div>
-          <div className="text-center text-gray-600 text-sm mt-2 mb-4 font-light dark:text-dark">{`${props.curNum} 文章 × ${props.wordTotal} 字`}</div>
+          <div className="text-center text-gray-600 text-sm mt-2 mb-4 font-light dark:text-dark">
+            {language === "en"
+              ? `${props.curNum} articles × ${props.wordTotal} words`
+              : `${props.curNum} 文章 × ${props.wordTotal} 字`}
+          </div>
         </div>
         <div className="flex flex-col mt-2">
           {Object.keys(props.sortedArticles)
@@ -40,6 +49,7 @@ const CategoryPages = (props: CategoryPagesProps) => {
                   defaultOpen={true}
                   key={eachDate}
                   date={eachDate}
+                  dateEn={props.layoutProps.categoryNamesEn[eachDate]}
                   articles={props.sortedArticles[eachDate]}
                 ></TimeLineItem>
               );

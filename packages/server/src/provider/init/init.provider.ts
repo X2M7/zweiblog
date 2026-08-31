@@ -52,11 +52,17 @@ export class InitProvider {
       await this.metaModel.create({
         siteInfo: toUpdateDto,
         links: [],
+        linkPage: {
+          updatedAt: new Date(),
+          content: '',
+          contentEn: '',
+        },
         socials: [],
         rewards: [],
         about: {
           updatedAt: new Date(),
           content: '',
+          contentEn: '',
         },
         categories: [],
       });

@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { ArticleProvider } from '../article/article.provider';
 import { CategoryDocument } from 'src/scheme/category.schema';
 import { sleep } from 'src/utils/sleep';
-import { UpdateCategoryDto } from 'src/types/category.dto';
+import { CreateCategoryDto, UpdateCategoryDto } from 'src/types/category.dto';
 import {
   hashContentPassword,
   hasContentPassword,
@@ -12,6 +12,7 @@ import {
   MAX_CONTENT_PASSWORD_LENGTH,
 } from 'src/utils/contentPassword';
 import { isScryptPasswordHash } from 'src/utils/crypto';
+import { assertTextFields, LOCALIZED_NAME_MAX_LENGTH } from 'src/utils/localizedMetadata';
 
 @Injectable()
 export class CategoryProvider {
@@ -62,9 +63,24 @@ export class CategoryProvider {
         delete raw.password;
         delete raw._id;
         delete raw.__v;
-        return { ...raw, hasPassword };
+        return {
+          ...raw,
+          nameEn: typeof raw.nameEn === 'string' ? raw.nameEn : '',
+          hasPassword,
+        };
       });
     else return d.map((item) => item.name);
+  }
+
+  async getCategoryDetails(): Promise<Array<{ name: string; nameEn: string }>> {
+    const categories = await this.categoryModal
+      .find({}, { name: 1, nameEn: 1, _id: 0 })
+      .lean()
+      .exec();
+    return categories.map((item: any) => ({
+      name: item.name,
+      nameEn: typeof item.nameEn === 'string' ? item.nameEn : '',
+    }));
   }
 
   /** Only call from the AdminGuard-protected backup controller. */
@@ -96,6 +112,11 @@ export class CategoryProvider {
       if (typeof input.name !== 'string' || !input.name || input.name.length > 100) {
         throw new BadRequestException('Invalid category name in backup');
       }
+      assertTextFields(
+        input,
+        [{ field: 'nameEn', maxLength: LOCALIZED_NAME_MAX_LENGTH }],
+        'Backup category',
+      );
       if (input.private !== undefined && typeof input.private !== 'boolean') {
         throw new BadRequestException('Invalid category privacy value in backup');
       }
@@ -119,7 +140,12 @@ export class CategoryProvider {
       // missing category, but must not erase newer privacy settings.
       if (existing && legacyNameOnly) continue;
       const type = input.type === 'column' ? 'column' : 'category';
-      const set: any = { name: input.name, type, private: isPrivate };
+      const set: any = {
+        name: input.name,
+        type,
+        private: isPrivate,
+      };
+      if (Object.prototype.hasOwnProperty.call(input, 'nameEn')) set.nameEn = input.nameEn;
       if (input.meta && typeof input.meta === 'object' && !Array.isArray(input.meta)) {
         set.meta = input.meta;
       }
@@ -144,7 +170,17 @@ export class CategoryProvider {
     return d[name] ?? [];
   }
 
-  async addOne(name: string) {
+  async addOne(input: string | CreateCategoryDto) {
+    const dto: CreateCategoryDto = typeof input === 'string' ? { name: input } : { ...input };
+    assertTextFields(
+      dto as unknown as Record<string, unknown>,
+      [
+        { field: 'name', maxLength: 100, required: true },
+        { field: 'nameEn', maxLength: LOCALIZED_NAME_MAX_LENGTH },
+      ],
+      'Category',
+    );
+    const { name, nameEn = '' } = dto;
     const existData = await this.categoryModal.findOne({
       name,
     });
@@ -154,6 +190,7 @@ export class CategoryProvider {
       await this.categoryModal.create({
         id: await this.getNewId(),
         name,
+        nameEn,
         type: 'category',
         private: false,
       });
@@ -189,6 +226,14 @@ export class CategoryProvider {
     if (Object.keys(dto).length == 0) {
       throw new NotAcceptableException('无有效信息，无法修改！');
     }
+    assertTextFields(
+      dto as Record<string, unknown>,
+      [
+        { field: 'name', maxLength: 100 },
+        { field: 'nameEn', maxLength: LOCALIZED_NAME_MAX_LENGTH },
+      ],
+      'Category',
+    );
     const existing: any = await this.categoryModal.findOne({ name }).select('+password').exec();
     if (!existing) {
       throw new NotAcceptableException('Category does not exist');

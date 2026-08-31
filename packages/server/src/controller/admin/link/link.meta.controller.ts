@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { LinkDto } from 'src/types/link.dto';
+import { LinkDto, ReorderLinksDto, UpdateLinkPageDto } from 'src/types/link.dto';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
 import { ISRProvider } from 'src/provider/isr/isr.provider';
 import { MetaProvider } from 'src/provider/meta/meta.provider';
@@ -19,6 +19,47 @@ export class LinkMetaController {
   @Get()
   async get() {
     const data = await this.metaProvider.getLinks();
+    return {
+      statusCode: 200,
+      data,
+    };
+  }
+
+  @Get('/page')
+  async getPage() {
+    const data = await this.metaProvider.getLinkPage();
+    return {
+      statusCode: 200,
+      data,
+    };
+  }
+
+  @Put('/page')
+  async updatePage(@Body() updateLinkPageDto: UpdateLinkPageDto) {
+    if (config.demo && config.demo == 'true') {
+      return {
+        statusCode: 401,
+        message: '演示站禁止修改此项！',
+      };
+    }
+    const data = await this.metaProvider.updateLinkPage(updateLinkPageDto);
+    this.isrProvider.activeLink('更新友情链接页正文触发增量渲染！');
+    return {
+      statusCode: 200,
+      data,
+    };
+  }
+
+  @Put('/order')
+  async reorder(@Body() reorderLinksDto: ReorderLinksDto) {
+    if (config.demo && config.demo == 'true') {
+      return {
+        statusCode: 401,
+        message: '演示站禁止修改此项！',
+      };
+    }
+    const data = await this.metaProvider.reorderLinks(reorderLinksDto?.names);
+    this.isrProvider.activeLink('调整友链顺序触发增量渲染！');
     return {
       statusCode: 200,
       data,

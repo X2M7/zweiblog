@@ -1,6 +1,7 @@
 import ImageBox from "../ImageBox";
 import RunningTime from "../RunningTime";
 import Viewer from "../Viewer";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function ({
   ipcHref,
@@ -21,12 +22,13 @@ export default function ({
   since: string;
   version: string;
 }) {
+  const { t } = useSiteLanguage();
   return (
     <>
       <footer className="text-center text-sm space-y-1 mt-8 md:mt-12 dark:text-dark footer-icp-number">
         {Boolean(ipcNumber) && (
           <p className="">
-            ICP 编号:&nbsp;
+            {t("ICP 编号", "ICP registration")}:&nbsp;
             <a
               href={ipcHref}
               target="_blank"
@@ -38,12 +40,12 @@ export default function ({
         )}
         {Boolean(gaBeianNumber) && (
           <p className="flex justify-center items-center footer-gongan-beian">
-            公安备案:&nbsp;
+            {t("公安备案", "Public security registration")}:&nbsp;
             {Boolean(gaBeianLogoUrl) && (
               <ImageBox
                 src={gaBeianLogoUrl}
                 lazyLoad={true}
-                alt="公安备案 logo"
+                alt={t("公安备案 logo", "Public security registration logo")}
                 width={20}
               />
             )}
@@ -60,7 +62,7 @@ export default function ({
         <p className="footer-powered-by-zweiblog">
           Powered By&nbsp;
           <a
-            href="https://vanblog.mereith.com"
+            href="https://github.com/X2M7/zweiblog"
             target={"_blank"}
             className="hover:text-gray-900 dark:hover:text-dark-hover transition ua ua-link"
           >

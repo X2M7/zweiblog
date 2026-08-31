@@ -1,5 +1,6 @@
 import { useContext, useMemo, useState } from "react";
 import { ThemeContext } from "../../utils/themeContext";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: {
   aliPay: string;
@@ -11,6 +12,7 @@ export default function (props: {
 }) {
   const [show, setShow] = useState(false);
   const { theme } = useContext(ThemeContext);
+  const { t } = useSiteLanguage();
 
   const payUrl = useMemo(() => {
     const r = [];
@@ -32,14 +34,14 @@ export default function (props: {
       {props.aliPay != "" && (
         <>
           <div className="text-center  select-none text-sm md:text-base mb-2 dark:text-dark">
-            如果对你有用的话，可以打赏哦
+            {t("如果对你有用的话，可以打赏哦", "If you found this useful, you can support the author.")}
           </div>
           <div className="flex justify-center mb-6 ">
             <div
               onClick={() => [setShow(!show)]}
               className="text-sm md:text-base   text-gray-100 bg-red-600 rounded px-4 select-none cursor-pointer hover:bg-red-400 py-1"
             >
-              打赏
+              {t("打赏", "Support")}
             </div>
           </div>
           <div

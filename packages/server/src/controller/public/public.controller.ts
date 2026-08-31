@@ -263,9 +263,15 @@ export class PublicController {
   @Get('/meta')
   async getBuildMeta() {
     const tags = await this.tagProvider.getAllTags(false);
+    const tagDetails = await this.tagProvider.getTagDetails(false);
     const meta = await this.metaProvider.getAll();
     const metaDoc = (meta as any)?._doc || meta;
+    const siteInfo = await this.metaProvider.getSiteInfo();
+    const about = await this.metaProvider.getAbout();
+    const links = await this.metaProvider.getLinks();
+    const linkPage = await this.metaProvider.getLinkPage();
     const categories = await this.categoryProvider.getAllCategories(false);
+    const categoryDetails = await this.categoryProvider.getCategoryDetails();
     const { data: menus } = await this.settingProvider.getMenuSetting();
     const totalArticles = await this.articleProvider.getTotalNum(false);
     const totalWordCount = await this.metaProvider.getTotalWords();
@@ -274,9 +280,15 @@ export class PublicController {
     const data = {
       version: version,
       tags,
+      tagDetails,
       meta: {
         ...metaDoc,
+        siteInfo,
+        about,
+        links,
+        linkPage,
         categories,
+        categoryDetails,
       },
       menus,
       totalArticles,

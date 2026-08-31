@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
+import { getSocialValueKind } from 'src/types/social.dto';
 import { MetaProvider } from '../meta/meta.provider';
 import { SettingProvider } from '../setting/setting.provider';
 
@@ -39,7 +40,8 @@ export class WebsiteProvider {
           };
     if (!meta?.siteInfo) return { ...isrEnv };
     const siteinfo = meta.siteInfo;
-    const socials = meta.socials;
+    // Legacy/imported metadata may omit this array entirely.
+    const socials = Array.isArray(meta.socials) ? meta.socials : [];
     const urls = [];
     const addEach = (u: string) => {
       if (!u) return null;
@@ -62,13 +64,10 @@ export class WebsiteProvider {
     addEach(siteinfo?.payAliPayDark);
     addEach(siteinfo?.payWechat);
     addEach(siteinfo?.payWechatDark);
-    const wechatItem = socials.find((s) => s.type == 'wechat');
-    if (wechatItem) {
-      addEach(wechatItem?.value);
-    }
-    const wechatDarkItem = socials.find((s) => s.type == 'wechat-dark');
-    if (wechatDarkItem) {
-      addEach(wechatDarkItem?.value);
+    for (const social of socials) {
+      if (getSocialValueKind(social?.type) === 'qr') {
+        addEach(social?.value);
+      }
     }
     return { ZWEI_BLOG_ALLOW_DOMAINS: urls.join(','), ...isrEnv };
   }

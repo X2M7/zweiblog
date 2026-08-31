@@ -65,7 +65,15 @@ if (Test-ReparsePoint $resolvedRoot) {
 }
 
 $secretDirectory = Join-Path $resolvedRoot 'secrets'
-$mongoDataDirectory = Join-Path (Join-Path $resolvedRoot 'data') 'mongo'
+$dataDirectory = Join-Path $resolvedRoot 'data'
+$mongoDataDirectory = Join-Path $dataDirectory 'mongo'
+$caddyDirectory = Join-Path $resolvedRoot 'caddy'
+$runtimeDirectories = @(
+  (Join-Path $dataDirectory 'static'),
+  (Join-Path $resolvedRoot 'log'),
+  (Join-Path $caddyDirectory 'config'),
+  (Join-Path $caddyDirectory 'data')
+)
 $rootPasswordFile = Join-Path $secretDirectory 'mongo-root-password'
 $appPasswordFile = Join-Path $secretDirectory 'mongo-app-password'
 $appUriFile = Join-Path $secretDirectory 'mongo-app-uri'
@@ -74,6 +82,18 @@ $secretFiles = @($rootPasswordFile, $appPasswordFile, $appUriFile)
 foreach ($file in $secretFiles) {
   if (Test-ReparsePoint $file) {
     throw "Refusing reparse-point secret path: $file"
+  }
+}
+
+foreach ($directory in @($secretDirectory, $dataDirectory, $mongoDataDirectory, $caddyDirectory) + $runtimeDirectories) {
+  if (Test-ReparsePoint $directory) {
+    throw "Refusing reparse-point deployment path: $directory"
+  }
+}
+
+foreach ($directory in @($secretDirectory, $mongoDataDirectory) + $runtimeDirectories) {
+  if (-not (Test-Path -LiteralPath $directory)) {
+    [void](New-Item -ItemType Directory -Path $directory)
   }
 }
 

@@ -53,16 +53,21 @@ export type LikeCommentResult = {
 /**
  * Browsers expose non-ASCII path segments in percent-encoded form while
  * article identifiers and migrated comments are commonly stored decoded.
- * Keep one canonical representation at every public comment API boundary.
+ * Keep one pathname-only canonical representation at every public comment API
+ * boundary so language/search/hash variants cannot create duplicate threads.
  */
 export function normalizeCommentPath(path: string): string {
   const value = typeof path === "string" && path ? path : "/";
+  const pathname = value.split(/[?#]/, 1)[0] || "/";
   try {
-    return decodeURI(value);
+    const decoded = decodeURI(pathname);
+    // The English page is an internal rewrite target. Normalize both the
+    // visible and internal route to one comment thread.
+    return decoded.replace(/^\/en\/post(?=\/|$)/, "/post");
   } catch {
     // Leave malformed escape sequences untouched so the server can reject
     // them consistently instead of turning them into a different path.
-    return value;
+    return pathname.replace(/^\/en\/post(?=\/|$)/, "/post");
   }
 }
 

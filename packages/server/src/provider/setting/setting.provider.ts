@@ -21,6 +21,7 @@ import { defaultMenu, MenuItem } from 'src/types/menu.dto';
 import { MetaProvider } from '../meta/meta.provider';
 import { parseHtmlToHeadTagArr } from 'src/utils/htmlParser';
 import { normalizeCommentSetting } from 'src/utils/comment';
+import { assertMenuItems, mergeMenuLocalizedFields } from 'src/utils/localizedMetadata';
 @Injectable()
 export class SettingProvider {
   logger = new Logger(SettingProvider.name);
@@ -87,8 +88,10 @@ export class SettingProvider {
     return null;
   }
   async updateMenuSetting(dto: MenuSetting) {
+    assertMenuItems((dto as any)?.data);
     const oldValue = await this.getMenuSetting();
-    const newValue = { ...oldValue, ...dto };
+    const data = mergeMenuLocalizedFields(dto.data, oldValue?.data || []);
+    const newValue = { ...oldValue, ...dto, data };
     if (!oldValue) {
       return await this.settingModel.create({
         type: 'menu',
@@ -105,6 +108,8 @@ export class SettingProvider {
         await this.importStaticSetting(v as any);
       } else if (k === 'comment') {
         await this.updateCommentSetting(v as Partial<CommentSetting>);
+      } else if (k === 'menu') {
+        await this.updateMenuSetting(v as MenuSetting);
       }
     }
   }
@@ -262,7 +267,7 @@ export class SettingProvider {
     const r = await this.settingModel.findOne({ type: 'menu' });
     if (!r) {
       // 没有的话需要清洗
-      const toInsert: MenuItem[] = defaultMenu;
+      const toInsert: MenuItem[] = defaultMenu.map((item) => ({ ...item }));
       const meta = await this.metaProvider.getAll();
       const oldMenus = meta.menus;
       const d = Date.now();
@@ -271,6 +276,7 @@ export class SettingProvider {
           id: d + index,
           level: 0,
           name: item.name,
+          nameEn: typeof item.nameEn === 'string' ? item.nameEn : '',
           value: item.value,
         });
       });

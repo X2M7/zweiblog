@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import throttle from "lodash/throttle";
 import { getEl, NavItem } from "./tools";
 import { scrollTo } from "../../utils/scroll";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export default function (props: {
   items: NavItem[];
   headingOffset: number;
   mobile?: boolean;
 }) {
   const { items } = props;
+  const { t } = useSiteLanguage();
   const [currIndex, setCurrIndex] = useState(-1);
 
   const updateHash = (hash: string) => {
@@ -116,7 +118,7 @@ export default function (props: {
               style={{ fontWeight: 600, fontSize: "1.5em", marginBottom: 4 }}
               className="text-gray-700 dark:text-dark "
             >
-              目录
+              {t("目录", "Contents")}
             </h2>
           </>
         ) : (
@@ -130,7 +132,7 @@ export default function (props: {
               });
             }}
           >
-            目录
+            {t("目录", "Contents")}
           </div>
         )}
 

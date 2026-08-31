@@ -1,4 +1,5 @@
 import { createDraft, getAllCategories, getTags } from '@/services/zwei-blog/api';
+import { SUMMARY_MAX_LENGTH } from '@/pages/Editor/bilingualContent';
 import { parseMarkdownFile } from '@/services/zwei-blog/parseMarkdownFile';
 import {
   ModalForm,
@@ -48,7 +49,7 @@ export default function (props) {
         onVisibleChange={(v) => {
           setVisible(v);
         }}
-        width={450}
+        width={720}
         autoFocusFirstInput
         submitTimeout={3000}
         onFinish={async (values) => {
@@ -76,6 +77,27 @@ export default function (props) {
           label="文章标题"
           placeholder="请输入标题"
           rules={[{ required: true, message: '这是必填项' }]}
+        />
+        <ProFormText width="md" id="titleEn" name="titleEn" label="英文标题" placeholder="可选" />
+        <ProFormTextArea
+          name="summary"
+          label="中文摘要"
+          id="summary"
+          fieldProps={{
+            autoSize: { minRows: 2, maxRows: 4 },
+            maxLength: SUMMARY_MAX_LENGTH,
+            showCount: true,
+          }}
+        />
+        <ProFormTextArea
+          name="summaryEn"
+          label="英文摘要"
+          id="summaryEn"
+          fieldProps={{
+            autoSize: { minRows: 2, maxRows: 4 },
+            maxLength: SUMMARY_MAX_LENGTH,
+            showCount: true,
+          }}
         />
         <ProFormSelect
           mode="tags"
@@ -119,8 +141,14 @@ export default function (props) {
         />
         <ProFormTextArea
           name="content"
-          label="内容"
+          label="中文正文"
           id="content"
+          fieldProps={{ autoSize: { minRows: 3, maxRows: 5 } }}
+        />
+        <ProFormTextArea
+          name="contentEn"
+          label="英文正文"
+          id="contentEn"
           fieldProps={{ autoSize: { minRows: 3, maxRows: 5 } }}
         />
       </ModalForm>

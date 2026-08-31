@@ -21,8 +21,8 @@ COPY . .
 
 ENV isBuild=t
 ENV ZWEI_BLOG_REVALIDATE_TIME=10
-ENV ZWEI_BLOG_ALLOW_DOMAINS "pic.mereith.com"
-ENV ZWEI_BLOG_SERVER_URL "https://www.mereith.com"
+ENV ZWEI_BLOG_ALLOW_DOMAINS ""
+ENV ZWEI_BLOG_SERVER_URL "http://server:3000"
 RUN yarn build
 
 # If using npm comment out above and use below instead
@@ -56,8 +56,8 @@ USER nextjs
 EXPOSE 3001
 
 ENV PORT 3001
-ENV ZWEI_BLOG_SERVER_URL server:3000
+ENV ZWEI_BLOG_SERVER_URL http://server:3000
 ENV ZWEI_BLOG_REVALIDATE_TIME 10
-ENV ZWEI_BLOG_ALLOW_DOMAINS "pic.mereith.com"
+ENV ZWEI_BLOG_ALLOW_DOMAINS ""
 
 CMD ["node", "server.js","-p","3001"]

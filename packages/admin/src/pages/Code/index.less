@@ -13,14 +13,96 @@
   flex-wrap: wrap;
 }
 .file-tree {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+
+  .ant-tree-treenode {
+    width: 100%;
+  }
+
+  .ant-tree-node-content-wrapper,
+  .ant-tree-title {
+    min-width: 0;
+  }
+
+  .ant-tree-node-content-wrapper {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .ant-tree-node-content-wrapper .ant-tree-iconEle {
+    flex: 0 0 24px;
+  }
+
+  .ant-tree-title {
+    display: block;
+    flex: 1 1 0;
+  }
+
+  .file-tree-node-title {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .file-tree-node-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 22px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .file-tree-node-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-left: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .file-tree-node-title:hover .file-tree-node-actions,
+  .ant-tree-node-selected .file-tree-node-actions,
+  .file-tree-node-actions:focus-within {
+    opacity: 1;
+  }
+
+  .file-tree-node-action {
+    width: 22px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 22px;
+  }
+
+  .file-tree-node-action-danger:not(:disabled) {
+    color: #ff4d4f;
+  }
 }
 .file-tree-container {
+  display: flex;
+  flex-direction: column;
+
+  .file-tree-heading {
+    display: flex;
+    flex: 0 0 34px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-weight: 600;
+  }
+
   .toolbar {
     height: 30px;
     padding-bottom: 8px;
     border-bottom: 1px solid #d6d6d6;
-    width: 200px;
+    width: 100%;
     display: flex;
     justify-content: space-between;
     .left {
@@ -36,4 +118,16 @@
       cursor: pointer;
     }
   }
+}
+
+@media (hover: none) {
+  .file-tree .file-tree-node-actions {
+    opacity: 1;
+  }
+}
+
+.rename-file-help {
+  margin-top: 8px;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
 }

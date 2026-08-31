@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getPageview, updatePageview } from '../api/pageview';
+import {
+  getPageview,
+  shouldUpdatePageviewForRouteChange,
+  updatePageview,
+} from '../api/pageview';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -8,6 +12,12 @@ afterEach(() => {
 });
 
 describe('pageview API resilience', () => {
+  it('does not count same-page shallow route changes', () => {
+    expect(shouldUpdatePageviewForRouteChange({ shallow: true })).toBe(false);
+    expect(shouldUpdatePageviewForRouteChange({ shallow: false })).toBe(true);
+    expect(shouldUpdatePageviewForRouteChange()).toBe(true);
+  });
+
   it('normalizes a successful response', async () => {
     vi.stubGlobal(
       'fetch',

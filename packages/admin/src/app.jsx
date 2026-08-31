@@ -59,7 +59,7 @@ export async function getInitialState() {
             订阅源错误等）
           </p>
           <p>网站 URL 需包含完整的协议。</p>
-          <p>例如： https://blog-demo.mereith.com</p>
+          <p>例如： https://blog.example.com</p>
           <a
             onClick={() => {
               history.push('/site/setting?siteInfoTab=basic');
@@ -93,7 +93,7 @@ export async function getInitialState() {
                 {`更新日志:\t`}
                 <a
                   target={'_blank'}
-                  href="https://vanblog.mereith.com/ref/changelog.html"
+                  href="https://github.com/X2M7/zweiblog/releases"
                   rel="noreferrer"
                 >
                   点击查看
@@ -103,7 +103,7 @@ export async function getInitialState() {
                 {`更新方法:\t`}
                 <a
                   target={'_blank'}
-                  href="https://vanblog.mereith.com/guide/update.html#%E5%8D%87%E7%BA%A7%E6%96%B9%E6%B3%95"
+                  href="https://github.com/X2M7/zweiblog#%E5%8D%87%E7%BA%A7"
                   rel="noreferrer"
                 >
                   点击查看

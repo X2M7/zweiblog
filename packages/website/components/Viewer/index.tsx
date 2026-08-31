@@ -1,11 +1,17 @@
 import { useContext } from "react";
 import { GlobalContext } from "../../utils/globalContext";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export default function () {
   const { state } = useContext(GlobalContext);
+  const { t } = useSiteLanguage();
   // 全站浏览量统计
   return (
     <span className="flex justify-center items-center dark:text-dark fill-gray-600 divide-gray-600">
-      <span className="flex items-center justify-center pr-2">
+      <span
+        aria-label={`${t("访客", "Visitors")}: ${state.visited}`}
+        className="flex items-center justify-center pr-2"
+        title={t("访客数", "Unique visitors")}
+      >
         <span>
           <svg
             viewBox="0 0 1024 1024"
@@ -23,7 +29,11 @@ export default function () {
         </span>{" "}
         {state.visited}
       </span>
-      <span className="flex items-center justify-center pl-2">
+      <span
+        aria-label={`${t("浏览量", "Page views")}: ${state.viewer}`}
+        className="flex items-center justify-center pl-2"
+        title={t("浏览量", "Page views")}
+      >
         <span>
           <svg
             viewBox="0 0 1024 1024"

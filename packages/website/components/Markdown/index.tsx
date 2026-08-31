@@ -1,5 +1,5 @@
 import { Viewer } from '@bytemd/react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import gfm from '@bytemd/plugin-gfm';
 import highlight from '@bytemd/plugin-highlight-ssr';
 import math from '@bytemd/plugin-math-ssr';
@@ -11,18 +11,20 @@ import { LinkTarget } from './linkTarget';
 import { Heading } from './heading';
 import { Img } from './img';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
-const plugins = [
-  gfm(),
-  highlight(),
-  math(),
-  mermaid(),
-  customContainer(),
-  customCodeBlock(),
-  LinkTarget(),
-  Heading(),
-  Img(),
-];
+import { useSiteLanguage } from '../../utils/siteLanguage';
 export default function ({ content }: { content: string }) {
+  const { language } = useSiteLanguage();
+  const plugins = useMemo(() => [
+    gfm(),
+    highlight(),
+    math(),
+    mermaid(),
+    customContainer(language),
+    customCodeBlock(language),
+    LinkTarget(language),
+    Heading(),
+    Img(),
+  ], [language]);
   return (
     <div className="markdown-body">
       <Viewer

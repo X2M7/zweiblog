@@ -10,10 +10,14 @@ import { ThemeContext } from "../../utils/themeContext";
 import RssButton from "../RssButton";
 import Item from "./item";
 import { encodeQuerystring } from "../../utils/encode";
+import { useSiteLanguage } from "../../utils/siteLanguage";
+import SiteLanguageSwitch from "./languageSwitch";
 export default function (props: {
   logo: string;
   logoDark: string;
   categories: string[];
+  categoryNamesEn: Record<string, string>;
+  tagNamesEn: Record<string, string>;
   setOpen: (open: boolean) => void;
   isOpen: boolean;
   siteName: string;
@@ -30,6 +34,7 @@ export default function (props: {
   const [showSearch, setShowSearch] = useState(false);
   const [headroom, setHeadroom] = useState<Headroom>();
   const { theme } = useContext(ThemeContext);
+  const { language, localizedPath, t } = useSiteLanguage();
 
   const picUrl = useMemo(() => {
     if (theme.includes("dark") && props.logoDark && props.logoDark != "") {
@@ -52,7 +57,9 @@ export default function (props: {
   return (
     <>
       <SearchCard
+        categoryNamesEn={props.categoryNamesEn}
         openArticleLinksInNewWindow={props.openArticleLinksInNewWindow}
+        tagNamesEn={props.tagNamesEn}
         visible={showSearch}
         setVisible={setShowSearch}
       ></SearchCard>
@@ -97,7 +104,7 @@ export default function (props: {
             {props.headerLeftContent == "siteLogo" && (
               <div className="hidden md:block transform translate-x-2">
                 <img
-                  alt="site logo"
+                  alt={t("站点标志", "Site logo")}
                   src={picUrl}
                   width={52}
                   height={52}
@@ -107,7 +114,7 @@ export default function (props: {
             )}
           </div>
           {props.headerLeftContent == "siteName" && (
-            <Link href="/">
+            <Link href={localizedPath("/")}>
               <div className="text-gray-800 cursor-pointer select-none text-lg dark:text-dark lg:text-xl font-medium  mr-4 hidden md:block">
                 {props.siteName}
               </div>
@@ -119,7 +126,7 @@ export default function (props: {
               style={{ transform: "translateX(30px)" }}
               className="cursor-pointer md:hidden  flex-grow text-center  flex items-center justify-center select-none dark:text-dark"
             >
-              <Link href="/">
+              <Link href={localizedPath("/")}>
                 <div>{props.siteName}</div>
               </Link>
             </div>
@@ -134,7 +141,8 @@ export default function (props: {
                   setShowSearch(true);
                   document.body.style.overflow = "hidden";
                 }}
-                title="搜索"
+                title={t("搜索", "Search")}
+                aria-label={t("打开搜索", "Open search")}
                 className="flex group transform hover:scale-110 transition-all select-none cursor-pointer"
               >
                 <div className="flex items-center mr-0 sm:mr-2 hover:cursor-pointer   transition-all dark:text-dark fill-gray-600">
@@ -161,6 +169,7 @@ export default function (props: {
                 </div>
               </div>
               <ThemeButton defaultTheme={props.defaultTheme} />
+              <SiteLanguageSwitch />
               {props.showRSS == "true" && (
                 <RssButton showAdminButton={props.showAdminButton == "true"} />
               )}
@@ -181,8 +190,16 @@ export default function (props: {
                     key={catelog}
                     className="flex items-center h-full md:px-2 hover:text-gray-900 dark:hover:text-dark-hover transform hover:scale-110 cursor-pointer transition-all"
                   >
-                    <Link href={`/category/${encodeQuerystring(catelog)}`}>
-                      <div>{catelog}</div>
+                    <Link
+                      href={localizedPath(
+                        `/category/${encodeQuerystring(catelog)}`,
+                      )}
+                    >
+                      <div>
+                        {language === "en"
+                          ? props.categoryNamesEn?.[catelog] || catelog
+                          : catelog}
+                      </div>
                     </Link>
                   </li>
                 );

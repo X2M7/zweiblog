@@ -5,6 +5,12 @@ export interface PageViewData {
   visited: number;
 }
 
+export function shouldUpdatePageviewForRouteChange(options?: {
+  shallow?: boolean;
+}): boolean {
+  return !options?.shallow;
+}
+
 function normalizePageview(value: unknown): PageViewData {
   if (!value || typeof value !== "object") return DEFAULT_PAGEVIEW_RESPONSE;
   const viewer = Number((value as Partial<PageViewData>).viewer);

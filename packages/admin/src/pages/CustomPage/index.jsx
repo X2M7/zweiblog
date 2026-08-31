@@ -1,9 +1,43 @@
 import CustomPageModal from '@/components/CustomPageModal';
 import { deleteCustomPageByPath, getCustomPages } from '@/services/zwei-blog/api';
+import { downloadCustomPageArchive } from '@/services/zwei-blog/customPageExport';
+import { DownloadOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Card, message, Modal, Space } from 'antd';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'umi';
+
+function ExportCustomPageAction({ record }) {
+  const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
+
+  return (
+    <Button
+      icon={<DownloadOutlined />}
+      loading={loading}
+      onClick={async () => {
+        if (loadingRef.current) return;
+        loadingRef.current = true;
+        setLoading(true);
+        try {
+          const fileName = await downloadCustomPageArchive(record.path, record.name);
+          message.success(`项目已导出：${fileName}`);
+        } catch (error) {
+          message.error(error?.data?.message || error?.message || '项目导出失败，请稍后重试。');
+        } finally {
+          loadingRef.current = false;
+          setLoading(false);
+        }
+      }}
+      size="small"
+      style={{ padding: 0 }}
+      type="link"
+    >
+      导出项目
+    </Button>
+  );
+}
+
 const columns = [
   {
     title: '序号',
@@ -32,15 +66,18 @@ const columns = [
     title: '操作',
     render: (text, record, _, action) => {
       return (
-        <Link
-          to={
-            record.type == 'file'
-              ? `/code?type=file&lang=html&path=${record.path}`
-              : `/code?type=folder&path=${record.path}`
-          }
-        >
-          {record.type == 'file' ? '编辑内容' : '文件管理'}
-        </Link>
+        <Space>
+          <Link
+            to={
+              record.type == 'file'
+                ? `/code?type=file&lang=html&path=${record.path}`
+                : `/code?type=folder&path=${record.path}`
+            }
+          >
+            {record.type == 'file' ? '编辑内容' : '文件管理'}
+          </Link>
+          <ExportCustomPageAction record={record} />
+        </Space>
       );
     },
   },
@@ -64,12 +101,6 @@ const columns = [
           <a
             key="delete"
             onClick={() => {
-              if (location.hostname == 'blog-demo.mereith.com') {
-                Modal.info({
-                  title: '演示站不可修改此项！',
-                });
-                return;
-              }
               Modal.confirm({
                 title: '删除确认',
                 content: '是否确认删除该自定义页面？',
@@ -106,7 +137,7 @@ export default function () {
           <p>多文件页面后续会演进成“文件管理”功能～</p>
           <a
             target="_blank"
-            href="https://vanblog.mereith.com/feature/advance/customPage.html"
+            href="https://github.com/X2M7/zweiblog/blob/main/docs/advanced/custom-page.md"
             rel="noreferrer"
           >
             帮助文档

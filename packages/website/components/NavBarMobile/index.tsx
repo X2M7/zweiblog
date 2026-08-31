@@ -2,6 +2,8 @@ import { slide as Menu } from "react-burger-menu";
 import Link from "next/link";
 import { useCallback } from "react";
 import { MenuItem } from "../../api/getAllData";
+import { getEnglishMenuName } from "../NavBar/item";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export default function (props: {
   isOpen: boolean;
   setIsOpen: (i: boolean) => void;
@@ -9,7 +11,9 @@ export default function (props: {
   showAdminButton: "true" | "false";
   menus: MenuItem[];
 }) {
+  const { localizedPath, t } = useSiteLanguage();
   const renderItem = useCallback((item: MenuItem, isSub?: boolean) => {
+    const itemName = t(item.name, getEnglishMenuName(item.name, item.nameEn));
     if (item.value.includes("http")) {
       return (
         <li
@@ -21,7 +25,7 @@ export default function (props: {
             target="_blank"
             href={item.value}
           >
-            {item.name}
+            {itemName}
           </a>
         </li>
       );
@@ -31,15 +35,15 @@ export default function (props: {
           className="side-bar-item dark:border-dark-2 dark:hover:bg-dark-2"
           key={item.id}
         >
-          <Link href={item.value}>
+          <Link href={localizedPath(item.value)}>
             <div className={`w-full inline-block  ${isSub ? "px-8" : "px-4"}`}>
-              {item.name}
+              {itemName}
             </div>
           </Link>
         </li>
       );
     }
-  }, []);
+  }, [localizedPath, t]);
   const renderLinks = useCallback(() => {
     const arr: any[] = [];
     props.menus.forEach((item) => {
@@ -51,7 +55,7 @@ export default function (props: {
       }
     });
     return arr;
-  }, [props]);
+  }, [props.menus, renderItem]);
   return (
     <>
       <div>
@@ -90,7 +94,7 @@ export default function (props: {
                   target="_blank"
                   href={"/admin"}
                 >
-                  {"后台"}
+                  {t("后台", "Admin")}
                 </a>
               </li>
             )}

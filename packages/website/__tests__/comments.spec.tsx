@@ -60,6 +60,14 @@ describe('local comment API', () => {
     expect(normalizeCommentPath('')).toBe('/');
   });
 
+  it('uses one stable thread key across language and fragment variants', () => {
+    expect(normalizeCommentPath('/post/1?lang=en#x')).toBe('/post/1');
+    expect(normalizeCommentPath('/en/post/1?lang=en')).toBe('/post/1');
+    expect(normalizeCommentPath('/en/post/1')).toBe(
+      normalizeCommentPath('/post/1'),
+    );
+  });
+
   it('preserves admin/deleted flags and caps recursive reply normalization', async () => {
     let nested: any = { id: 'leaf', content: 'leaf', replies: [] };
     for (let index = MAX_COMMENT_RENDER_DEPTH; index >= 0; index -= 1) {

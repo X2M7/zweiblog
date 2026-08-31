@@ -65,7 +65,7 @@ const getAllowDomains = () => {
     return arr;
   } else {
     if (isDev) {
-      return ['pic.mereith.com', 'localhost', '127.0.0.1'];
+      return ['localhost', '127.0.0.1'];
     }
     return [];
   }

@@ -45,7 +45,7 @@ export class CategoryController {
         message: '演示站禁止修改此项！',
       };
     }
-    const data = await this.categoryProvider.addOne(body.name);
+    const data = await this.categoryProvider.addOne(body);
     this.isrProvider.activeAll('创建分类触发增量渲染！');
     return {
       statusCode: 200,

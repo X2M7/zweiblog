@@ -1,6 +1,6 @@
 import { getStaticSetting, updateStaticSetting } from '@/services/zwei-blog/api';
 import { ProForm, ProFormSelect, ProFormText, ProFormTextArea } from '@ant-design/pro-components';
-import { message, Modal } from 'antd';
+import { message } from 'antd';
 import { useState } from 'react';
 export default function (props: {}) {
   const [storageType, setStorageType] = useState<any>('local');
@@ -25,10 +25,6 @@ export default function (props: {}) {
         }}
         syncToInitialValues={true}
         onFinish={async (data) => {
-          if (location.hostname == 'blog-demo.mereith.com') {
-            Modal.info({ title: '演示站禁止修改图床配置！' });
-            return;
-          }
           setStorageType(data?.storageType || 'local');
           // 验证一下 json 格式
           let picgoConfig = null;
@@ -68,7 +64,7 @@ export default function (props: {}) {
               name="picgoConfig"
               label={
                 <a
-                  href="https://vanblog.mereith.com/feature/basic/pic.html#%E5%A4%96%E7%BD%AE%E5%9B%BE%E5%BA%8A"
+                  href="https://github.com/X2M7/zweiblog/blob/main/docs/features/image-storage.md"
                   target={'_blank'}
                   rel="norefferrer"
                 >

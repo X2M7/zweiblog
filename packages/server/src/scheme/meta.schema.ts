@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { AboutDto } from 'src/types/about.dto';
-import { LinkItem } from 'src/types/link.dto';
+import { LinkItem, LinkPageDto } from 'src/types/link.dto';
 import { MenuItem } from 'src/types/menu.dto';
 import { RewardItem } from 'src/types/reward.dto';
 import { SiteInfo } from 'src/types/site.dto';
@@ -14,6 +14,11 @@ export class Meta extends Document {
   @Prop({ default: [] })
   links: LinkItem[];
 
+  @Prop({
+    default: { updatedAt: new Date(), content: '', contentEn: '' },
+  })
+  linkPage: LinkPageDto;
+
   @Prop({ default: [] })
   socials: SocialItem[];
 
@@ -24,7 +29,7 @@ export class Meta extends Document {
   rewards: RewardItem[];
 
   @Prop({
-    default: { updatedAt: new Date(), content: '' },
+    default: { updatedAt: new Date(), content: '', contentEn: '' },
   })
   about: AboutDto;
 

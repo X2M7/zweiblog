@@ -1,10 +1,11 @@
-import { Controller, Delete, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { config } from 'src/config';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
 import { ISRProvider } from 'src/provider/isr/isr.provider';
 import { ApiToken } from 'src/provider/swagger/token';
 import { TagProvider } from 'src/provider/tag/tag.provider';
+import { UpdateTagDto } from 'src/types/tag.dto';
 @ApiTags('tag')
 @ApiToken
 @UseGuards(...AdminGuard)
@@ -16,8 +17,11 @@ export class TagController {
   ) {}
 
   @Get('/all')
-  async getAllTags() {
-    const data = await this.tagProvider.getAllTags(true);
+  async getAllTags(@Query('detail') detail?: string) {
+    const data =
+      detail === 'true'
+        ? await this.tagProvider.getTagDetails(true)
+        : await this.tagProvider.getAllTags(true);
     return {
       statusCode: 200,
       data,
@@ -33,14 +37,22 @@ export class TagController {
     };
   }
   @Put('/:name')
-  async updateTagByName(@Param('name') name: string, @Query('value') newName: string) {
+  async updateTagByName(
+    @Param('name') name: string,
+    @Body() updateDto: UpdateTagDto = {},
+    @Query('value') legacyNewName?: string,
+  ) {
     if (config.demo && config.demo == 'true') {
       return {
         statusCode: 401,
         message: '演示站禁止修改此项！',
       };
     }
-    const data = await this.tagProvider.updateTagByName(name, newName);
+    const dto = { ...(updateDto || {}) };
+    if (!Object.prototype.hasOwnProperty.call(dto, 'name') && legacyNewName !== undefined) {
+      dto.name = legacyNewName;
+    }
+    const data = await this.tagProvider.updateTagByName(name, dto);
     this.isrProvider.activeAll('批量更新标签名触发增量渲染！');
     return {
       statusCode: 200,

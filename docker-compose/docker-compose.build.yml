@@ -1,0 +1,11 @@
+# Optional source-build override for contributors.
+# docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  zweiblog:
+    image: zweiblog:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        ZWEI_BLOG_BUILD_SERVER: http://127.0.0.1:3000
+        ZWEI_BLOG_VERSIONS: local

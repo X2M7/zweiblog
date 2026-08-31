@@ -18,12 +18,24 @@ export const washArticlesByKey = (
       .filter((each) =>
         isKeyArray ? getValueFn(each).includes(date) : getValueFn(each) == date
       )
-      .map((each) => ({
-        title: each.title,
-        id: each.id,
-        createdAt: each.createdAt,
-        updatedAt: each.updatedAt,
-      }))
+      .map((each) =>
+        Object.fromEntries(
+          Object.entries({
+            title: each.title,
+            titleEn: each.titleEn,
+            hasEnglishVersion: each.hasEnglishVersion,
+            id: each.id,
+            pathname: each.pathname,
+            category: each.category,
+            categoryEn: each.categoryEn,
+            tags: each.tags,
+            tagsEn: each.tagsEn,
+            private: each.private,
+            createdAt: each.createdAt,
+            updatedAt: each.updatedAt,
+          }).filter(([, value]) => value !== undefined)
+        )
+      )
       .sort(
         (prev, next) =>
           new Date(next.createdAt).getTime() -

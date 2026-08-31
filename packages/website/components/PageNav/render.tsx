@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CSSProperties } from "react";
 import { PageItem } from "./core";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 const commonCls =
   "inline-flex justify-center items-center   transition-all text-gray-600";
 const btnCls =
@@ -11,10 +12,10 @@ const commonStyle: CSSProperties = {
   borderRadius: "4px",
   fontSize: "14px",
 };
-const renderLink = (item: PageItem, isCur: boolean) => {
+const renderLink = (item: PageItem, isCur: boolean, localizedPath: (href: string) => string) => {
   return (
     <Link
-      href={item.href}
+      href={localizedPath(item.href)}
       key={`LinkItem-${item.page}-${item.type}-${item.href}`}
     >
       <div
@@ -29,14 +30,15 @@ const renderLink = (item: PageItem, isCur: boolean) => {
     </Link>
   );
 };
-const renderBtn = (item: PageItem, disable: boolean, isNext: boolean) => {
+const renderBtn = (item: PageItem, disable: boolean, isNext: boolean, localizedPath: (href: string) => string, label: string) => {
   return (
     <Link
-      href={item.href}
+      href={localizedPath(item.href)}
       key={`pagenav-btn-${item.page}-${item.href}-${isNext}`}
     // className="justify-center items-center "
     >
       <div
+        aria-label={label}
         style={commonStyle}
         className={`${commonCls} dark:bg-dark-1 dark:pg-text-dark  ${btnCls}`}
       >
@@ -45,10 +47,10 @@ const renderBtn = (item: PageItem, disable: boolean, isNext: boolean) => {
     </Link>
   );
 };
-const renderMore = (item: PageItem, isNext: boolean) => {
+const renderMore = (item: PageItem, isNext: boolean, localizedPath: (href: string) => string) => {
   return (
     <Link
-      href={item.href}
+      href={localizedPath(item.href)}
       key={`pagenav-more-${item.page}-${item.href}-${isNext}`}
     >
       <div style={commonStyle} className={`dark:pg-text-dark ${commonCls}`}>
@@ -59,32 +61,33 @@ const renderMore = (item: PageItem, isNext: boolean) => {
 };
 
 export const RenderItemList = (props: { items: PageItem[] }) => {
+  const { localizedPath, t } = useSiteLanguage();
   const res: React.ReactElement[] = [];
   for (const item of props.items) {
     switch (item.type) {
       case "link":
-        res.push(renderLink(item, false));
+        res.push(renderLink(item, false, localizedPath));
         break;
       case "link-cur":
-        res.push(renderLink(item, true));
+        res.push(renderLink(item, true, localizedPath));
         break;
       case "next-btn":
-        res.push(renderBtn(item, false, true));
+        res.push(renderBtn(item, false, true, localizedPath, t("下一页", "Next page")));
         break;
       case "next-btn-disable":
-        res.push(renderBtn(item, true, true));
+        res.push(renderBtn(item, true, true, localizedPath, t("下一页", "Next page")));
         break;
       case "next-more":
-        res.push(renderMore(item, true));
+        res.push(renderMore(item, true, localizedPath));
         break;
       case "pre-more":
-        res.push(renderMore(item, false));
+        res.push(renderMore(item, false, localizedPath));
         break;
       case "pre-btn":
-        res.push(renderBtn(item, false, false));
+        res.push(renderBtn(item, false, false, localizedPath, t("上一页", "Previous page")));
         break;
       case "pre-btn-disable":
-        res.push(renderBtn(item, true, false));
+        res.push(renderBtn(item, true, false, localizedPath, t("上一页", "Previous page")));
         break;
     }
   }

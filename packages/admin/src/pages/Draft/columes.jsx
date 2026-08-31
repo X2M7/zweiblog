@@ -21,6 +21,14 @@ export const columns = [
     ellipsis: true,
     width: 150,
     tip: '标题过长会自动收缩',
+    render: (_, record) => (
+      <div>
+        <div>{record.title}</div>
+        {record.titleEn ? (
+          <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 2 }}>{record.titleEn}</div>
+        ) : null}
+      </div>
+    ),
     formItemProps: {
       rules: [
         {

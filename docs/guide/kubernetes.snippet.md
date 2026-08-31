@@ -28,7 +28,7 @@ spec:
             type: ''
       containers:
         - name: zwei-blog
-          image: 'mereith/van-blog:latest'
+          image: 'ghcr.io/x2m7/zweiblog:latest'
           ports:
             - name: http-80
               containerPort: 80
@@ -44,7 +44,7 @@ spec:
 
             - name: EMAIL
               value: >-
-                vanblog@mereith.com
+                admin@example.com
 
 
           resources:

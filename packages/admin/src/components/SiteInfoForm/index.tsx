@@ -25,11 +25,23 @@ export default function (props: {
             rules={[{ required: true, message: '这是必填项' }]}
           />
           <ProFormText
+            name="authorEn"
+            label="作者名字（英文）"
+            placeholder="可选；英文为空时前台沿用中文名字"
+            fieldProps={{ maxLength: 200 }}
+          />
+          <ProFormText
             name="authorDesc"
             required
             label="作者描述"
             placeholder={'请输入作者描述'}
             rules={[{ required: true, message: '这是必填项' }]}
+          />
+          <ProFormText
+            name="authorDescEn"
+            label="作者描述（英文）"
+            placeholder="可选；英文为空时前台沿用中文描述"
+            fieldProps={{ maxLength: 2000 }}
           />
           <UrlFormItem
             isInit={props.isInit}
@@ -90,11 +102,23 @@ export default function (props: {
             rules={[{ required: true, message: '这是必填项' }]}
           />
           <ProFormText
+            name="siteNameEn"
+            label="网站名（英文）"
+            placeholder="可选；英文为空时前台沿用中文网站名"
+            fieldProps={{ maxLength: 200 }}
+          />
+          <ProFormText
             name="siteDesc"
             required
             label="网站描述"
             placeholder={'请输入网站描述'}
             rules={[{ required: true, message: '这是必填项' }]}
+          />
+          <ProFormText
+            name="siteDescEn"
+            label="网站描述（英文）"
+            placeholder="可选；英文为空时前台沿用中文描述"
+            fieldProps={{ maxLength: 2000 }}
           />
         </>
       )}

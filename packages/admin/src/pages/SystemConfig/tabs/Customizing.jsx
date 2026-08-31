@@ -69,7 +69,7 @@ export default function () {
           <p>{helpMap[tab]}</p>
           <a
             target="_blank"
-            href="https://vanblog.mereith.com/feature/advance/customizing.html"
+            href="https://github.com/X2M7/zweiblog/blob/main/docs/advanced/customizing.md"
             rel="noreferrer"
           >
             帮助文档

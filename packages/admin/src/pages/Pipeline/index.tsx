@@ -110,7 +110,10 @@ export default function () {
       extra={
         <Button
           onClick={() => {
-            window.open('https://vanblog.mereith.com/features/pipeline.html', '_blank');
+            window.open(
+              'https://github.com/X2M7/zweiblog/blob/main/docs/features/pipeline.md',
+              '_blank',
+            );
           }}
         >
           帮助文档

@@ -7,9 +7,11 @@ import PostCard from "../components/PostCard";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getAboutPageProps } from "../utils/getPageProps";
 import { revalidate } from "../utils/loadConfig";
+import { useSiteLanguage } from "../utils/siteLanguage";
 export interface About {
   updatedAt: string;
   content: string;
+  contentEn?: string;
 }
 export interface AboutPageProps {
   layoutProps: LayoutProps;
@@ -21,34 +23,43 @@ export interface AboutPageProps {
   showDonateInfo: "true" | "false";
   showDonateInAbout: "true" | "false";
 }
-const getDonateTableMarkdown = (donates: DonateItem[]) => {
-  let content = `
+const getDonateTableMarkdown = (donates: DonateItem[], language: "zh" | "en") => {
+  let content = language === "en" ? `
+## Donations
+
+| Donor | Amount | Date |
+|---|---|---|
+  ` : `
 ## 捐赠信息
 
-| 捐赠人 | 捐赠金额|捐赠时间|
+| 捐赠人 | 捐赠金额 | 捐赠时间 |
 |---|---|---|
   `;
   for (const each of donates) {
     content =
       content +
-      `|${each.name}|${each.value} 元|${dayjs(each.updatedAt).format(
+      `|${each.name}|${each.value}${language === "en" ? " CNY" : " 元"}|${dayjs(each.updatedAt).format(
         "YYYY-MM-DD HH:mm:ss"
       )}|\n`;
   }
   return content;
 };
 const AboutPage = (props: AboutPageProps) => {
+  const { language, t } = useSiteLanguage();
+  const aboutContent = language === "en" && props.about.contentEn?.trim()
+    ? props.about.contentEn
+    : props.about.content;
   const content = useMemo(() => {
     if (props.donates.length == 0 || props.showDonateInfo == "false") {
-      return props.about.content;
+      return aboutContent;
     } else {
-      return `${props.about.content}${getDonateTableMarkdown(props.donates)}`;
+      return `${aboutContent}${getDonateTableMarkdown(props.donates, language)}`;
     }
-  }, [props]);
+  }, [aboutContent, language, props.donates, props.showDonateInfo]);
 
   return (
     <Layout
-      title="关于我"
+      title={t("关于我", "About")}
       option={props.layoutProps}
       sideBar={<AuthorCard option={props.authorCardProps} />}
     >
@@ -61,13 +72,14 @@ const AboutPage = (props: AboutPageProps) => {
         id={0}
         key={"about"}
         private={false}
-        title={"关于我"}
+        title={t("关于我", "About")}
         updatedAt={new Date(props.about.updatedAt)}
         createdAt={new Date(props.about.updatedAt)}
         pay={props.pay}
         payDark={props.payDark}
         catelog={"about"}
         content={content}
+        language={language === "en" && props.about.contentEn?.trim() ? "en" : "zh"}
         type={"about"}
         enableComment={props.layoutProps.enableComment}
         top={0}

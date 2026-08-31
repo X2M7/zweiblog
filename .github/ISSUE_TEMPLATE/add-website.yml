@@ -10,7 +10,7 @@ body:
     attributes:
       label: 网站名 | Site Name
       description: 请网站名 | Please supply the name of your site.
-      placeholder: ex. Mereith's Blog
+      placeholder: ex. My Blog
     validations:
       required: true
 
@@ -19,6 +19,6 @@ body:
     attributes:
       label: 网站地址 | Website URL
       description: 请提供您用 ZweiBlog 搭建的网站地址 | Please supply a website url which powered by ZweiBlog.
-      placeholder: ex. https://blog-demo.mereith.com
+      placeholder: ex. https://blog.example.com
     validations:
       required: true

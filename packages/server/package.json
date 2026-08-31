@@ -4,7 +4,7 @@
   "description": "",
   "author": "",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-only",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
@@ -62,7 +62,8 @@
     "sharp": "^0.35.4",
     "sitemap": "^7.1.1",
     "ua-parser-js": "1.0.41",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "yazl": "3.3.1"
   },
   "devDependencies": {
     "@nestjs/cli": "11.0.0",

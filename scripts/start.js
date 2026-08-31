@@ -26,8 +26,10 @@ const ctx = spawn('node', ['main.js'], {
     ...process.env,
   },
 });
-ctx.on('exit', () => {
-  process.stderr.write(`[zweiblog] 已停止`);
+let stopping = false;
+ctx.on('exit', (code, signal) => {
+  process.stderr.write(`[zweiblog] 已停止 (${signal || code || 0})\n`);
+  process.exit(stopping ? 0 : code ?? 1);
 });
 ctx.stdout.on('data', (data) => {
   printLog(data.toString(), false);
@@ -37,9 +39,23 @@ ctx.stderr.on('data', (data) => {
   printLog(data.toString(), true);
   process.stderr.write(data.toString());
 });
-process.on('SIGINT', async () => {
-  ctx.unref();
-  process.kill(-ctx.pid, 'SIGINT');
-  console.log('检测到关闭信号，优雅退出！');
-  process.exit();
-});
+const shutdown = (signal) => {
+  if (stopping) return;
+  stopping = true;
+  console.log(`检测到 ${signal} 关闭信号，正在优雅退出！`);
+
+  // The Nest application already handles SIGINT and uses it to stop the
+  // detached website process. Translate Docker's SIGTERM accordingly.
+  if (ctx.exitCode === null && ctx.signalCode === null) {
+    ctx.kill('SIGINT');
+  } else {
+    process.exit(0);
+  }
+
+  setTimeout(() => {
+    if (ctx.exitCode === null && ctx.signalCode === null) ctx.kill('SIGKILL');
+  }, 25000).unref();
+};
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));

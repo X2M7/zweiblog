@@ -69,7 +69,7 @@ export default function (props) {
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://vanblog.mereith.com/guide/https.html"
+                href="https://github.com/X2M7/zweiblog/blob/main/docs/advanced/https.md"
               >
                 相关文档
               </a>
@@ -94,7 +94,7 @@ export default function (props) {
             <p>
               如果不小心开启了此选项后关不掉，可以参考：
               <a
-                href="https://vanblog.mereith.com/faq/usage.html#开启了-https-重定向后关不掉"
+                href="https://github.com/X2M7/zweiblog/blob/main/docs/faq/usage.md"
                 target="_blank"
               >
                 开启了 https 重定向后关不掉
@@ -130,13 +130,6 @@ export default function (props) {
           }}
           layout="horizontal"
           onFinish={async (data) => {
-            if (location.hostname == 'blog-demo.mereith.com') {
-              Modal.warning({
-                title: '演示站不可修改此选项，不然怕 k8s ingress 失效',
-              });
-              setLoading(false);
-              return;
-            }
             const eq = lodash.isEqual(curData, data);
 
             if (eq) {

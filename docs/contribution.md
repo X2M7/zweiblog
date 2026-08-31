@@ -93,7 +93,7 @@ docker run --name mongodb-zweiblog -d --restart unless-stopped \
 #### 克隆项目并安装依赖
 
 ```bash
-git clone https://github.com/Mereithhh/vanblog.git
+git clone https://github.com/X2M7/zweiblog.git
 cd zweiblog
 pnpm i
 ```
@@ -170,41 +170,19 @@ pnpm docs:dev
 
 ## 镜像构建
 
-直接在根目录用 `Dockerfile` 打包就行，具体看下面第二点。
-
-### act（作者自用）
-
-我一般会用 [act](https://github.com/nektos/act) 来做验证镜像，act 可以在本地运行 `Github Actions`。
-
-这个方法需要 `.env` 文件存放密钥，目前仅自用。
+根目录的 `Dockerfile` 可直接构建完整镜像：
 
 ```bash
-pnpm build:test
+docker build -t zweiblog:local .
 ```
 
-### 手动打包
-
-```bash
-# 这个build server 是第一次打包镜像拿数据的，不写也行，那就得等启动容器后增量渲染生效了。
-ZWEI_BLOG_BUILD_SERVER="https://some.zweiblog-server.com"
-docker build --build-arg ZWEI_BLOG_BUILD_SERVER=$ZWEI_BLOG_BUILD_SERVER -t mereith/van-blog:test .
-```
-
-## 文档发版
-
-已经有了对应的 `github actions`，向远端推送 `doc*` 的 `tag` 会触发然后发布到项目官方。
-
-有一键脚本可以在发版之后自动拷贝 changelog 并发布：
-
-```bash
-pnpm release-doc
-```
+Docker Compose 的预构建镜像和源码构建方法、数据目录、升级及反向代理配置，请以仓库根目录的 [README](https://github.com/X2M7/zweiblog#readme) 为准。
 
 ## Release
 
-本项目使用 [standard-version](https://github.com/conventional-changelog/standard-version) 管理版本，并有了对应的 `github actions`，执行下列命令会发布版本并触发流水线打包发版。
+本项目使用 [standard-version](https://github.com/conventional-changelog/standard-version) 管理版本。推送 `v*` 标签后，GitHub Actions 会在测试通过后构建多架构镜像并创建 GitHub Release。
 
 ```bash
 pnpm release
-pnpm release-doc
+git push --follow-tags origin main
 ```

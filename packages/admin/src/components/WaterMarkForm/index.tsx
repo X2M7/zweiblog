@@ -24,10 +24,6 @@ export default function (props: {}) {
         }}
         syncToInitialValues={true}
         onFinish={async (data) => {
-          if (location.hostname == 'blog-demo.mereith.com') {
-            Modal.info({ title: '演示站禁止修改此配置！' });
-            return;
-          }
           for (const [k, v] of Object.entries(data)) {
             if (v == 'false') {
               data[k] = false;

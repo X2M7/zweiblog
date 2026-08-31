@@ -315,6 +315,22 @@ export class StaticProvider {
   async updateCustomPageFileContent(pathname: string, filePath: string, content: string) {
     return this.localProvider.updateCustomPageFileContent(pathname, filePath, content);
   }
+  async renameCustomPageFile(pathname: string, filePath: string, newBaseName: string) {
+    return this.localProvider.renameCustomPageFile(pathname, filePath, newBaseName);
+  }
+  async deleteCustomPageFile(pathname: string, filePath: string) {
+    return this.localProvider.deleteCustomPageFile(pathname, filePath);
+  }
+  async deleteCustomPageSubfolder(pathname: string, folderPath: string) {
+    return this.localProvider.deleteCustomPageSubfolder(pathname, folderPath);
+  }
+  async exportCustomPageProject(
+    pathname: string,
+    type: 'file' | 'folder',
+    html?: string,
+  ) {
+    return this.localProvider.exportCustomPageProject(pathname, type, html);
+  }
 
   async deleteOneBySign(sign: string) {
     // 先删除实际上的。

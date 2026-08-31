@@ -1,7 +1,7 @@
 你可以运行下方命令，通过脚本一键部署 ZweiBlog。
 
 ```bash
-curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
+curl -fsSL https://raw.githubusercontent.com/X2M7/zweiblog/main/scripts/zweiblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
 ```
 
 如果未来需要再次运行脚本，可直接运行：

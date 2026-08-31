@@ -1,17 +1,18 @@
 import { BytemdPlugin } from "bytemd";
 import remarkDirective from "remark-directive";
 import { visit } from "unist-util-visit";
+import type { Language } from "../../utils/siteLanguage";
 
-const CUSTOM_CONTAINER_TITLE: Record<string, string> = {
-  note: "注",
-  info: "相关信息",
-  warning: "注意",
-  danger: "警告",
-  tip: "提示",
+const CUSTOM_CONTAINER_TITLE: Record<string, Record<Language, string>> = {
+  note: { zh: "注", en: "Note" },
+  info: { zh: "相关信息", en: "Information" },
+  warning: { zh: "注意", en: "Caution" },
+  danger: { zh: "警告", en: "Warning" },
+  tip: { zh: "提示", en: "Tip" },
 };
 
 // FIXME: Addd Types
-const customContainerPlugin = () => (tree) => {
+const customContainerPlugin = (language: Language) => (tree) => {
   visit(tree, (node) => {
     if (
       node.type === "textDirective" ||
@@ -21,7 +22,7 @@ const customContainerPlugin = () => (tree) => {
       if (node.type == "containerDirective") {
         const { attributes, name: tagName } = node;
         const data = node.data ??= {};
-        const title = attributes?.title || CUSTOM_CONTAINER_TITLE[tagName];
+        const title = attributes?.title || CUSTOM_CONTAINER_TITLE[tagName]?.[language] || tagName;
         const cls = `custom-container ${tagName}`;
 
         data.hName = "div";
@@ -52,9 +53,9 @@ const customContainerPlugin = () => (tree) => {
   });
 };
 
-export function customContainer(): BytemdPlugin {
+export function customContainer(language: Language = "zh"): BytemdPlugin {
   return {
     remark: (processor) =>
-      processor.use(remarkDirective).use(customContainerPlugin),
+      processor.use(remarkDirective).use(customContainerPlugin, language),
   };
 }

@@ -1,239 +1,439 @@
 <p align="center">
-	<img src="/img/logo.svg" style="width: 200px"></img>
-</p>
-<p align="center">
-	<strong>ZweiBlog是一款简洁、实用、优雅的个人博客系统，支持全自动按需申请HTTPS证书、黑暗模式、移动端自适应和评论功能。它内置了流量统计和图床，并集成了评论系统。此外，ZweiBlog还具有无限的可扩展性，提供完备的后台管理面板，支持黑暗模式、移动端、一键上传剪贴板图片到图床，并带有强大的编辑器。</strong>
-</p>
-<p align="center">
-  <img src="https://img.shields.io/github/v/release/mereithhh/van-blog?display_name=tag" />
-  <img src="https://img.shields.io/docker/pulls/mereith/van-blog" />
-  <img src="https://img.shields.io/github/stars/mereithhh/van-blog" />
-  <img src="https://img.shields.io/bitbucket/issues/mereithhh/van-blog" />
-  <img src="https://github.com/mereithhh/van-blog/workflows/release/badge.svg" />
-  <img src="https://img.shields.io/badge/license-GPL%20v3-yellow.svg" />
-</p>
-<p align="center">
-	<strong>项目主页: </strong>  <a target="_blank" href='https://vanblog.mereith.com'>vanblog.mereith.com</a>
-</p>
-<p align="center">
-	<strong>Demo(后台账号密码均为 demo): </strong>  <a target="_blank" href='https://blog-demo.mereith.com'>blog-demo.mereith.com</a>
+  <img src="./img/logo.svg" alt="ZweiBlog Logo" width="96" />
 </p>
 
-## 预览图
+<h1 align="center">ZweiBlog</h1>
 
-![前台-白色](/img/合并.png)
+<p align="center">
+  一个支持完整中英文站点、本地评论与项目化自定义页面的自托管博客系统。
+</p>
+
+<p align="center">
+  <a href="https://github.com/X2M7/zweiblog/commits/main"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/X2M7/zweiblog" /></a>
+  <a href="https://github.com/X2M7/zweiblog/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/X2M7/zweiblog" /></a>
+  <a href="https://github.com/X2M7/zweiblog/blob/main/LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-yellow" /></a>
+</p>
+
+> **English:** ZweiBlog is a self-hosted, bilingual personal publishing system derived from VanBlog, with a local comment service and enhanced custom-page management.
+
+## 简介
+
+ZweiBlog 是一套包含博客前台、管理后台、API 服务和数据存储方案的个人内容发布系统。它保留了 VanBlog 简洁、响应式和易于写作的基础体验，并在此之上加入整站中英文内容、本地评论系统、可编辑友情链接页面以及更完整的自定义页面项目管理。
+
+数据由自己的 MongoDB 保存，评论、图片和自定义页面文件也可以全部留在自己的服务器中。仓库附带 Dockerfile 与 Docker Compose 编排，可直接从当前源码构建镜像，不依赖 Mereith 的镜像仓库或部署服务器。
+
+### 与 VanBlog 的关系
+
+ZweiBlog 是基于 [Mereithhh/vanblog](https://github.com/Mereithhh/vanblog) 的修改版本（本次整理日期：2026-08-31），感谢 VanBlog 原作者和所有贡献者提供的设计与代码基础。这个仓库保留上游 Git 历史及原项目归属，并继续按照 [GNU GPL v3](./LICENSE) 发布。
+
+ZweiBlog 已经加入与上游不同的数据字段、接口和交互，不应被视为 VanBlog 的官方版本。使用本分支时遇到的问题，请优先提交到 [ZweiBlog Issues](https://github.com/X2M7/zweiblog/issues)，避免让上游项目承担本分支改动的支持责任。
+
+## 预览
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./img/preview/custom-page-project-actions.png" alt="ZweiBlog 多文件自定义页面项目树与项目导出" />
+      <br />多文件自定义页面与项目导出
+    </td>
+    <td width="50%" align="center">
+      <img src="./img/preview/comment-system.png" alt="ZweiBlog 本地评论编辑器与 TeX 预览" />
+      <br />本地评论编辑器与 TeX 预览
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./img/preview/friendlink-admin-editor.png" alt="ZweiBlog 友情链接内容编辑器" />
+      <br />可编辑的中英文友情链接页
+    </td>
+    <td width="50%" align="center">
+      <img src="./img/preview/contact-icons-catalog.png" alt="ZweiBlog 联系方式图标目录" />
+      <br />统一风格的联系方式图标目录
+    </td>
+  </tr>
+</table>
+
+> 截图来自当前分支的本地测试版本；界面细节会随版本迭代。
 
 ## 特性
 
-- [x] 快到极致的响应速度，Lighthouse 接近满分。
-- [x] 独一份的按需全自动 HTTPS，甚至不用填域名。
-- [x] 包括完整的前后台和服务端。
-- [x] 前台和后台都为响应式设计，完美适配移动端和多尺寸设备。
-- [x] 前台和后台都支持黑暗模式，并可自动切换。
-- [x] 前台为静态网页（SSG），并支持秒级的增量渲染，每次改动无需重新构建全部页面。
-- [x] SEO 和无障碍友好，支持自定义文章路径。
-- [x] 静态网页，CDN 友好。
-- [x] 版本号展示和更新提醒。
-- [x] 基于 React，项目工程化，二次开发友好。
-- [x] 内置强大的分析功能，可统计访客等数据。并配有精美看板。
-- [x] 内嵌评论系统。
-- [x] 强大的 Markdown 编辑器，支持图表和数学公式，一键插入 more 标记，一键剪切板及本地图片上传，支持自定义高亮块语法，支持 Emoji 表情选取。
-- [x] TOC、草稿、代码复制、访客数、评论数、分类、标签、搜索、加密、友链、打赏、自定义导航栏。
-- [x] 多个布局设置，可自定义页面细节。
-- [x] 高度定制化，可添加自定义 CSS、HTML 和 JS 代码。
-- [x] 支持自定义页面。
-- [x] 可添加具有指定权限的协作者。
-- [x] 内置图床，并支持各种 OSS 图床、github 图床（外部图床基于 picgo）等
-- [x] 支持上传图片自动添加水印，无论何种图床
-- [x] 支持上传图片自动压缩，无论何种图床
-- [x] 极致轻量化，没有花里胡哨。页面秒切换、图片懒加载。
-- [x] 脚本一键部署，多种部署方式，支持 ARM 平台。
-- [x] 支持 GA、百度分析
-- [x] 简单易用的后台，支持数据的导出与导入。
-- [x] 支持 RSS 订阅
-- [x] 完善的 API，完全利用本项目后台和服务端，自己写前端或适配其他页面生成器
-- [x] 有较完善的日志记录，后台可直接查看登录日志和 Caddy 日志。
+### ZweiBlog 增强功能
 
-## 快速上手/部署教程
+- **整站中英文切换**：不仅切换文章正文，还覆盖站点名称、作者信息、导航、分类、标签、关于、友情链接、搜索、分页和常用界面文案；英文内容由管理员独立编写，缺失时可回退到中文。
+- **双语文章工作流**：文章和草稿支持独立的英文标题、摘要与正文；前台提供语言切换，并生成对应的语言链接和页面元数据。
+- **完全本地的评论系统**：无需运行 Waline 服务；评论数据和图片保存在本机 MongoDB 与静态目录中，同时保留从旧 Waline 数据库迁移的入口。
+- **更完整的评论体验**：支持匿名评论、回复、可取消点赞、表情、图片上传、Markdown 网络图片、编辑/预览，以及在预览和已发布评论中安全展示 TeX；单条访客或管理员评论上限均为 50,000 字符。
+- **评论访客信息**：前台可显示由 IP 推断的归属地、浏览器和操作系统，后台额外显示 IP 地址，便于审核与反垃圾。IP 归属地是近似结果，部署者应根据所在地法律完善隐私说明。
+- **可编辑的友情链接页**：友情链接页像“关于”页一样支持中英文 Markdown 内容；链接和导航项目均可在后台调整顺序。
+- **扩展的联系方式目录**：提供更丰富的国内外平台类型，并为链接、邮箱、账号和二维码等不同值类型做相应校验与展示。
+- **项目化自定义页面**：支持单文件页面和多文件页面；多文件页面带项目树、文件上传、重命名、单文件删除、文件夹递归删除及整个项目 ZIP 导出。
 
-### 一键脚本部署
+### 基础能力
 
-```bash
-curl -L https://vanblog.mereith.com/vanblog.sh -o zweiblog.sh && chmod +x zweiblog.sh && ./zweiblog.sh
+- Markdown 写作、代码高亮、TeX、Mermaid、Emoji、目录与图片上传。
+- 文章、草稿、分类、标签、置顶、加密、搜索、时间线、RSS 与 Sitemap。
+- 响应式前台和后台、深色模式、多种首页布局及移动端适配。
+- 内置图床，也可配置 OSS 或 PicGo；支持图片压缩和水印。
+- 访问统计、文章统计、API Token、协作者权限、备份导入导出及运行日志。
+- 自定义导航、自定义 CSS 以及自定义 HTML/JavaScript 能力。
+
+> 自定义代码、流水线脚本和第三方 PicGo 插件都可能执行不受信任的代码。生产环境默认限制其中的高风险能力；只有理解风险时才应显式开启。
+
+## 运行结构
+
+生产镜像把几个组件打包在一起，对外只需要一个入口：
+
+```text
+浏览器
+  └─ Caddy（容器内 80/443）
+       ├─ /admin        → 管理后台静态文件
+       ├─ /api 等路径   → NestJS API（容器内 3000）
+       └─ 其余页面      → Next.js 前台（容器内 3001）
+
+NestJS API ──→ MongoDB 8.0（仅 Docker 内部网络）
+           └─→ /app/static（图片、评论图片、自定义页面等）
 ```
 
-将来如果需要再次运行脚本，可以运行：
+相关入口均可在仓库中核对：
+
+| 内容 | 路径 |
+| --- | --- |
+| 一体化生产镜像 | [`Dockerfile`](./Dockerfile) |
+| 默认编排 | [`docker-compose/docker-compose.yml`](./docker-compose/docker-compose.yml) |
+| 部署变量模板 | [`docker-compose/.env.example`](./docker-compose/.env.example) |
+| 源码构建覆盖文件 | [`docker-compose/docker-compose.build.yml`](./docker-compose/docker-compose.build.yml) |
+| Nginx/Caddy 反代示例 | [`docker-compose/reverse-proxy/`](./docker-compose/reverse-proxy/) |
+| Caddy 路由模板 | [`caddyTemplate.json`](./caddyTemplate.json) |
+| MongoDB 用户初始化 | [`docker-compose/mongo-init.js`](./docker-compose/mongo-init.js) |
+| Linux/Windows 凭据生成器 | [`docker-compose/setup-mongo-secrets.sh`](./docker-compose/setup-mongo-secrets.sh) / [`setup-mongo-secrets.ps1`](./docker-compose/setup-mongo-secrets.ps1) |
+| 多架构镜像发布流程 | [`.github/workflows/release.yml`](./.github/workflows/release.yml) |
+
+## Docker 自托管部署（推荐）
+
+### 部署前准备
+
+- 一台可运行 Docker Engine 和 Docker Compose v2 的机器。Linux 服务器最适合作为长期生产环境；Windows/macOS 可通过 Docker Desktop 测试。
+- 如需公网访问，准备一个已解析到服务器的域名。
+- 默认只在 `127.0.0.1:8080/8443` 监听，适合宿主机 Nginx/Caddy 反代；直连模式才需要把 80/443 暴露到公网。
+- 镜像构建会编译三个 Node.js 项目，内存占用高于运行阶段。小内存服务器可以在其他机器构建后推送到自己的镜像仓库。
+
+MongoDB 8.0 已包含在编排中，并且没有映射宿主机端口。**不要为了方便而把 27017 暴露到公网。**
+
+### 1. 获取部署文件
 
 ```bash
-./zweiblog.sh
+git clone https://github.com/X2M7/zweiblog.git
+cd zweiblog/docker-compose
+cp .env.example .env
 ```
 
-### 其他部署方式
+Windows PowerShell 中最后一条命令使用：
 
-具体请移步项目文档：[快速上手](https://vanblog.mereith.com/guide/get-started.html)
+```powershell
+Copy-Item .env.example .env
+```
 
-## 反代
+`.env` 只保存非敏感部署参数，默认镜像为：
 
-请参考： [反代](https://vanblog.mereith.com/reference/reverse-proxy.html)
+```dotenv
+ZWEIBLOG_IMAGE=ghcr.io/x2m7/zweiblog:latest
+ZWEIBLOG_HTTP_BIND=127.0.0.1
+ZWEIBLOG_HTTP_PORT=8080
+ZWEIBLOG_HTTPS_BIND=127.0.0.1
+ZWEIBLOG_HTTPS_PORT=8443
+```
 
-## 常见问题
+`latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。
 
-> [备份与迁移](https://vanblog.mereith.com/guide/backup.html)
->
-> [作者 logo 无法加载](https://vanblog.mereith.com/faq/usage.html#图片-作者-logo-加载不出来)
->
-> [http error](https://vanblog.mereith.com/faq/deploy.html#部署后-http-error)
->
-> [docker 镜像拉取慢](https://vanblog.mereith.com/faq/deploy.html#docker-镜像拉取慢)
->
-> [如何外部访问数据库](https://vanblog.mereith.com/faq/deploy.html#如何在外部访问数据库)
->
-> [如何回滚](https://vanblog.mereith.com/faq/update.html#如何回滚)
->
-> [如何升级](https://vanblog.mereith.com/guide/update.html)
->
-> [更新后后台报错||一直加载中](https://vanblog.mereith.com/faq/update.html#升级后后台报错或持续加载)
->
-> [开启了 https 重定向后关不掉](https://vanblog.mereith.com/faq/usage.html#开启了-https-重定向后关不掉)
->
-> [更多常见问题](https://vanblog.mereith.com/faq/)
+### 2. 生成 MongoDB 凭据
 
-## 关于更新
+Linux：
 
-此项目会持续更新的，如果没有恶性 bug（有的话看到了会紧急修复），一般每周发一次新版本。
+```bash
+sudo sh ./setup-mongo-secrets.sh .
+sudo docker compose config --quiet
+```
 
-如果遇到了问题，可以先更新试试看。
+Windows PowerShell（当前目录同样应为 `docker-compose`）：
 
-## 交流群
+```powershell
+.\setup-mongo-secrets.ps1 .
+docker compose config --quiet
+```
 
-- [ZweiBlog 交流群](https://jq.qq.com/?_wv=1027&k=5NRyK2Sw)
+脚本会在 `docker-compose/secrets/` 生成 MongoDB root 密码、权限受限的应用密码和连接 URI，并准备静态文件、日志与 Caddy 持久化目录；Linux 脚本还会设置容器运行用户所需的目录权限。已有完整凭据时脚本不会轮换；只剩部分文件时则会拒绝继续，防止数据库凭据被意外破坏。
 
-## 说明与文档
+不要提交、发送或单独删除这些文件。应用通过 `ZWEI_BLOG_DATABASE_URL_FILE` 读取 Docker secret，正常部署无需把数据库密码写入 Compose 环境变量。
 
-请移步项目主页： [https://vanblog.mereith.com](https://vanblog.mereith.com)
+如果把 `.env` 中的 `ZWEIBLOG_DATA_DIR` 改到了其他位置，凭据生成脚本的最后一个参数也必须换成同一个绝对目录。
 
-## CHANGELOG
+### 3. 获取镜像并启动
 
-[CHANGELOG](CHANGELOG.md)
+正常情况下直接拉取 GHCR 镜像：
 
-## 开发指南
+```bash
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
+sudo docker compose logs -f zweiblog
+```
 
-- [开发指南](https://vanblog.mereith.com/contribution.html)
+`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像并发布到 `ghcr.io/x2m7/zweiblog`。首次发布后，仓库维护者还需要在 GitHub Packages 中确认镜像为公开可读。
 
-## 谁在使用
+如果镜像尚未公开、工作流尚未完成，或者希望确保运行的就是当前 checkout，可使用仓库提供的源码构建覆盖文件：
 
-现在可能用的人有一些了吧 - -
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  up -d --build
+```
 
-如果您想把自己加进来，请提一个 [issue](https://github.com/Mereithhh/van-blog/issues/new/choose)，我会尽快添加的。
+这个命令构建 `zweiblog:local`，不使用 Mereith 的服务器或 `mereith/van-blog` 镜像。首次构建耗时取决于网络和机器性能。
 
-- [Mereith's Blog](https://www.mereith.com)
-- [GT 的官方博客](https://gt-it.net)
-- [無糧不聚兵‘s Blog](https://www.wongcw.cn)
-- [oldmoon](https://www.oldmoon.top/)
-- [seek.wiki](https://seek.wiki)
-- [SnailBlog](https://blog.mldd521.com)
-- [Peter's blog](https://niuery.com)
-- [我本无罪的博客](https://blog.rnaan.com/)
-- [青菜的杂货铺](https://211222.xyz)
-- [花菜的博客](https://blog.huacai.one)
-- [智芯物联的空间](https://www.tingshuo.online)
-- [Done](https://www.dong-blog.fun/)
-- [SpaceX](https://tech.twjblog.top/)
-- [没想好的个人博客](https://blog.shizhuoran.top/)
-- [宁骑播客](https://blog.xintianyuehui.cn/)
-- [fanyang](https://fuis.me/)
+### 4. 初始化站点
 
-## TODO
+默认端口只允许本机访问。先按下一节配置反向代理，然后打开：
 
-- [x] 精简前台 js 体积，优化性能
-- [x] 精简打包体积
-- [x] 集成 HTTPS 和自动证书申请续期
-- [x] 后台增加登录日志
-- [x] 内嵌评论系统
-- [x] 支持 ARM64
-- [x] 支持 mermaid 语法
-- [x] 替换编辑器为 bytemd（掘金同款）（老的编辑器有些臃肿，复制偶尔会有格式会错乱的问题）
-- [x] 导入 md 创建文章/草稿功能
-- [x] 标签管理
-- [x] 黑暗模式图标样式优化
-- [x] 内嵌评论的邮件通知和 webhook
-- [x] 自定义 css
-- [x] 添加自定义 script 标签
-- [x] 添加自定义 html 代码
-- [x] 可添加具有自定义权限的协作者
-- [x] 自定义页面
-- [x] RSS 订阅
-- [x] 自定义高亮块语法支持
-- [x] Emoji 表情选择器
-- [x] 自定义导航栏
-- [x] 后端性能优化一期（减少不必要的查询， ISR 防抖等）
-- [x] Token 管理
-- [x] picgo 插件安装
-- [x] 忘记密码
-- [x] 分类加密
-- [x] 自定义文字路径
-- [x] 系统日志查看
-- [ ] 快捷分享按钮
-- [x] 完善可自定义上传文件的自定义页面功能（现在的自定义页面有潜在的 css 污染问题）
-- [x] 图片上传自动添加水印
-- [x] 迁移到 pnpm，使用 workspace
-- [x] 增加在特定事件后触发执行自定义代码或 webhook 的扩展能力
-- [x] 上传图片自动压缩功能
-- [x] 批量操作文章草稿
-- [ ] 插件系统
-- [ ] 自定义主题（前端渲染器）系统
-- [ ] 浏览器消息通知
-- [ ] 文章/草稿的历史版本管理
-- [ ] 精简配置项，尽可能移动到运行时配置
-- [ ] 增加 ORM 层，适配更多数据库
-- [ ] 增加一些 e2e 测试，集成到 CI
-- [ ] 国际化
+- 前台：`https://你的域名/`
+- 后台：`https://你的域名/admin`
 
-## 问题反馈
+按照初始化向导创建管理员并填写站点信息。站点 URL 必须包含协议，例如 `https://blog.example.com`；它会参与生成前台链接、RSS、站点地图和 HTTPS 域名校验。
 
-请提 [issue](https://github.com/Mereithhh/van-blog/issues/new/choose) ，如无特殊情况会在一天内解决。
+### 直接使用内置 Caddy 自动 HTTPS
 
-## 打赏
+如果服务器没有其他 Web 服务，也可以让 ZweiBlog 直接占用宿主机 80/443。修改 `.env`：
 
-如果觉得项目不错的话可以打赏哦。您的支持就是我最大的动力！
+```dotenv
+ZWEIBLOG_HTTP_BIND=0.0.0.0
+ZWEIBLOG_HTTP_PORT=80
+ZWEIBLOG_HTTPS_BIND=0.0.0.0
+ZWEIBLOG_HTTPS_PORT=443
+ACME_EMAIL=admin@example.com
+```
 
-打赏时您可以备注名称，我会将您添加至打赏列表中。
+重新运行 `sudo docker compose up -d`，并确认防火墙只开放所需端口。随后：
 
-<p align="center">
-  <img alt="打赏-微信" src="/img/wechat.jpg" style="width: 200px;margin-right: 4px;" />
-  <img alt="打赏-支付宝" src="/img/ali-pay.jpg" style="width: 200px" />
-</p>
+1. 将域名 A/AAAA 记录解析到服务器，并确认公网 80/443 可达。
+2. 先通过 `http://你的域名/admin` 完成初始化，把站点 URL 填为最终的 `https://你的域名`。
+3. 在后台的 Caddy/HTTPS 设置中触发首次证书申请。
+4. 确认 `https://你的域名` 正常后，再按需开启 HTTP 自动跳转 HTTPS。
 
-## 捐赠信息
+证书和 Caddy 配置会保存在宿主机 `docker-compose/caddy/`，重建容器不会丢失。证书申请只接受后台站点 URL 中已经配置的域名，避免将按需签发入口变成开放代理。
 
-PS：如果打赏时请备注捐赠者，如有遗漏请联系我添加（有时候消息多可能会漏掉，十分抱歉）
+## 反向代理部署
 
-PS2: 不好意思中间有段时间没管，有些记录找不到了，后续有时间补上。
+ZweiBlog 本身是一个完整站点。外层反代时应代理整个 HTTP 入口，不要分别代理前台、后台和 API。
 
-| 捐赠者    | 捐赠金额 | 捐赠日期   |
-| --------- | -------- | ---------- |
-| Sirit     | 6.66 元  | 2022-09-01 |
-| jingcheng | 100 元   | 2022-09-06 |
-| mosuzi    | 100 元   | 2022-09-08 |
-| ym679     | 20 元    | 2022-09-08 |
-| wangcw    | 100 元   | 2022-09-13 |
-| ziva      | 8.80 元  | 2022-09-15 |
-| Velen     | 50 元    | 2022-09-18 |
-| pcz       | 50 元    | 2022-10-19 |
-| fanyang   | 100 元    | 2025-06-12 |
+默认 `.env` 已将上游 HTTP 入口安全绑定到 `127.0.0.1:8080`，无需修改 Compose。外层代理负责证书和 HTTP → HTTPS 跳转；ZweiBlog 后台中的“HTTPS 自动重定向”必须保持关闭，否则代理到容器 HTTP 端口时可能形成重定向问题。初始化时仍应把站点 URL 填为用户最终访问的 `https://` 地址。
 
+### Nginx 示例
 
+下面示例假设 Nginx 与 Docker 位于同一台主机，ZweiBlog 监听 `127.0.0.1:8080`。证书路径需要替换为实际值。仓库还提供了限制上传为 32 MiB 的保守模板 [`nginx.conf.example`](./docker-compose/reverse-proxy/nginx.conf.example)；下面为了兼容较大的后台备份导入，将代理上限提高到应用允许的最高值。
 
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
 
-## Star 趋势图
+server {
+    listen 80;
+    server_name blog.example.com;
+    return 301 https://$host$request_uri;
+}
 
-[![Star History Chart](https://api.star-history.com/svg?repos=mereithhh/van-blog&type=Date)](https://star-history.com/#mereithhh/van-blog&Date)
+server {
+    listen 443 ssl http2;
+    server_name blog.example.com;
 
-## LightHouse 截图
+    ssl_certificate     /etc/letsencrypt/live/blog.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/blog.example.com/privkey.pem;
 
-<p align="center"> 
-  <img src="/img/lighthouse.png" style="width: 400px"></img>
-</p>
+    # 后台备份文件默认最多 256 MiB；可按实际需要调低。
+    client_max_body_size 512m;
 
-## 多说一句
-> 很抱歉有段时间断更了，陆陆续续会慢慢继续更新的。  2024-09-01
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+```
+
+### Caddy 示例
+
+外层使用 Caddy 时，最小配置如下；同样可直接参考仓库中的 [`Caddyfile.example`](./docker-compose/reverse-proxy/Caddyfile.example)：
+
+```caddyfile
+blog.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Caddy 会自动处理证书和常用代理请求头。若外层代理运行在另一台机器或另一个 Docker 网络，请相应调整监听地址和网络访问控制，不要直接把未加密的 8080 端口开放到公网。
+
+### 真实访客 IP
+
+评论归属地、限流和后台 IP 都依赖可信的代理链。仅转发 `X-Forwarded-*` 还不够：外层代理连接到 Docker 映射端口时，内置 Caddy 看到的通常是 Docker 网络网关地址。先查看通常作为连接来源的网络网关：
+
+```bash
+sudo docker network inspect zweiblog-web \
+  --format '{{(index .IPAM.Config 0).Gateway}}'
+```
+
+发起一次访问后，还应以 `log/zweiblog-access.log` 中记录的实际对端地址为准；不同 Docker 网络方案下，它不一定与示例完全相同。
+
+假设输出为 `172.18.0.1`，在 `.env` 中同时设置两层信任，并使用精确的 `/32` 地址：
+
+```dotenv
+ZWEI_BLOG_CADDY_TRUSTED_PROXIES=172.18.0.1/32
+ZWEI_BLOG_TRUST_PROXY=loopback,172.18.0.1/32
+```
+
+然后运行 `sudo docker compose up -d` 重建应用容器。第一项让内置 Caddy 只接受该外层代理提供的访客地址，第二项让 Express 沿“内置 Caddy → 外层代理”链取得真实客户端 IP。若修改了 `ZWEIBLOG_WEB_NETWORK`，检查命令中的网络名也要相应修改。
+
+没有外层代理时，`ZWEI_BLOG_CADDY_TRUSTED_PROXIES` 留空，`ZWEI_BLOG_TRUST_PROXY` 保持 `loopback`。若还套有 CDN，应在最外层 Nginx/Caddy 中仅信任该 CDN 公布的地址段。任何情况下都不要信任 `0.0.0.0/0`，也不要把任意客户端提供的 `X-Forwarded-For` 当作真实地址。
+
+## 数据持久化
+
+默认编排使用宿主机目录，而不是把重要数据留在容器可写层。下表路径都相对于 `ZWEIBLOG_DATA_DIR`；其默认值是 `docker-compose/` 当前目录：
+
+| 宿主机路径 | 用途 |
+| --- | --- |
+| `data/mongo/` | MongoDB 主数据 |
+| `data/static/` | 内置图床、评论图片、自定义页面、RSS/Sitemap 生成文件等 |
+| `secrets/` | MongoDB 凭据和应用连接 URI |
+| `caddy/data/`、`caddy/config/` | 内置 Caddy 的证书与状态 |
+| `log/` | ZweiBlog 与访问日志 |
+
+因此，删除或重建应用容器不会删除这些绑定目录；但删除宿主机目录仍会造成永久数据丢失。
+
+### 完整备份
+
+后台“导出全部数据”适合内容迁移，但不等于完整服务器备份：本地图片、自定义页面文件、数据库凭据和 Caddy 证书还在持久化目录中。最稳妥的完整备份是在短暂停机后归档部署文件与整个 `ZWEIBLOG_DATA_DIR`。
+
+以下示例假设仓库位于 `/srv/zweiblog`：
+
+```bash
+cd /srv/zweiblog/docker-compose
+sudo docker compose down
+sudo tar --numeric-owner -C /srv/zweiblog \
+  -czf /var/backups/zweiblog-$(date +%F-%H%M%S).tar.gz \
+  docker-compose
+sudo docker compose up -d
+```
+
+备份文件包含数据库和密码，应加密保存并限制访问。不要在 MongoDB 运行时直接复制 `data/mongo/`；需要不停机备份时，应使用 MongoDB 的一致性备份工具和经过验证的恢复流程。
+
+上面的命令适用于 `ZWEIBLOG_DATA_DIR=.`。如果数据目录位于仓库外，必须另外归档该目录，不能只备份 Git checkout。
+
+恢复时先停止服务，把归档恢复到空的部署目录，确认文件所有权后再次运行 `setup-mongo-secrets.sh`（已有完整凭据不会被轮换），再启动并核对日志。生产数据恢复应先在隔离环境演练。
+
+## 升级与回滚
+
+升级前先完成上面的完整备份，并记录当前源码提交与镜像版本。使用 GHCR 镜像时：
+
+```bash
+cd /srv/zweiblog/docker-compose
+sudo docker compose images
+
+cd ..
+git rev-parse HEAD
+git pull --ff-only
+
+cd docker-compose
+sudo sh ./setup-mongo-secrets.sh .
+sudo docker compose pull
+sudo docker compose up -d --remove-orphans
+sudo docker compose ps
+sudo docker compose logs --tail=200 zweiblog
+```
+
+如果使用源码构建覆盖文件，则把拉取应用镜像的步骤换成：
+
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  build --pull zweiblog
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  up -d --remove-orphans
+```
+
+不要在升级命令中使用 `docker compose down -v`，也不要清理 `data/`、`secrets/` 或 `caddy/`。需要回滚时，把 `.env` 中的 `ZWEIBLOG_IMAGE` 改回已验证的旧版本标签只是第一步；数据结构也可能已经变化，可靠方案是同时恢复升级前的完整备份。
+
+已有 VanBlog/MongoDB 4.4 数据时，**不要把旧 `/data/db` 直接交给 MongoDB 8.0**。主要版本不能这样跨级复用数据文件，请先阅读并审计仓库中的 [`scripts/migrate-mongo.sh`](./scripts/migrate-mongo.sh)，在副本上完成迁移和核验后再切换生产环境。
+
+## 常用部署变量
+
+默认 Compose 已提供安全的数据库连接方式。部署者通常只需要编辑 `docker-compose/.env`：
+
+| 变量 | 作用 | 建议 |
+| --- | --- | --- |
+| `ZWEIBLOG_IMAGE` | ZweiBlog 容器镜像 | 默认 `ghcr.io/x2m7/zweiblog:latest`；生产环境建议固定版本标签 |
+| `ZWEIBLOG_MONGO_VERSION` | MongoDB 镜像版本 | 新部署保持 `8.0`，不要随意切换主要版本 |
+| `TZ` | 容器时区 | 按部署地修改，默认 `Asia/Shanghai` |
+| `ZWEIBLOG_HTTP_BIND` / `ZWEIBLOG_HTTP_PORT` | 宿主机 HTTP 监听 | 反代默认 `127.0.0.1:8080` |
+| `ZWEIBLOG_HTTPS_BIND` / `ZWEIBLOG_HTTPS_PORT` | 宿主机 HTTPS 监听 | 反代默认 `127.0.0.1:8443` |
+| `ACME_EMAIL` | 内置 Caddy 申请证书使用的邮箱 | 仅直连内置 HTTPS 时填写 |
+| `ZWEIBLOG_DATA_DIR` | 数据、凭据、日志与 Caddy 状态根目录 | 默认 `.`；修改后凭据脚本也使用同一路径 |
+| `ZWEIBLOG_WEB_NETWORK` | 对外 Docker 网络名 | 默认 `zweiblog-web` |
+| `ZWEI_BLOG_CADDY_TRUSTED_PROXIES` | 内置 Caddy 信任的外层代理 IP/CIDR | 无外层代理时留空；禁止全网段 |
+| `ZWEI_BLOG_TRUST_PROXY` | Express 信任的代理链 | 默认 `loopback`；反代时按上文加入同一精确地址 |
+| `ZWEI_BLOG_ENABLE_SWAGGER` | 在生产环境开放 Swagger | 默认关闭，不建议在公网长期开放 |
+| `ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION` | 允许流水线执行脚本 | 默认关闭 |
+| `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL` | 允许运行时安装 PicGo 插件 | 默认关闭 |
+
+## 本地开发
+
+Docker 是部署的首选方式。需要修改源码时，建议使用 Node.js 22 和仓库锁定的 pnpm 8.11.0：
+
+```bash
+corepack enable
+corepack prepare pnpm@8.11.0 --activate
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+常用命令：
+
+```bash
+pnpm dev
+pnpm --filter @zweiblog/admin test
+pnpm --filter @zweiblog/server exec jest --runInBand
+pnpm --filter @zweiblog/theme-default exec vitest run
+```
+
+本地开发还需要可用的 MongoDB，并通过 `ZWEI_BLOG_DATABASE_URL` 或安全的 `ZWEI_BLOG_DATABASE_URL_FILE` 提供连接。不要把开发数据库和生产数据库混用。
+
+## 安全与隐私提示
+
+- 初始化完成后使用高强度管理员密码，并定期备份。
+- `secrets/`、`data/`、`log/`、`caddy/` 和 `.local-runtime/` 都不应提交到 Git；仓库的 [`.gitignore`](./.gitignore) 已排除默认运行目录，提交前仍应检查 `git status`。
+- 评论会处理 IP、IP 归属地和设备信息。公开站点应在隐私政策中说明用途、展示范围、保存周期和删除渠道。
+- 不要公开 MongoDB 端口、Caddy 管理端口或未启用鉴权的调试接口。
+- 启用自定义脚本、流水线执行或 PicGo 插件安装前，应把它们视为可执行代码并审计来源。
+
+## 参与和反馈
+
+- 问题与建议：[GitHub Issues](https://github.com/X2M7/zweiblog/issues)
+- 代码变更请尽量附带测试，并确保相关包可以构建。
+- 上游 VanBlog 的通用修复可以注明来源；ZweiBlog 特有问题请留在本仓库跟踪。
+
+## 许可证
+
+本项目使用 [GNU General Public License v3.0](./LICENSE)。ZweiBlog 是 VanBlog 的修改版本；再分发时请同时遵守 GPL v3、保留相应版权与许可证声明，并明确标注修改版本，避免与原项目或原作者混淆。

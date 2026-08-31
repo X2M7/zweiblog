@@ -1,13 +1,19 @@
 export class SiteInfo {
   author: string;
+  authorEn?: string;
   authorLogo: string;
   authorLogoDark: string;
-  authDesc: string;
+  authorDesc: string;
+  authorDescEn?: string;
+  /** @deprecated Compatibility alias used by an early DTO typo. */
+  authDesc?: string;
   siteLogo: string;
   siteLogoDark: string;
   favicon: string;
   siteName: string;
+  siteNameEn?: string;
   siteDesc: string;
+  siteDescEn?: string;
   beianNumber: string;
   beianUrl: string;
   gaBeianNumber: string;

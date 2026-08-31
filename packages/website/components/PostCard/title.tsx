@@ -5,14 +5,17 @@ import { encodeQuerystring } from "../../utils/encode";
 import PostViewer from "../PostViewer";
 import { getTarget } from "../Link/tools";
 import { checkLogin } from "../../utils/auth";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export function Title(props: {
   type: "article" | "about" | "overview";
   id: number | string;
   title: string;
+  language?: "zh" | "en";
   openArticleLinksInNewWindow: boolean;
   showEditButton: boolean;
 }) {
+  const { localizedPath, t } = useSiteLanguage();
   const showEditButton = props.showEditButton && checkLogin();
   const newTab = useMemo(() => {
     if (props.type == "overview" && props.openArticleLinksInNewWindow) {
@@ -23,8 +26,14 @@ export function Title(props: {
   return (
     <div className="flex justify-center post-card-title ">
       {props.type != "about" ? (
-        <Link href={`/post/${props.id}`} target={getTarget(newTab)} style={{width:"90%"}} title={props.title}>
+        <Link
+          href={localizedPath(`/post/${props.id}`)}
+          target={getTarget(newTab)}
+          style={{ width: "90%" }}
+          title={props.title}
+        >
           <div
+            lang={props.language === "en" ? "en" : "zh-CN"}
             className={`text-lg block font-medium overflow-hidden text-ellipsis whitespace-nowrap px-5  text-center mb-2 mt-2 dark:text-dark text-gray-700 ${
               showEditButton ? "ml-8" : ""
             } md:text-${props.type == "overview" ? "xl" : "2xl"} ua ua-link`}
@@ -34,6 +43,7 @@ export function Title(props: {
         </Link>
       ) : (
         <div
+          lang={props.language === "en" ? "en" : "zh-CN"}
           className={`text-lg block font-medium mb-2 mt-2 dark:text-dark text-gray-700 md:text-2xl ua ua-link  select-none ${
             showEditButton ? "ml-12 mr-4" : ""
           }`}
@@ -52,7 +62,7 @@ export function Title(props: {
           target="_blank"
         >
           <div className=" text-dark dark:text-gray-700">
-            <div>编辑</div>
+            <div>{t("编辑", "Edit")}</div>
           </div>
         </a>
       )}
@@ -64,10 +74,12 @@ export function SubTitle(props: {
   updatedAt: Date;
   createdAt: Date;
   catelog: string;
+  catelogEn?: string;
   enableComment: "true" | "false";
   id: number | string;
   openArticleLinksInNewWindow: boolean;
 }) {
+  const { language, localizedPath } = useSiteLanguage();
   const iconSize = "16";
   const iconClass =
     "mr-1 fill-gray-400 dark:text-dark dark:group-hover:text-dark-hover group-hover:text-gray-900 ";
@@ -125,10 +137,12 @@ export function SubTitle(props: {
             </svg>
           </span>
           <Link
-            href={`/category/${encodeQuerystring(props.catelog)}`}
+            href={localizedPath(`/category/${encodeQuerystring(props.catelog)}`)}
             target={getTarget(props.openArticleLinksInNewWindow)}
           >
-            <div className="cursor-pointer group-hover:text-gray-900 dark:group-hover:text-dark-hover hover:font-medium ">{`${props.catelog}`}</div>
+            <div className="cursor-pointer group-hover:text-gray-900 dark:group-hover:text-dark-hover hover:font-medium ">
+              {language === "en" && props.catelogEn?.trim() ? props.catelogEn : props.catelog}
+            </div>
           </Link>
         </span>
       )}

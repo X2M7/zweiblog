@@ -16,6 +16,12 @@ const columns = [
     search: false,
   },
   {
+    dataIndex: 'nameEn',
+    title: '英文名称',
+    search: false,
+    render: (_, record) => record.nameEn || '-',
+  },
+  {
     title: '加密',
     tooltip:
       '分类加密后，此分类下的所有文章都会被加密。密码以分类的密码为准。加密后，访客仍可正常访问分类并获取文章列表。',
@@ -53,6 +59,7 @@ const columns = [
         autoFocusFirstInput
         initialValues={{
           private: record.private,
+          nameEn: record.nameEn || '',
         }}
         submitTimeout={3000}
         onFinish={async (values) => {
@@ -84,6 +91,13 @@ const columns = [
         }}
       >
         <ProFormText width="md" name="name" label="分类名" placeholder="请输入新的分类名称" />
+        <ProFormText
+          width="md"
+          name="nameEn"
+          label="分类英文名"
+          placeholder="可选；留空时沿用中文分类名"
+          fieldProps={{ maxLength: 200 }}
+        />
         <ProFormSelect
           width="md"
           name="private"
@@ -175,6 +189,14 @@ export default function () {
               key="nameCCCC"
               placeholder="请输入分类名称"
               rules={[{ required: true, message: '这是必填项' }]}
+            />
+            <ProFormText
+              width="md"
+              id="nameEnC"
+              name="nameEn"
+              label="分类英文名"
+              placeholder="可选；留空时沿用中文分类名"
+              fieldProps={{ maxLength: 200 }}
             />
           </ModalForm>,
         ]}

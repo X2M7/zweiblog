@@ -22,14 +22,6 @@ export default ({
     submitTimeout={3000}
     initialValues={initialValues}
     onFinish={async (values) => {
-      // FIXME: Should be refactor in to an env variable controlling "A demo state"
-      if (location.hostname === 'blog-demo.mereith.com') {
-        Modal.info({
-          title: '演示站不可修改此项！',
-        });
-        return;
-      }
-
       const path = values.path as string;
 
       if (path.substring(0, 1) != '/') {

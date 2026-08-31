@@ -12,6 +12,9 @@ export class Category extends Document {
   @Prop({ unique: true, index: true })
   name: string;
 
+  @Prop({ default: '' })
+  nameEn?: string;
+
   @Prop({ default: 'category', index: true })
   type: CategoryType;
 

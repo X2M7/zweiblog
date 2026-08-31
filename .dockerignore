@@ -8,6 +8,13 @@ README.md
 dist
 staticFolder
 logs
+.local-runtime
+docker-compose/.env
+docker-compose/secrets
+docker-compose/data
+docker-compose/log
+docker-compose/caddy
+**/mongo-migration-*
 **/*/node_modules
 **/node_modules
 **/*/dist

@@ -2,7 +2,7 @@ FROM node:22-alpine AS ADMIN_BUILDER
 ENV NODE_OPTIONS='--max_old_space_size=4096 --openssl-legacy-provider'
 ENV EEE=production
 WORKDIR /repo
-RUN apk add --update python3 make g++ && rm -rf /var/cache/apk/*
+RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
 COPY ./packages/admin/ ./packages/admin/
 RUN corepack enable
@@ -23,7 +23,7 @@ COPY ./packages/server/ ./packages/server/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
-RUN pnpm config set registry https://registry.npmmirror.com -g
+RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/server...
@@ -38,7 +38,7 @@ COPY ./packages/cli/ ./packages/cli/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
-RUN pnpm config set registry https://registry.npmmirror.com -g
+RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter zweiblog-cli...
@@ -46,27 +46,31 @@ RUN pnpm --filter zweiblog-cli deploy --prod /out/cli
 
 FROM node:22-alpine AS WEBSITE_BUILDER
 WORKDIR /repo
-RUN apk add --update python3 make g++ && rm -rf /var/cache/apk/*
+RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./tsconfig.base.json ./
 COPY ./packages/website ./packages/website
 ENV isBuild=t
-ENV ZWEI_BLOG_ALLOW_DOMAINS="pic.mereith.com"
-ARG ZWEI_BLOG_BUILD_SERVER
+ARG ZWEI_BLOG_ALLOW_DOMAINS=""
+ENV ZWEI_BLOG_ALLOW_DOMAINS=${ZWEI_BLOG_ALLOW_DOMAINS}
+ARG ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
 ENV ZWEI_BLOG_SERVER_URL=${ZWEI_BLOG_BUILD_SERVER}
-ARG ZWEI_BLOG_VERSIONS
+ARG ZWEI_BLOG_VERSIONS=dev
 ENV ZWEI_BLOG_VERSION=${ZWEI_BLOG_VERSIONS}
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
 RUN pnpm config set network-timeout 600000 -g
-RUN pnpm config set registry https://registry.npmmirror.com -g
+RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/theme-default...
 RUN pnpm --filter @zweiblog/theme-default build
 
 FROM node:22-alpine AS RUNNER
+LABEL org.opencontainers.image.source="https://github.com/X2M7/zweiblog" \
+  org.opencontainers.image.title="ZweiBlog" \
+  org.opencontainers.image.description="A self-hosted bilingual blog platform based on VanBlog"
 WORKDIR /app
-RUN apk add --no-cache --update tzdata caddy nss-tools libwebp-tools libcap \
+RUN apk add --no-cache tzdata caddy nss-tools libwebp-tools libcap \
   && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
   && echo "Asia/Shanghai" > /etc/timezone \
   && apk del tzdata \
@@ -89,19 +93,24 @@ COPY --from=WEBSITE_BUILDER /repo/packages/website/.next/static ./packages/websi
 ENV NODE_ENV=production
 ENV HOME=/home/zweiblog
 ENV ZWEI_BLOG_SERVER_URL="http://127.0.0.1:3000"
-ENV ZWEI_BLOG_ALLOW_DOMAINS="pic.mereith.com"
-ENV EMAIL="vanblog@mereith.com"
+ENV ZWEI_BLOG_ALLOW_DOMAINS=""
+ENV EMAIL=""
 ENV ZWEI_BLOG_LEGACY_WALINE_DB="waline"
 
 WORKDIR /app/admin
 COPY --from=ADMIN_BUILDER /repo/packages/admin/dist/ ./
 COPY caddyTemplate.json /app/caddyTemplate.json
+COPY ./scripts/render-caddy-config.js /app/render-caddy-config.js
+RUN EMAIL=build@example.com ZWEI_BLOG_CADDY_TRUSTED_PROXIES=127.0.0.1/32 \
+  node /app/render-caddy-config.js /app/caddyTemplate.json /app/caddy-build-check.json \
+  && caddy validate --config /app/caddy-build-check.json \
+  && rm -f /app/caddy-build-check.json
 
 WORKDIR /app
 COPY ./scripts/start.js ./
 COPY ./entrypoint.sh ./
 ENV PORT=3001
-ARG ZWEI_BLOG_VERSIONS
+ARG ZWEI_BLOG_VERSIONS=dev
 ENV ZWEI_BLOG_VERSION=${ZWEI_BLOG_VERSIONS}
 RUN addgroup -S -g 10001 zweiblog \
   && adduser -S -D -u 10001 -G zweiblog -h /home/zweiblog zweiblog \
@@ -114,5 +123,9 @@ VOLUME /home/zweiblog/.config/caddy
 VOLUME /home/zweiblog/.local/share/caddy
 
 EXPOSE 80
+EXPOSE 443
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+  CMD ["node", "-e", "Promise.all(['http://127.0.0.1:3000/','http://127.0.0.1:3001/','http://127.0.0.1/'].map((url)=>fetch(url,{redirect:'manual'}))).then((responses)=>process.exit(responses.every((response)=>response.status<500)?0:1)).catch(()=>process.exit(1))"]
 USER zweiblog
 ENTRYPOINT ["sh", "entrypoint.sh"]

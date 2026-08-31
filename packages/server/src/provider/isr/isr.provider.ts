@@ -10,6 +10,22 @@ export interface ActiveConfig {
   postId?: number;
   forceActice?: boolean;
 }
+
+const BILINGUAL_STATIC_PATH =
+  /^\/(?:post\/[^/?#]+|page\/[^/?#]+|category(?:\/[^?#]+)?|tag(?:\/[^?#]+)?|timeline|about|link)\/?$/u;
+
+/**
+ * English pages are prerendered under an internal `/en` route and reached
+ * through middleware rewrites. On-demand ISR therefore has to invalidate
+ * both cache entries even though visitors keep the ordinary visible URL.
+ */
+export function getBilingualRevalidationPaths(url: string): string[] {
+  if (url === '/') return ['/', '/en'];
+  if (url.startsWith('/en/') || url === '/en') return [url];
+  if (!BILINGUAL_STATIC_PATH.test(url)) return [url];
+  return [url, `/en${url}`];
+}
+
 @Injectable()
 export class ISRProvider {
   urlList = ['/', '/category', '/tag', '/timeline', '/about', '/link'];
@@ -188,14 +204,15 @@ export class ISRProvider {
   }
 
   async activeUrl(url: string, log: boolean) {
-    try {
-      await axios.get(encodeURI(this.base + url));
-      if (log) {
-        this.logger.log(`触发增量渲染成功！ ${url}`);
+    for (const target of getBilingualRevalidationPaths(url)) {
+      try {
+        await axios.get(encodeURI(this.base + target));
+        if (log) {
+          this.logger.log(`触发增量渲染成功！ ${target}`);
+        }
+      } catch (err) {
+        this.logger.error(`触发增量渲染失败！ ${target}`);
       }
-    } catch (err) {
-      // console.log(err);
-      this.logger.error(`触发增量渲染失败！ ${url}`);
     }
   }
 

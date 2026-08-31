@@ -1,10 +1,17 @@
 import { getMenu, updateMenu } from '@/services/zwei-blog/api';
 import { EditableProTable, useRefFunction } from '@ant-design/pro-components';
-import { message, Modal, Spin } from 'antd';
+import { Button, message, Modal, Spin } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  getMenuMoveAvailability,
+  MenuMoveDirection,
+  moveMenuItem,
+  shouldDisableMenuMove,
+} from './menuOrder';
 type DataSourceType = {
   id: React.Key;
   name: string;
+  nameEn?: string;
   value: string;
   level: number;
   children?: DataSourceType[];
@@ -32,6 +39,8 @@ const loopDataSourceFilter = (
 
 export default function () {
   const [loading, setLoading] = useState(false);
+  const [ordering, setOrdering] = useState(false);
+  const orderingRef = useRef(false);
   const [editableKeys, setEditableRowKeys] = useState([]);
   const [dataSource, setDataSource] = useState<DataSourceType[]>([]);
   const [expendKeys, setExpendKeys] = useState([]);
@@ -64,12 +73,34 @@ export default function () {
     return Date.now();
   };
   const update = useCallback(
-    async (vals) => {
+    async (vals: DataSourceType[]) => {
       await updateMenu({ data: vals });
-      //@ts-ignore
-      fetchData();
+      await fetchData();
     },
     [fetchData],
+  );
+  const moveRow = useRefFunction(
+    async (record: DataSourceType, direction: MenuMoveDirection) => {
+      if (orderingRef.current || editableKeys.length > 0) return;
+      const nextData = moveMenuItem(dataSource, record.id, direction);
+      if (nextData === dataSource) return;
+
+      const previousData = dataSource;
+      orderingRef.current = true;
+      setOrdering(true);
+      setDataSource(nextData);
+      try {
+        await update(nextData);
+        message.success('导航顺序已更新');
+      } catch (err) {
+        setDataSource(previousData);
+        await fetchData();
+        message.error('导航顺序更新失败，已恢复服务器顺序');
+      } finally {
+        orderingRef.current = false;
+        setOrdering(false);
+      }
+    },
   );
   const columns = [
     {
@@ -80,6 +111,12 @@ export default function () {
           rules: [{ required: true, message: '此项为必填项' }],
         };
       },
+    },
+    {
+      title: '菜单名（英文）',
+      dataIndex: 'nameEn',
+      fieldProps: { maxLength: 200 },
+      tooltip: '可选；英文为空时前台沿用中文菜单名',
     },
     {
       title: '跳转网址',
@@ -95,9 +132,10 @@ export default function () {
       title: '操作',
       valueType: 'option',
       key: 'option',
-      width: 200,
+      width: 320,
       render: (text, record, _, action) => {
         const l = record.level;
+        const { canMoveUp, canMoveDown } = getMenuMoveAvailability(dataSource, record.id);
         return [
           <a
             key="editable"
@@ -107,6 +145,24 @@ export default function () {
           >
             编辑
           </a>,
+          <Button
+            key="moveUp"
+            type="link"
+            size="small"
+            disabled={shouldDisableMenuMove(canMoveUp, ordering, editableKeys.length)}
+            onClick={() => moveRow(record, 'up')}
+          >
+            上移
+          </Button>,
+          <Button
+            key="moveDown"
+            type="link"
+            size="small"
+            disabled={shouldDisableMenuMove(canMoveDown, ordering, editableKeys.length)}
+            onClick={() => moveRow(record, 'down')}
+          >
+            下移
+          </Button>,
           l == 0 ? (
             <a
               key="addChild"
@@ -161,7 +217,7 @@ export default function () {
   ];
   return (
     <>
-      <Spin spinning={loading}>
+      <Spin spinning={loading || ordering}>
         <EditableProTable
           expandable={{
             defaultExpandAllRows: true,

@@ -1,11 +1,13 @@
 import { createArticle, getAllCategories, getTags } from '@/services/zwei-blog/api';
+import { SUMMARY_MAX_LENGTH } from '@/pages/Editor/bilingualContent';
 import {
   ModalForm,
   ProFormDateTimePicker,
   ProFormSelect,
   ProFormText,
+  ProFormTextArea,
 } from '@ant-design/pro-components';
-import { Button, Modal } from 'antd';
+import { Button } from 'antd';
 import moment from 'moment';
 import AuthorField from '../AuthorField';
 
@@ -19,17 +21,10 @@ export default function (props) {
           新建文章
         </Button>
       }
-      width={450}
+      width={640}
       autoFocusFirstInput
       submitTimeout={3000}
       onFinish={async (values) => {
-        if (location.hostname == 'blog-demo.mereith.com') {
-          Modal.info({
-            title: '演示站禁止新建文章！',
-            content: '本来是可以的，但有个人在演示站首页放黄色信息，所以关了这个权限了。',
-          });
-          return;
-        }
         const washedValues = {};
         for (const [k, v] of Object.entries(values)) {
           washedValues[k.replace('C', '')] = v;
@@ -54,6 +49,37 @@ export default function (props) {
         label="文章标题"
         placeholder="请输入标题"
         rules={[{ required: true, message: '这是必填项' }]}
+      />
+      <ProFormText
+        width="md"
+        id="titleEnC"
+        name="titleEnC"
+        label="英文标题"
+        placeholder="可选，稍后也可在双语编辑器中填写"
+      />
+      <ProFormTextArea
+        width="md"
+        id="summaryC"
+        name="summaryC"
+        label="中文摘要"
+        placeholder="可选；留空则从中文正文自动截取"
+        fieldProps={{
+          autoSize: { minRows: 2, maxRows: 4 },
+          maxLength: SUMMARY_MAX_LENGTH,
+          showCount: true,
+        }}
+      />
+      <ProFormTextArea
+        width="md"
+        id="summaryEnC"
+        name="summaryEnC"
+        label="英文摘要"
+        placeholder="可选；留空则从英文正文自动截取"
+        fieldProps={{
+          autoSize: { minRows: 2, maxRows: 4 },
+          maxLength: SUMMARY_MAX_LENGTH,
+          showCount: true,
+        }}
       />
       <AuthorField />
       <ProFormText
@@ -167,6 +193,14 @@ export default function (props) {
         label="版权声明"
         tooltip="设置后会替换掉文章页底部默认的版权声明文字，留空则根据系统设置中的相关选项进行展示"
         placeholder="设置后会替换掉文章底部默认的版权"
+      />
+      <ProFormText
+        width="md"
+        id="copyrightEnC"
+        name="copyrightEnC"
+        label="英文版权声明"
+        tooltip="英文站的自定义版权声明；留空时使用系统生成的英文默认声明"
+        placeholder="可选，仅替换英文文章页底部的版权声明"
       />
     </ModalForm>
   );

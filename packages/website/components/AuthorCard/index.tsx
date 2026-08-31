@@ -5,9 +5,12 @@ import { SocialItem } from "../../api/getAllData";
 import SocialCard from "../SocialCard";
 import { ThemeContext } from "../../utils/themeContext";
 import ImageBox from "../ImageBox";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 export interface AuthorCardProps {
   author: string;
+  authorEn?: string;
   desc: string;
+  descEn?: string;
   logo: string;
   logoDark: string;
   postNum: number;
@@ -21,6 +24,13 @@ export interface AuthorCardProps {
 
 export default function (props: { option: AuthorCardProps }) {
   const { theme } = useContext(ThemeContext);
+  const { language, localizedPath, t } = useSiteLanguage();
+  const author = language === "en" && props.option.authorEn?.trim()
+    ? props.option.authorEn
+    : props.option.author;
+  const description = language === "en" && props.option.descEn?.trim()
+    ? props.option.descEn
+    : props.option.desc;
 
   const logoUrl = useMemo(() => {
     if (
@@ -53,7 +63,7 @@ export default function (props: { option: AuthorCardProps }) {
       <div className="w-52 flex flex-col justify-center items-center bg-white pt-6  pb-4 card-shadow ml-2 dark:bg-dark dark:card-shadow-dark">
         <div className="px-10 flex flex-col justify-center items-center">
           <ImageBox
-            alt="author logo"
+            alt={t("作者头像", "Author avatar")}
             className="rounded-full  dark:filter-dark"
             src={logoUrl}
             width={120}
@@ -62,39 +72,39 @@ export default function (props: { option: AuthorCardProps }) {
           />
 
           <div className="mt-2 font-semibold text-gray-600 mb-2 dark:text-dark">
-            {props.option.author}
+            {author}
           </div>
           <div className="text-sm text-gray-500 mb-2 dark:text-dark-light">
-            {props.option.desc}
+            {description}
           </div>
           <div className="flex">
-            <Link href="/timeline">
+            <Link href={localizedPath("/timeline")}>
               <div className="group flex flex-col justify-center items-center text-gray-600 text-sm px-1 dark:text-dark ">
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.postNum}
                 </div>
                 <div className="group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
-                  日志
+                  {t("日志", "Posts")}
                 </div>
               </div>
             </Link>
-            <Link href="/category">
+            <Link href={localizedPath("/category")}>
               <div className="group flex flex-col justify-center items-center text-gray-600 text-sm px-1 dark:text-dark">
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.catelogNum}
                 </div>
                 <div className="group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
-                  分类
+                  {t("分类", "Categories")}
                 </div>
               </div>
             </Link>
-            <Link href="/tag">
+            <Link href={localizedPath("/tag")}>
               <div className="group flex flex-col justify-center items-center text-gray-600 text-sm px-1 dark:text-dark">
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.tagNum}
                 </div>
                 <div className=" group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
-                  标签
+                  {t("标签", "Tags")}
                 </div>
               </div>
             </Link>

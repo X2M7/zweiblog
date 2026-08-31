@@ -6,7 +6,7 @@
 
 ![添加](https://pic.mereith.com/img/37e817403c5f6b3877780b41f99ea2e0.clipboard-2022-08-29.png)
 
-填入地址为 `mereith/van-blog`：
+填入地址为 `ghcr.io/x2m7/zweiblog`：
 
 ![填写地址](https://pic.mereith.com/img/428cef523d23e2a5d2b19fcb59fb2bf0.clipboard-2022-08-29.png)
 
@@ -40,7 +40,7 @@
 
 ### 创建 ZweiBlog 容器
 
-和上面一样，点击 `容器/新建` ，选中刚刚下载的 `mereith/van-blog:latest` 镜像，容器名称为 ZweiBlog。
+和上面一样，点击 `容器/新建`，选中刚刚下载的 `ghcr.io/x2m7/zweiblog:latest` 镜像，容器名称为 ZweiBlog。
 
 ![image.png](https://pic.mereith.com/img/6b237de9e368fbcda040c5eaa5aec363.image.png)
 

@@ -1,17 +1,45 @@
-import { deleteLink, getLink, updateLink } from '@/services/zwei-blog/api';
+import { deleteLink, getLink, updateLink, updateLinkOrder } from '@/services/zwei-blog/api';
 import { EditableProTable } from '@ant-design/pro-components';
-import { Modal, Spin } from 'antd';
+import { Button, message, Modal, Spin } from 'antd';
 import { useRef, useState } from 'react';
+import { canMoveLinkName, isLinkOrderingLocked, moveLinkName } from './linkOrder';
 
 export default function () {
   const [loading, setLoading] = useState(true);
+  const [ordering, setOrdering] = useState(false);
+  const [links, setLinks] = useState([]);
   const [editableKeys, setEditableRowKeys] = useState([]);
   const actionRef = useRef();
+  const orderingRef = useRef(false);
   const fetchData = async () => {
     setLoading(true);
     const { data } = await getLink();
+    const nextLinks = data.map((item) => ({ key: item.name, ...item }));
+    setLinks(nextLinks);
     setLoading(false);
-    return data.map((item) => ({ key: item.name, ...item }));
+    return nextLinks;
+  };
+  const moveLink = async (name, direction, action) => {
+    const names = links.map((link) => link.name);
+    if (
+      isLinkOrderingLocked(editableKeys, orderingRef.current) ||
+      !canMoveLinkName(names, name, direction)
+    ) {
+      return;
+    }
+    orderingRef.current = true;
+    setOrdering(true);
+    try {
+      await updateLinkOrder(moveLinkName(names, name, direction));
+      message.success('友链顺序已更新');
+    } finally {
+      try {
+        await action?.reload?.();
+      } finally {
+        orderingRef.current = false;
+        setOrdering(false);
+      }
+    }
   };
   const columns = [
     {
@@ -22,6 +50,11 @@ export default function () {
           rules: [{ required: true, message: '此项为必填项' }],
         };
       },
+    },
+    {
+      title: '伙伴名（英文）',
+      dataIndex: 'nameEn',
+      fieldProps: { maxLength: 200 },
     },
     {
       title: '地址',
@@ -40,6 +73,11 @@ export default function () {
           rules: [{ required: true, message: '此项为必填项' }],
         };
       },
+    },
+    {
+      title: '简介（英文）',
+      dataIndex: 'descEn',
+      fieldProps: { maxLength: 2000 },
     },
     {
       title: 'Logo',
@@ -65,31 +103,53 @@ export default function () {
       title: '操作',
       valueType: 'option',
       key: 'option',
-      width: 200,
-      render: (text, record, _, action) => [
-        <a
-          key="editable"
-          onClick={() => {
-            action?.startEditable?.(record.name);
-          }}
-        >
-          编辑
-        </a>,
-        <a
-          key="delete"
-          onClick={async () => {
-            Modal.confirm({
-              onOk: async () => {
-                await deleteLink(record.name);
-                action?.reload();
-              },
-              title: `确认删除"${record.name}"吗?`,
-            });
-          }}
-        >
-          删除
-        </a>,
-      ],
+      width: 280,
+      render: (text, record, _, action) => {
+        const names = links.map((link) => link.name);
+        const orderingLocked = isLinkOrderingLocked(editableKeys, ordering);
+        return [
+          <Button
+            disabled={orderingLocked || !canMoveLinkName(names, record.name, 'up')}
+            key="move-up"
+            onClick={() => moveLink(record.name, 'up', action)}
+            size="small"
+            type="link"
+          >
+            上移
+          </Button>,
+          <Button
+            disabled={orderingLocked || !canMoveLinkName(names, record.name, 'down')}
+            key="move-down"
+            onClick={() => moveLink(record.name, 'down', action)}
+            size="small"
+            type="link"
+          >
+            下移
+          </Button>,
+          <a
+            key="editable"
+            onClick={() => {
+              action?.startEditable?.(record.name);
+            }}
+          >
+            编辑
+          </a>,
+          <a
+            key="delete"
+            onClick={async () => {
+              Modal.confirm({
+                onOk: async () => {
+                  await deleteLink(record.name);
+                  action?.reload();
+                },
+                title: `确认删除"${record.name}"吗?`,
+              });
+            }}
+          >
+            删除
+          </a>,
+        ];
+      },
     },
   ];
   return (
@@ -120,15 +180,13 @@ export default function () {
             type: 'multiple',
             editableKeys,
             onSave: async (rowKey, data, row) => {
-              if (location.hostname == 'blog-demo.mereith.com') {
-                Modal.info({ title: '演示站禁止修改此项！' });
-                return;
-              }
               const toSaveObj = {
                 name: data.name,
+                nameEn: data.nameEn || '',
                 url: data.url,
                 logo: data.logo,
                 desc: data.desc,
+                descEn: data.descEn || '',
               };
               await updateLink(toSaveObj);
               // await waitTime(500);

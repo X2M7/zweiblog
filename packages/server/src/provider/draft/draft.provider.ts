@@ -12,6 +12,7 @@ import { Draft, DraftDocument } from 'src/scheme/draft.schema';
 import { escapeRegexLiteral } from 'src/utils/safeRegex';
 import { ArticleProvider } from '../article/article.provider';
 import { sleep } from 'src/utils/sleep';
+import { assertLocalizedArticleFields } from 'src/utils/localizedArticleFields';
 export type DraftView = 'admin' | 'public' | 'list';
 @Injectable()
 export class DraftProvider {
@@ -22,7 +23,11 @@ export class DraftProvider {
   ) {}
   publicView = {
     title: 1,
+    titleEn: 1,
     content: 1,
+    contentEn: 1,
+    summary: 1,
+    summaryEn: 1,
     tags: 1,
     category: 1,
     updatedAt: 1,
@@ -34,7 +39,11 @@ export class DraftProvider {
 
   adminView = {
     title: 1,
+    titleEn: 1,
     content: 1,
+    contentEn: 1,
+    summary: 1,
+    summaryEn: 1,
     tags: 1,
     category: 1,
     updatedAt: 1,
@@ -46,6 +55,9 @@ export class DraftProvider {
 
   listView = {
     title: 1,
+    titleEn: 1,
+    summary: 1,
+    summaryEn: 1,
     tags: 1,
     category: 1,
     updatedAt: 1,
@@ -70,7 +82,9 @@ export class DraftProvider {
     return thisView;
   }
   async create(createDraftDto: CreateDraftDto): Promise<Draft> {
-    const createdData = new this.draftModel(createDraftDto);
+    const data = { ...(createDraftDto as any) } as CreateDraftDto & Record<string, unknown>;
+    assertLocalizedArticleFields(data);
+    const createdData = new this.draftModel(data);
     const newId = await this.getNewId();
     createdData.id = newId;
     return createdData.save();
@@ -86,7 +100,7 @@ export class DraftProvider {
       const title = draft.title;
       const oldDraft = await this.findOneByTitle(title);
       if (oldDraft) {
-        this.updateById(oldDraft.id, { ...createDto, deleted: false });
+        await this.updateById(oldDraft.id, { ...createDto, deleted: false });
       } else {
         await this.create(createDto);
       }
@@ -130,9 +144,8 @@ export class DraftProvider {
       });
     }
     if (option.title) {
-      and.push({
-        title: { $regex: escapeRegexLiteral(option.title), $options: 'i' },
-      });
+      const title = { $regex: escapeRegexLiteral(option.title), $options: 'i' };
+      and.push({ $or: [{ title }, { titleEn: title }] });
     }
     if (option.startTime || option.endTime) {
       const obj: any = {};
@@ -167,18 +180,22 @@ export class DraftProvider {
   }
   async publish(id: number, options: PublishDraftDto) {
     const draft = await this.getById(id);
-    if (!draft.content.includes('<!-- more -->')) {
-      throw new ForbiddenException('未包含 more 标记，请修改后再发布！');
-    }
     const createArticleDto: CreateArticleDto = {
       title: draft.title,
+      titleEn: draft.titleEn,
       content: draft.content,
+      contentEn: draft.contentEn,
+      summary: draft.summary,
+      summaryEn: draft.summaryEn,
       tags: draft.tags,
       category: draft.category,
       author: draft.author,
     };
     for (const [k, v] of Object.entries(options || {})) {
       createArticleDto[k] = v;
+    }
+    if (!createArticleDto.content?.includes('<!-- more -->')) {
+      throw new ForbiddenException('未包含 more 标记，请修改后再发布！');
     }
     const res = await this.articleProvider.create(createArticleDto);
     await this.deleteById(id);
@@ -205,7 +222,11 @@ export class DraftProvider {
       .find({
         $or: [
           { content: { $regex: safeSearch, $options: 'i' } },
+          { contentEn: { $regex: safeSearch, $options: 'i' } },
+          { summary: { $regex: safeSearch, $options: 'i' } },
+          { summaryEn: { $regex: safeSearch, $options: 'i' } },
           { title: { $regex: safeSearch, $options: 'i' } },
+          { titleEn: { $regex: safeSearch, $options: 'i' } },
         ],
       })
       .limit(100)
@@ -221,7 +242,9 @@ export class DraftProvider {
   }
 
   async updateById(id: number, updateDraftDto: UpdateDraftDto) {
-    return this.draftModel.updateOne({ id }, { ...updateDraftDto, updatedAt: new Date() });
+    const data = { ...(updateDraftDto as any) } as UpdateDraftDto & Record<string, unknown>;
+    assertLocalizedArticleFields(data);
+    return this.draftModel.updateOne({ id }, { ...data, updatedAt: data.updatedAt || new Date() });
   }
 
   async getNewId() {

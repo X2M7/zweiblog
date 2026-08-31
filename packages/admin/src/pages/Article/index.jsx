@@ -8,6 +8,10 @@ import { Button, Space, message } from 'antd';
 import RcResizeObserver from 'rc-resize-observer';
 import { useMemo, useRef, useState } from 'react';
 import { history } from 'umi';
+import {
+  getStandalonePageEditorPath,
+  standalonePageEditorActions,
+} from '../Editor/standalonePageConfig';
 import { articleObjAll, articleObjSmall, columns } from './columns';
 
 export default () => {
@@ -175,14 +179,16 @@ export default () => {
           headerTitle={simpleSearch ? undefined : '文章管理'}
           options={simpleSearch ? false : true}
           toolBarRender={() => [
-            <Button
-              key="editAboutMe"
-              onClick={() => {
-                history.push(`/editor?type=about&id=${0}`);
-              }}
-            >
-              {`编辑关于`}
-            </Button>,
+            ...standalonePageEditorActions.map((page) => (
+              <Button
+                key={page.key}
+                onClick={() => {
+                  history.push(getStandalonePageEditorPath(page.type));
+                }}
+              >
+                {page.buttonLabel}
+              </Button>
+            )),
             <NewArticleModal
               key="newArticle123"
               onFinish={(data) => {

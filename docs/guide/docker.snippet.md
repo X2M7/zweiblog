@@ -1,21 +1,16 @@
-### 1. 安装依赖
+### 1. 获取部署文件
 
-服务器需要 Docker Engine 和 Docker Compose v2。MongoDB 已包含在编排中，不要再把 27017 端口暴露到公网。
+```bash
+git clone https://github.com/X2M7/zweiblog.git
+cd zweiblog/docker-compose
+cp .env.example .env
+```
+
+Windows PowerShell 使用 `Copy-Item .env.example .env`。按需编辑 `.env`；默认只监听宿主机 `127.0.0.1:8080/8443`，适合再接一层 Nginx 或 Caddy。
 
 ### 2. 准备编排和数据库凭据
 
-部署这份 zweiblog 源码时，请复制整个项目并保持 `Dockerfile`、`packages` 与 `docker-compose` 的相对目录结构；不要只复制编排目录，否则无法构建本项目镜像。`docker-compose` 目录必须同时包含：
-
-- `docker-compose.yml`
-- `mongo-init.js`
-- `mongo-healthcheck.js`
-- `setup-mongo-secrets.sh`
-- `setup-mongo-secrets.ps1`
-
-修改 `docker-compose.yml` 中的邮箱和 HTTP/HTTPS 宿主机端口，然后执行：
-
 ```bash
-cd docker-compose
 sudo sh ./setup-mongo-secrets.sh .
 sudo docker compose config --quiet
 ```
@@ -28,26 +23,27 @@ Set-Location docker-compose
 docker compose config --quiet
 ```
 
-凭据生成器会创建 256 位随机 root/应用密码。MongoDB root 密码只提供给 MongoDB；ZweiBlog 只获得权限受限应用用户的连接 URL。不要把 `secrets` 目录提交到 Git，也不要手动删除其中的单个文件。
+凭据生成器会创建 256 位随机 root/应用密码。MongoDB root 密码只提供给 MongoDB；ZweiBlog 只获得权限受限应用用户的连接 URL。不要提交 `secrets` 目录，也不要手动删除其中的单个文件。
 
 ### 3. 启动
 
 ```bash
-sudo docker compose up -d --build
+sudo docker compose pull
+sudo docker compose up -d
 sudo docker compose ps
+sudo docker compose logs -f zweiblog
 ```
 
-Windows 本机项目可直接执行：
+默认镜像是 `ghcr.io/x2m7/zweiblog:latest`。如果镜像尚未公开，或需要从当前 checkout 构建：
 
-```powershell
-Set-Location E:\zweiblog\docker-compose
-.\setup-mongo-secrets.ps1 .
-docker compose config --quiet
-docker compose up -d --build
-docker compose ps
+```bash
+sudo docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.build.yml \
+  up -d --build
 ```
 
-该编排生成并启动 `zweiblog:local`，不会拉取不含本项目修改的上游 ZweiBlog 镜像。
+本地测试可打开 `http://localhost:8080/admin` 初始化；公网环境应先配置 README 中的反向代理，并把后台站点 URL 设置为最终的 `https://` 地址。
 
 ZweiBlog 会等待 MongoDB 通过带认证的健康检查后再启动。MongoDB 只加入 `internal: true` 的数据库网络，并且没有宿主机端口映射。
 
@@ -63,4 +59,4 @@ MongoDB 5.0 及以上在 x86_64 上要求 AVX，在 ARM 上要求 ARMv8.2-A 或�
 
 :::
 
-所有可用的 ZweiBlog 环境变量参见 [参考 → 环境变量](../reference/env.md)。
+常用部署变量、完整备份、升级回滚以及真实访客 IP 配置见仓库根目录 [README](https://github.com/X2M7/zweiblog#readme)。应用环境变量参见 [参考 → 环境变量](../reference/env.md)。

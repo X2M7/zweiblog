@@ -64,6 +64,7 @@ export class BackupController {
     const articles = await this.articleProvider.exportForBackup();
     const categories = await this.categoryProvider.exportForBackup();
     const tags = await this.tagProvider.getAllTags(true);
+    const tagDetails = await this.tagProvider.exportForBackup();
     const meta = await this.metaProvider.getAll();
     const drafts = await this.draftProvider.getAll();
     const user = await this.userProvider.exportForBackup();
@@ -77,9 +78,11 @@ export class BackupController {
     const commentMigrationTombstones =
       await this.commentProvider.exportMigrationTombstonesForBackup();
     const commentSetting = await this.settingProvider.getCommentSetting();
+    const menuSetting = await this.settingProvider.getMenuSetting();
     const data = {
       articles,
       tags,
+      tagDetails,
       meta,
       drafts,
       categories,
@@ -89,7 +92,7 @@ export class BackupController {
       static: staticItems,
       comments,
       commentMigrationTombstones,
-      setting: { static: staticSetting, comment: commentSetting },
+      setting: { static: staticSetting, comment: commentSetting, menu: menuSetting },
     };
     // 拼接一个临时文件
     const name = `zweiblog-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -126,7 +129,16 @@ export class BackupController {
     if (!data || typeof data !== 'object' || !Array.isArray(data.articles)) {
       throw new BadRequestException('Invalid ZweiBlog backup');
     }
-    const { meta, user, setting, comments, categories, commentMigrationTombstones } = data;
+    const {
+      meta,
+      user,
+      setting,
+      comments,
+      categories,
+      tags,
+      tagDetails,
+      commentMigrationTombstones,
+    } = data;
     let { articles, drafts, viewer, visit, static: staticItems } = data;
     // Validate comment structure and existing unique identities before any
     // provider mutates data. Comments are then written first, so a comment
@@ -159,6 +171,7 @@ export class BackupController {
     await this.commentProvider.importMigrationTombstonesFromBackup(commentMigrationTombstones);
     await this.categoryProvider.importFromBackup(categories);
     await this.articleProvider.importArticles(articles);
+    await this.tagProvider.importFromBackup(tagDetails ?? tags);
     const commentImport = (await this.commentProvider.importFromBackup(commentsForImport)) || {
       imported: 0,
       skipped: 0,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { LinkItem } from "../api/getAllData";
+import { LinkItem, LinkPageContent } from "../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../components/AuthorCard";
 import Layout from "../components/Layout";
 import LinkCard from "../components/LinkCard";
@@ -8,14 +8,18 @@ import Comments from "../components/Comments";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getLinkPageProps } from "../utils/getPageProps";
 import { revalidate } from "../utils/loadConfig";
+import { resolveLinkPageMarkdown } from "../utils/linkPageContent";
+import { useSiteLanguage } from "../utils/siteLanguage";
 
 export interface LinkPageProps {
   layoutProps: LayoutProps;
   authorCardProps: AuthorCardProps;
   links: LinkItem[];
+  linkPage?: LinkPageContent;
 }
 
-const LinkPage = (props: LinkPageProps) => {
+export const LinkPage = (props: LinkPageProps) => {
+  const { language, t } = useSiteLanguage();
   const [url, setUrl] = useState("");
   useEffect(() => {
     setUrl(window.location.origin);
@@ -30,7 +34,26 @@ const LinkPage = (props: LinkPageProps) => {
     }
     return logo;
   }, [props, url]);
-  const requireContent = `
+  const siteName = language === "en" && props.layoutProps.siteNameEn?.trim()
+    ? props.layoutProps.siteNameEn
+    : props.layoutProps.siteName;
+  const siteDescription = language === "en" && props.layoutProps.descriptionEn?.trim()
+    ? props.layoutProps.descriptionEn
+    : props.layoutProps.description;
+  const defaultRequireContent = language === "en" ? `
+**[Link exchange requirements]**
+- [x] Please add this site before applying, then let me know in a comment or by email
+- [x] Sites that plagiarize, infringe copyright, or act dishonestly are not accepted; original HTTPS sites are preferred
+- [x] Your blog homepage should normally be indexed by a search engine such as Google or Baidu
+- [x] For security, please provide an HTTPS avatar URL
+- [x] Link exchanges are intended for technical or personal blogs rather than video or download sites
+
+**[Site information]**
+> Name: ${siteName}<br/>
+> Description: ${siteDescription}<br/>
+> URL: [${url}](${url})<br/>
+> Avatar: [${logo}](${logo})
+` : `
 **[申领要求]**
 - [x] 请先添加本站为友链后再申请友链，并通过留言或邮件告知
 - [x] 不和剽窃、侵权、无诚信的网站交换，优先和具有原创作品的全站 HTTPS 站点交换
@@ -39,25 +62,30 @@ const LinkPage = (props: LinkPageProps) => {
 - [x] 不接受视频站、资源站等非博客类站点交换，原则上只与技术/日志类博客交换友链
 
 **[本站信息]**
-> 名称： ${props.layoutProps.siteName}<br/>
-> 简介： ${props.layoutProps.description}<br/>
+> 名称： ${siteName}<br/>
+> 简介： ${siteDescription}<br/>
 > 网址： [${url}](${url})<br/>
 > 头像： [${logo}](${logo})
 `;
+  const requireContent = resolveLinkPageMarkdown(
+    props.linkPage,
+    language,
+    defaultRequireContent,
+  );
   return (
     <Layout
       option={props.layoutProps}
-      title="友情链接"
+      title={t("友情链接", "Links")}
       sideBar={<AuthorCard option={props.authorCardProps} />}
     >
       <div className="bg-white dark:text-dark card-shadow dark:bg-dark dark:card-shadow-dark py-4 px-8 md:py-6 md:px-8">
         <div>
           <div className="text-2xl md:text-3xl text-gray-700 dark:text-dark text-center">
-            友情链接
+            {t("友情链接", "Links")}
           </div>
         </div>
         <div className="flex flex-col mt-6 mb-2">
-          <p className="mb-6 ">以下是本站的友情链接，排名不分先后：</p>
+          <p className="mb-6 ">{t("以下是本站的友情链接，排名不分先后：", "Here are this site's friends and links, in no particular order:")}</p>
           <div className="grid gap-2 sm:gap-4 grid-cols-2 lg:grid-cols-3">
             {props.links.map((link) => (
               <LinkCard link={link} key={`${link.url}${link.name}`} />

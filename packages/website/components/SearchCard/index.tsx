@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchArticles } from "../../api/search";
+import {
+  resolveCanonicalSearchValue,
+  searchArticles,
+} from "../../api/search";
 import { useDebounce } from "react-use";
 import ArticleList from "../ArticleList";
 import KeyCard from "../KeyCard";
+import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: {
   visible: boolean;
   setVisible: (v: boolean) => void;
   openArticleLinksInNewWindow: boolean;
+  categoryNamesEn: Record<string, string>;
+  tagNamesEn: Record<string, string>;
 }) {
+  const { language, t } = useSiteLanguage();
   const [result, setResult] = useState<any>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,7 +47,14 @@ export default function (props: {
   const onSearch = async (search: string) => {
     setTyping(false);
     setLoading(true);
-    const resultFromServer = await searchArticles(search);
+    const resultFromServer = await searchArticles(
+      resolveCanonicalSearchValue(
+        search,
+        language,
+        props.categoryNamesEn,
+        props.tagNamesEn,
+      ),
+    );
     setResult(resultFromServer);
     setLoading(false);
   };
@@ -60,25 +74,25 @@ export default function (props: {
   const renderResult = () => {
     let text = "";
     if (loading) {
-      text = "搜索中...";
+      text = t("搜索中...", "Searching...");
     } else {
       if (search.trim() == "") {
-        text = "请输入并搜索";
+        text = t("请输入并搜索", "Enter a search term");
       } else {
         // 有数字，有结果
         if (result.length) {
-          text = "有结果";
+          text = "has-results";
         } else {
           // 可能是暂无结果或者输入中
           if (typing) {
-            text = "输入中";
+            text = t("输入中", "Typing...");
           } else {
-            text = "暂无结果";
+            text = t("暂无结果", "No results found");
           }
         }
       }
     }
-    if (text == "有结果") {
+    if (text == "has-results") {
       return (
         <div>
           <ArticleList
@@ -163,7 +177,8 @@ export default function (props: {
                 setResult([]);
               }
             }}
-            placeholder={"搜索内容"}
+            aria-label={t("搜索内容", "Search")}
+            placeholder={t("搜索内容", "Search")}
             className="w-full ml-2 text-base "
             style={{
               height: 32,

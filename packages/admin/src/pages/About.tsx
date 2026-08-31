@@ -37,19 +37,19 @@ export default function (props) {
                 <Tag color="cyan">{version}</Tag>
               </div>
             </div>
-            <p align="center">一款简洁实用优雅的高性能个人博客系统</p>
+            <p align="center">面向自托管场景的双语个人博客与本地评论系统</p>
 
             <Space>
-              <a target={'_blank'} rel="noreferrer" href="https://github.com/Mereithhh/van-blog">
+              <a target={'_blank'} rel="noreferrer" href="https://github.com/X2M7/zweiblog">
                 Github
               </a>
-              <a target={'_blank'} rel="noreferrer" href="https://vanblog.mereith.com">
+              <a target={'_blank'} rel="noreferrer" href="https://github.com/X2M7/zweiblog#readme">
                 项目文档
               </a>
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://vanblog.mereith.com/changelog.html"
+                href="https://github.com/X2M7/zweiblog/releases"
               >
                 更新日志
               </a>
@@ -61,26 +61,26 @@ export default function (props) {
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://github.com/Mereithhh/van-blog/issues/new/choose"
+                href="https://github.com/X2M7/zweiblog/issues/new/choose"
               >
                 提交BUG
               </a>
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://github.com/Mereithhh/van-blog/issues/new/choose"
+                href="https://github.com/X2M7/zweiblog/issues/new/choose"
               >
                 提交案例
               </a>
               <a
                 target={'_blank'}
                 rel="noreferrer"
-                href="https://github.com/Mereithhh/van-blog#%E6%89%93%E8%B5%8F"
+                href="https://github.com/Mereithhh/vanblog"
               >
-                打赏
+                上游 VanBlog
               </a>
-              <a target={'_blank'} rel="noreferrer" href="https://jq.qq.com/?_wv=1027&k=5NRyK2Sw">
-                交流群
+              <a target={'_blank'} rel="noreferrer" href="https://github.com/X2M7/zweiblog/blob/main/LICENSE">
+                GPL-3.0 许可证
               </a>
             </Space>
           </div>
