@@ -49,7 +49,20 @@ cleanup() {
 
   compose down --volumes --remove-orphans --timeout 20 >/dev/null 2>&1 || true
   case "${temp_root}" in
-    "${temp_parent}"/zweiblog-smoke.*) rm -rf -- "${temp_root}" ;;
+    "${temp_parent}"/zweiblog-smoke.*)
+      # MongoDB and ZweiBlog intentionally run with container-specific UIDs,
+      # so their bind-mounted files might not be removable by the CI runner.
+      # Reuse the already loaded smoke image as root to empty only the validated
+      # disposable temporary directory, then remove the runner-owned wrapper.
+      if [[ -d "${temp_root}" && ! -L "${temp_root}" ]]; then
+        docker run --rm --user 0:0 --entrypoint node \
+          --volume "${temp_root}:/cleanup-target" \
+          "${smoke_image}" \
+          -e "const fs=require('node:fs'),path=require('node:path');for(const name of fs.readdirSync('/cleanup-target'))fs.rmSync(path.join('/cleanup-target',name),{recursive:true,force:true})" \
+          >/dev/null 2>&1 || true
+      fi
+      rm -rf -- "${temp_root}" || true
+      ;;
     *) echo "Refusing to remove unexpected temporary path: ${temp_root}" >&2 ;;
   esac
 
@@ -81,7 +94,7 @@ fi
 mkdir -p \
   "${deployment_root}/secrets" \
   "${deployment_root}/data/mongo" \
-  "${deployment_root}/data/static" \
+  "${deployment_root}/data/static/customPage/legacy-smoke" \
   "${deployment_root}/log" \
   "${deployment_root}/caddy/config" \
   "${deployment_root}/caddy/data"
@@ -92,10 +105,18 @@ mkdir -p \
 chmod 0777 \
   "${deployment_root}/data/mongo" \
   "${deployment_root}/data/static" \
+  "${deployment_root}/data/static/customPage" \
   "${deployment_root}/log" \
   "${deployment_root}/caddy" \
   "${deployment_root}/caddy/config" \
   "${deployment_root}/caddy/data"
+
+# Older releases returned /static/customPage URLs. Create this compatibility
+# fixture before containers take ownership of the bind-mounted directories.
+chmod 0755 "${deployment_root}/data/static/customPage/legacy-smoke"
+printf '<script>window.legacySmoke=true</script>' \
+  >"${deployment_root}/data/static/customPage/legacy-smoke/index.html"
+chmod 0644 "${deployment_root}/data/static/customPage/legacy-smoke/index.html"
 
 root_password="$(openssl rand -hex 32)"
 app_password="$(openssl rand -hex 32)"
@@ -121,6 +142,7 @@ export ZWEI_BLOG_CADDY_TRUSTED_PROXIES=''
 export ZWEI_BLOG_ENABLE_SWAGGER='false'
 export ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION='false'
 export ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL='false'
+export ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE='false'
 
 compose config --quiet
 compose up --detach --wait --wait-timeout 300
@@ -231,9 +253,6 @@ cmp --silent "${stored_image}" "${temp_root}/uploaded-image" ||
 
 # Older releases returned /static/customPage URLs. They must remain usable via
 # a redirect through /c, never through the unsandboxed generic static mount.
-mkdir -p "${deployment_root}/data/static/customPage/legacy-smoke"
-printf '<script>window.legacySmoke=true</script>' \
-  >"${deployment_root}/data/static/customPage/legacy-smoke/index.html"
 legacy_headers="${temp_root}/legacy-custom-page.headers"
 legacy_status="$(curl --silent --show-error --output /dev/null \
   --dump-header "${legacy_headers}" --write-out '%{http_code}' --max-time 20 \
