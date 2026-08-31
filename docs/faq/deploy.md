@@ -23,10 +23,12 @@ sudo docker compose logs --tail=200 zweiblog
 
 - 后台、初始化和设置图片最多 10 MiB。
 - 评论图片最多 5 MiB。
-- 自定义页面单文件最多 10 MiB。
+- 多文件自定义页面项目上传不设应用层单文件字节上限，采用磁盘流转；仍受磁盘、文件系统、外层代理/CDN/面板和超时约束。
+- 单文件自定义页面 HTML 仍受 5 MiB JSON 请求体和 MongoDB 单文档容量约束。
+- 多文件页面 ZIP 导出单文件最多 256 MiB、未压缩总量最多 512 MiB，并有文件数量、目录深度和并发限制。
 - 后台 JSON 备份导入默认最多 256 MiB，容器环境变量可配置的绝对上限为 512 MiB。
 
-HTTP 413 通常表示外层 Nginx、CDN 或面板的请求体限制更小。仓库 Nginx 模板的 `client_max_body_size 32m` 足够图片和自定义页面文件，但大备份需要同步提高代理限制。若文件未超过限制，查看浏览器响应和 ZweiBlog 容器日志，不要通过开放额外端口绕过代理。
+HTTP 413 通常表示外层 Nginx、CDN 或面板仍有限制。仓库 Nginx 模板只对精确的 `/api/admin/customPage/upload` 路由设置 `client_max_body_size 0` 和 `proxy_request_buffering off`，其他接口继续使用 32 MiB；复制模板时不要遗漏这个精确路由，也不要把无限制配置扩大到整个站点。大备份需要另外同步提高代理限制。若不是 413，检查代理超时、可用磁盘、浏览器响应和 ZweiBlog 容器日志，不要通过开放额外端口绕过代理。
 
 ## 如何从外部检查 MongoDB
 

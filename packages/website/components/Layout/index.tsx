@@ -140,6 +140,7 @@ export default function (props: {
           customHtml={props.option.customHtml}
           customScript={props.option.customScript}
           customHead={props.option.customHead}
+          allowTrustedCustomCode={props.option.allowTrustedCustomCode}
         />
       )}
     </>

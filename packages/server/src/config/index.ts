@@ -1,7 +1,7 @@
 import { resolveCaddyHttpsMode } from 'src/utils/caddyHttpsMode';
 import { loadConfig } from 'src/utils/loadConfig';
 import { readSecretFile, validateMongoUrl } from 'src/utils/secretFile';
-import { allowUnsafeDevelopmentFeature } from 'src/utils/unsafeFeatures';
+import { allowExplicitOperatorFeature } from 'src/utils/unsafeFeatures';
 
 export interface Config {
   mongoUrl: string;
@@ -24,12 +24,8 @@ export interface Config {
   log: string;
 }
 
-const allowUnsafePipelineExecution =
-  process.env.ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION ??
-  loadConfig('pipeline.allowUnsafeExecution', false);
-const allowUnsafePicgoPluginInstall =
-  process.env.ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL ??
-  loadConfig('picgo.allowUnsafePluginInstall', false);
+const storedPipelineExecutionSetting = loadConfig('pipeline.allowUnsafeExecution', false);
+const storedPicgoPluginInstallSetting = loadConfig('picgo.allowUnsafePluginInstall', false);
 const configuredCaddyDomains = loadConfig('caddy.allowedDomains', '');
 const caddyHttpsModeResolution = resolveCaddyHttpsMode(
   process.env.ZWEI_BLOG_CADDY_HTTPS,
@@ -88,15 +84,17 @@ export const config: Config = {
   pipeline: {
     // Pipeline scripts run arbitrary JavaScript. Keep execution opt-in so a
     // normal ZweiBlog installation does not expose the host Node.js process.
-    allowUnsafeExecution: allowUnsafeDevelopmentFeature(
-      allowUnsafePipelineExecution,
+    allowUnsafeExecution: allowExplicitOperatorFeature(
+      process.env.ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION,
+      storedPipelineExecutionSetting,
       process.env.NODE_ENV,
     ),
   },
   picgo: {
     // Installing a PicGo plugin executes third-party package code at runtime.
-    allowUnsafePluginInstall: allowUnsafeDevelopmentFeature(
-      allowUnsafePicgoPluginInstall,
+    allowUnsafePluginInstall: allowExplicitOperatorFeature(
+      process.env.ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL,
+      storedPicgoPluginInstallSetting,
       process.env.NODE_ENV,
     ),
   },

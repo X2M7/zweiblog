@@ -18,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
+import { removeCustomPageTemporaryUpload } from 'src/utils/customPageUpload';
 import { config } from 'src/config';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
 import { CustomPageProvider } from 'src/provider/customPage/customPage.provider';
@@ -90,22 +91,26 @@ export class CustomPageController {
     @Query('path') path: string,
     @Query('name') name: string,
   ) {
-    if (
-      !file ||
-      typeof name !== 'string' ||
-      !name ||
-      name.length > 255 ||
-      /[\u0000-\u001f\u007f]/.test(name)
-    ) {
-      throw new BadRequestException('A valid file name is required');
+    try {
+      if (
+        !file?.path ||
+        typeof name !== 'string' ||
+        !name ||
+        name.length > 4096 ||
+        /[\u0000-\u001f\u007f]/.test(name)
+      ) {
+        throw new BadRequestException('A valid file name is required');
+      }
+      await this.assertFolderCustomPage(path);
+      this.logger.log(`上传自定义页面文件：${path}\t ${name}`);
+      const res = await this.staticProvider.uploadCustomPageFile(file, path, name);
+      return {
+        statusCode: 200,
+        data: res,
+      };
+    } finally {
+      await removeCustomPageTemporaryUpload(file?.path);
     }
-    this.logger.log(`上传自定义页面文件：${path}\t ${name}`);
-    file.originalname = name;
-    const res = await this.staticProvider.upload(file, 'customPage', false, path);
-    return {
-      statusCode: 200,
-      data: res,
-    };
   }
 
   @Get('/all')

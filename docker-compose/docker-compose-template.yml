@@ -14,6 +14,7 @@ services:
       ZWEI_BLOG_CADDY_TRUSTED_PROXIES: ''
       ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION: 'false'
       ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL: 'false'
+      ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE: 'false'
     volumes:
       - zweiblog_data_path/data/static:/app/static
       - zweiblog_data_path/log:/var/log

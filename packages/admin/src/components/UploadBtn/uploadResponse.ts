@@ -59,7 +59,7 @@ export function getUploadErrorMessage(
   const responseStatus = Number(response?.statusCode);
 
   if (status === 413 || responseStatus === 413) {
-    return `${prefix}：文件超过上传限制。图片最多 10 MiB；若文件更小，请检查外层 Nginx 的 client_max_body_size。`;
+    return `${prefix}：请求被上传大小限制拒绝。图片最多 10 MiB；多文件自定义页面本身不设应用层单文件上限，请检查外层 Nginx、CDN 或面板的请求体限制。`;
   }
   if (status === 401 || responseStatus === 401) {
     return `${prefix}：登录状态已失效，请重新登录。`;

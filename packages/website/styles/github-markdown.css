@@ -1093,3 +1093,8 @@ body .markdown-body .code-block-wrapper::-webkit-scrollbar-thumb {
   display: inline-block;
   padding: 4px 8px;
 }
+
+.markdown-body iframe {
+  max-width: 100%;
+  border: 0;
+}

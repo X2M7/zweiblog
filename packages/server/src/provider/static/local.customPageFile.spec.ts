@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import compressing from 'compressing';
 import { config } from 'src/config';
+import { getCustomPageUploadTempRoot } from 'src/utils/customPageUpload';
 import {
   accountCustomPageExportEntry,
   accountCustomPageExportFile,
@@ -49,6 +50,79 @@ describe('LocalProvider custom-page file operations', () => {
     }
     config.staticPath = originalStaticPath;
     rmSync(temporaryStaticPath, { recursive: true, force: true });
+  });
+
+  function createTemporaryUpload(name: string, size = 0) {
+    const temporaryUploadRoot = getCustomPageUploadTempRoot();
+    mkdirSync(temporaryUploadRoot, { recursive: true });
+    const temporaryUpload = join(temporaryUploadRoot, name);
+    writeFileSync(temporaryUpload, '');
+    truncateSync(temporaryUpload, size);
+    return temporaryUpload;
+  }
+
+  it('moves an upload larger than 10 MiB from disk without buffering it in memory', async () => {
+    const size = 11 * 1024 * 1024 + 17;
+    const temporaryUpload = createTemporaryUpload('large-upload', size);
+
+    await expect(
+      provider.saveUploadedCustomPageFile('/site', 'assets/large.bin', temporaryUpload, size),
+    ).resolves.toMatchObject({
+      realPath: '/c/site/assets/large.bin',
+    });
+
+    expect(existsSync(temporaryUpload)).toBe(false);
+    expect(statSync(join(pageRoot, 'assets', 'large.bin')).size).toBe(size);
+  });
+
+  it('accepts a long, deeply nested safe upload path', async () => {
+    const nestedPath = `${Array.from(
+      { length: 40 },
+      (_, index) => `directory-${index.toString().padStart(2, '0')}`,
+    ).join('/')}/app.js`;
+    const temporaryUpload = createTemporaryUpload('nested-upload', 37);
+
+    await expect(
+      provider.saveUploadedCustomPageFile('/site', nestedPath, temporaryUpload, 37),
+    ).resolves.toMatchObject({
+      realPath: `/c/site/${nestedPath}`,
+    });
+
+    expect(Buffer.byteLength(nestedPath, 'utf-8')).toBeGreaterThan(255);
+    expect(statSync(join(pageRoot, ...nestedPath.split('/'))).size).toBe(37);
+  });
+
+  it.each(['../outside.bin', 'assets/../../outside.bin', '..\\outside.bin'])(
+    'rejects upload path traversal and leaves the temporary file in place: %s',
+    async (filePath) => {
+      const temporaryUpload = createTemporaryUpload(`traversal-${Math.random()}`, 13);
+
+      await expect(
+        provider.saveUploadedCustomPageFile('/site', filePath, temporaryUpload, 13),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(existsSync(temporaryUpload)).toBe(true);
+      expect(existsSync(join(temporaryStaticPath, 'customPage', 'outside.bin'))).toBe(false);
+    },
+  );
+
+  it('rejects a symbolic-link destination component without touching its target', async () => {
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'zweiblog-custom-page-upload-outside-'));
+    const outsideFile = join(outsideRoot, 'secret.txt');
+    const temporaryUpload = createTemporaryUpload('symlink-upload', 23);
+    writeFileSync(outsideFile, 'outside');
+
+    try {
+      symlinkSync(outsideRoot, join(pageRoot, 'linked'), 'junction');
+      await expect(
+        provider.saveUploadedCustomPageFile('/site', 'linked/secret.txt', temporaryUpload, 23),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(existsSync(temporaryUpload)).toBe(true);
+      expect(readFileSync(outsideFile, 'utf-8')).toBe('outside');
+    } finally {
+      rmSync(outsideRoot, { recursive: true, force: true });
+    }
   });
 
   it('renames a nested file without moving it and preserves its extension and content', async () => {

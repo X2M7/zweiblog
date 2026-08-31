@@ -229,6 +229,22 @@ stored_image="${deployment_root}/data/static/${upload_path#/static/}"
 cmp --silent "${stored_image}" "${temp_root}/uploaded-image" ||
   fail 'Caddy did not return the uploaded image from the local static volume'
 
+# Older releases returned /static/customPage URLs. They must remain usable via
+# a redirect through /c, never through the unsandboxed generic static mount.
+mkdir -p "${deployment_root}/data/static/customPage/legacy-smoke"
+printf '<script>window.legacySmoke=true</script>' \
+  >"${deployment_root}/data/static/customPage/legacy-smoke/index.html"
+legacy_headers="${temp_root}/legacy-custom-page.headers"
+legacy_status="$(curl --silent --show-error --output /dev/null \
+  --dump-header "${legacy_headers}" --write-out '%{http_code}' --max-time 20 \
+  "${external_base}/static/customPage/legacy-smoke/index.html")"
+[[ "${legacy_status}" == '308' ]] ||
+  fail "legacy custom-page static route returned ${legacy_status} instead of 308"
+grep -Eiq '^location: /c/legacy-smoke/index\.html\r?$' "${legacy_headers}" ||
+  fail 'legacy custom-page static route did not redirect through /c'
+grep -Eiq '^access-control-allow-origin: \*\r?$' "${legacy_headers}" ||
+  fail 'legacy custom-page redirect is missing isolated-page CORS'
+
 smoke_token="$(openssl rand -hex 32)"
 access_marker="smoke_access_${run_suffix}"
 curl --fail --silent --show-error --output /dev/null --max-time 20 \

@@ -66,7 +66,7 @@ ZweiBlog 使用 `picgo-core` 配置文件，和桌面版的 `picgo` 的配置文
 
 您可以在后台配置安装自定义的 `picgo` 插件，请填入插件名，多个请用英文逗号分隔。
 
-生产镜像默认禁止运行时安装第三方插件。只有审计插件来源并接受其可执行代码风险后，才应显式开启 `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL`；内置存储类型不需要开启。
+生产镜像默认禁止运行时安装第三方插件。只有审计插件来源并接受其可执行代码风险后，才应在 `docker-compose/.env` 中把 `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL` 精确设为小写 `true`，再重新创建 ZweiBlog 容器；仅在后台填写插件名不会绕过生产环境开关。内置存储类型不需要开启。
 
 如下图中，想用 `s3` 插件，直接写 s3 就行了，提交后您可以在容器日志中看到插件安装情况。
 

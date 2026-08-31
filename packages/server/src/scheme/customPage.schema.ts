@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { CustomType } from 'src/types/custom';
+import { CustomPageSandboxMode, CustomType } from 'src/types/custom';
 
 export type CustomPageDocument = CustomPage & Document;
 
@@ -17,6 +17,9 @@ export class CustomPage extends Document {
 
   @Prop()
   html: string;
+
+  @Prop({ index: true, enum: ['isolated', 'trusted'], default: 'isolated' })
+  sandboxMode: CustomPageSandboxMode;
 
   @Prop({
     index: true,

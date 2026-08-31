@@ -38,6 +38,39 @@ describe('custom page routes on Express 5', () => {
     expect(getCustomPageByPath).toHaveBeenNthCalledWith(1, '/site/assets/app.js');
   });
 
+  it('serves complete HTML and JavaScript with the isolated sandbox by default', async () => {
+    getCustomPageByPath.mockResolvedValue({
+      path: '/latex',
+      type: 'file',
+      html: '<!doctype html><html><body><script>window.widgetReady = true</script></body></html>',
+      sandboxMode: 'isolated',
+    });
+
+    const response = await request(app.getHttpServer()).get('/c/latex').expect(200);
+
+    expect(response.text).toContain('<script>window.widgetReady = true</script>');
+    expect(response.headers['content-security-policy']).toContain('sandbox allow-scripts');
+    expect(response.headers['content-security-policy']).not.toContain('allow-same-origin');
+    expect(response.headers['access-control-allow-origin']).toBe('*');
+    expect(response.headers['referrer-policy']).toBe('same-origin');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('allows explicitly trusted pages to use same-origin browser APIs', async () => {
+    getCustomPageByPath.mockResolvedValue({
+      path: '/trusted-widget',
+      type: 'file',
+      html: '<script>localStorage.setItem("widget", "ready")</script>',
+      sandboxMode: 'trusted',
+    });
+
+    const response = await request(app.getHttpServer()).get('/c/trusted-widget').expect(200);
+
+    expect(response.text).toContain('localStorage.setItem');
+    expect(response.headers['content-security-policy']).toContain('allow-same-origin');
+    expect(response.headers['content-security-policy']).not.toContain('allow-top-navigation');
+  });
+
   it('redirects nested legacy paths without losing suffixes', async () => {
     await request(app.getHttpServer())
       .get('/custom/site/assets/app.js?version=1')

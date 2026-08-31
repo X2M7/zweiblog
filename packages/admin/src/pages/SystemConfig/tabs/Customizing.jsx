@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const helpMap = {
   css: '自定义 css 会把您写入的 css 代码作为 <style> 标签插入到前台页面中的 <head> 中。',
   script:
-    '安全起见，自定义 script 默认不会执行。仅在构建前台时显式设置 NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE=true 才会启用。',
+    '自定义 script 默认不会执行。仅当部署者设置 ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE=true 并重启服务后才会启用；它与页面同源，请只运行您完全信任的代码。',
   html: '自定义 html 会经安全清洗后插入前台页面 body 下方，危险标签、事件属性和危险 URL 会被移除。',
   head: '自定义 head 仅支持安全的 meta、link 和 title；script、base、页面刷新及危险 URL 会被移除。',
 };

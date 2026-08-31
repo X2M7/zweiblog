@@ -137,6 +137,23 @@ export class StaticProvider {
       isNew: true,
     };
   }
+
+  async uploadCustomPageFile(file: any, pathname: string, filePath: string) {
+    if (!file?.path) {
+      throw new BadRequestException('A file is required');
+    }
+    const saved = await this.localProvider.saveUploadedCustomPageFile(
+      pathname,
+      filePath,
+      file.path,
+      file.size,
+    );
+    return {
+      src: saved.realPath,
+      isNew: true,
+      meta: saved.meta,
+    };
+  }
   async importItems(items: Static[]) {
     for (const each of items) {
       const oldItem = await this.getOneBySign(each.sign);

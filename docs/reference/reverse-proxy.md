@@ -33,4 +33,22 @@ ZWEI_BLOG_TRUST_PROXY=loopback,172.18.0.1/32
 
 ## 上传大小
 
-后台图片最多 10 MiB，评论图片最多 5 MiB，自定义页面单文件最多 10 MiB。仓库 Nginx 模板的 `client_max_body_size 32m` 足以覆盖这些文件，但后台 JSON 备份导入默认可达 256 MiB；导入大备份时需要同步提高外层代理限制。出现 HTTP 413 时，优先检查 Nginx、CDN 或面板的请求体限制。
+后台图片最多 10 MiB，评论图片最多 5 MiB。多文件自定义页面的上传采用磁盘流转，不设应用层单文件字节上限；为了不同时放宽图片、评论和备份接口，Nginx 应只给经过后台鉴权的精确上传路由添加例外：
+
+```nginx
+location = /api/admin/customPage/upload {
+    client_max_body_size 0;
+    proxy_request_buffering off;
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+}
+```
+
+`client_max_body_size 0` 只取消这一层 Nginx 的请求体大小检查，`proxy_request_buffering off` 让请求直接流向应用；它们不会创造无限磁盘空间，也不会取消浏览器、CDN、面板、文件系统或超时限制。其余路由继续使用模板的 32 MiB 上限。单文件自定义页面仍受 5 MiB JSON 请求体及 MongoDB 单文档限制，项目 ZIP 导出也有独立预算；后台 JSON 备份导入默认可达 256 MiB。出现 HTTP 413 时优先检查每一层代理的请求体配置，上传中断时同时检查超时、磁盘余量和容器日志。

@@ -50,6 +50,23 @@ async function bootstrap() {
   app.use('/api/public/comment', json({ limit: '256kb' }));
   app.use(json({ limit: '5mb' }));
 
+  // Custom-page HTML and project files must always pass through `/c`, where
+  // the per-page CSP sandbox is applied. Preserve old generated asset URLs by
+  // redirecting them instead of serving the bytes through the unsafe generic
+  // static mount.
+  app.use('/static/customPage', (req: Request, res: Response) => {
+    const legacyPrefix = '/static/customPage';
+    const suffix = req.originalUrl.startsWith(legacyPrefix)
+      ? req.originalUrl.slice(legacyPrefix.length)
+      : '';
+    // Isolated custom pages have an opaque origin, so legacy module URLs need
+    // CORS on both this redirect and the final /c response.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.redirect(308, `/c${suffix}`);
+  });
+  app.use('/static/.zweiblog-custom-page-uploads', (_req, res) => {
+    res.status(404).end();
+  });
   app.useStaticAssets(globalConfig.staticPath, {
     prefix: '/static/',
   });

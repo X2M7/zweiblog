@@ -1,4 +1,5 @@
 import { PayloadTooLargeException } from '@nestjs/common';
+import { customPageUploadStorage } from './customPageUpload';
 
 const commonMultipartLimits = {
   files: 1,
@@ -47,9 +48,9 @@ export const commentImageUploadOptions = {
 };
 
 export const customPageUploadOptions = {
+  storage: customPageUploadStorage,
   limits: {
     ...commonMultipartLimits,
-    fileSize: 10 * 1024 * 1024,
   },
 };
 

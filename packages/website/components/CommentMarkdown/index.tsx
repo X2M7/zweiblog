@@ -9,7 +9,7 @@ import { sanitizeMarkdownSchema } from '../Markdown/sanitizeSchema';
 // Comments intentionally use a smaller plugin surface than articles. In
 // particular, untrusted comments cannot invoke Mermaid's diagram runtime.
 const plugins = [gfm(), highlight(), math()];
-const BLOCKED_MEDIA_TAGS = new Set(['audio', 'picture', 'source', 'video']);
+const BLOCKED_MEDIA_TAGS = new Set(['audio', 'iframe', 'picture', 'source', 'video']);
 
 export function sanitizeCommentMarkdownSchema(schema: any) {
   const safe = sanitizeMarkdownSchema(schema);

@@ -1,16 +1,18 @@
 import { Viewer } from '@bytemd/react';
+import { createRequire } from 'node:module';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import {
-  isUnsafeCustomCodeEnabled,
+  isTrustedCustomCodeEnabled,
   sanitizeCustomHead,
   sanitizeCustomHtml,
 } from '../components/CustomLayout/sanitize';
 import { sanitizeMarkdownSchema } from '../components/Markdown/sanitizeSchema';
+import { safeCustomPageIframe } from '../components/Markdown/safeIframe';
 import CommentMarkdown from '../components/CommentMarkdown';
-import type { HeadTag } from '../utils/getLayoutProps';
+import { getLayoutProps, type HeadTag } from '../utils/getLayoutProps';
 
 describe('Markdown sanitization', () => {
   it('renders TeX with the same safe viewer used by comment preview and published comments', () => {
@@ -23,6 +25,7 @@ describe('Markdown sanitization', () => {
           '![blocked data image](data:image/svg+xml,<svg></svg>)',
           '<div class="fixed inset-0 z-50">fake login overlay</div>',
           '<img src="https://images.example/raw.webp" onerror="alert(1)">',
+          '<iframe src="/c/latex"></iframe>',
           '<style>body{display:none}</style>',
         ].join('\n\n'),
       }),
@@ -35,11 +38,12 @@ describe('Markdown sanitization', () => {
     expect(html).not.toContain('data:image');
     expect(html).not.toContain('raw.webp');
     expect(html).not.toContain('onerror');
+    expect(html).not.toContain('<iframe');
     expect(html).not.toMatch(/<div[^>]+class="[^"]*fixed/i);
     expect(html).not.toContain('<style');
   });
 
-  it('removes executable extensions while preserving safe HTML', () => {
+  it('allows only sandboxed custom-page iframe attributes while removing executable tags', () => {
     const schema = {
       tagNames: ['p', 'strong', 'script', 'iframe'],
       attributes: {
@@ -56,31 +60,57 @@ describe('Markdown sanitization', () => {
 
     expect(sanitized.tagNames).toEqual(expect.arrayContaining(['p', 'strong', 'center']));
     expect(sanitized.tagNames).not.toContain('script');
-    expect(sanitized.tagNames).not.toContain('iframe');
+    expect(sanitized.tagNames).toContain('iframe');
     expect(sanitized.attributes['*']).toEqual(['className']);
+    expect(sanitized.attributes.iframe).toEqual(
+      expect.arrayContaining([
+        expect.arrayContaining(['src', expect.any(RegExp)]),
+        expect.arrayContaining(['style', expect.any(RegExp)]),
+      ]),
+    );
+    expect(sanitized.required?.iframe).toMatchObject({
+      loading: 'lazy',
+      referrerPolicy: 'same-origin',
+      allow: 'clipboard-write',
+    });
+    expect(sanitized.required?.iframe.sandbox).not.toContain('allow-same-origin');
     expect(sanitized.protocols.href).toEqual(['http', 'https']);
     expect(sanitized.protocols.src).toEqual(['http', 'https']);
-    expect(sanitized.strip).toEqual(expect.arrayContaining(['script', 'iframe']));
+    expect(sanitized.strip).toEqual(expect.arrayContaining(['script', 'object']));
+    expect(sanitized.strip).not.toContain('iframe');
     expect(schema.tagNames).toContain('script');
   });
 
-  it('removes dangerous raw HTML in the real ByteMD SSR pipeline', () => {
+  it('keeps a safe /c iframe and removes dangerous raw HTML in the real pipeline', () => {
     const html = renderToStaticMarkup(
       createElement(Viewer, {
         value: [
           '<center><strong>safe HTML</strong></center>',
+          '<iframe src="/c/latex" sandbox="allow-same-origin allow-top-navigation" allow="clipboard-read *" style="width:100%; height:520px; border:0; border-radius:10px; overflow:hidden;"></iframe>',
+          '<iframe src="/c/latex?formula=E%3Dmc%5E2#preview%20pane"></iframe>',
           '<script>window.__xss = 1</script>',
           '<img src="x" onerror="window.__xss = 2">',
           '<a href="javascript:window.__xss = 3">bad link</a>',
           '<iframe src="data:text/html,<script>window.__xss = 4</script>"></iframe>',
+          '<iframe src="//evil.example/c/latex"></iframe>',
+          '<iframe src="/c/../admin"></iframe>',
         ].join('\n'),
+        plugins: [safeCustomPageIframe()],
         remarkRehype: { allowDangerousHtml: true },
         sanitize: sanitizeMarkdownSchema,
       }),
     );
 
     expect(html).toContain('<center><strong>safe HTML</strong></center>');
-    expect(html).not.toMatch(/<script|<iframe|onerror|javascript:|data:text\/html/i);
+    expect(html).toContain('src="/c/latex"');
+    expect(html).toContain('src="/c/latex?formula=E%3Dmc%5E2#preview%20pane"');
+    expect(html).toContain('height:520px');
+    expect(html).toContain('allow="clipboard-write"');
+    expect(html).toContain('sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"');
+    expect((html.match(/<iframe/g) || []).length).toBe(2);
+    expect(html).not.toMatch(
+      /<script|onerror|javascript:|data:text\/html|evil\.example|\/c\/\.\.|allow-same-origin|allow-top-navigation|clipboard-read/i,
+    );
   });
 });
 
@@ -146,8 +176,71 @@ describe('CustomLayout sanitization', () => {
   });
 
   it('keeps arbitrary custom code disabled unless explicitly enabled', () => {
-    expect(isUnsafeCustomCodeEnabled(undefined)).toBe(false);
-    expect(isUnsafeCustomCodeEnabled('false')).toBe(false);
-    expect(isUnsafeCustomCodeEnabled('true')).toBe(true);
+    expect(isTrustedCustomCodeEnabled(undefined)).toBe(false);
+    expect(isTrustedCustomCodeEnabled(false)).toBe(false);
+    expect(isTrustedCustomCodeEnabled('false')).toBe(false);
+    expect(isTrustedCustomCodeEnabled('TRUE')).toBe(false);
+    expect(isTrustedCustomCodeEnabled(true)).toBe(true);
+    expect(isTrustedCustomCodeEnabled('true')).toBe(true);
+  });
+});
+
+describe('runtime compatibility controls', () => {
+  it('enables trusted custom code only for an exact operator opt-in', () => {
+    const keys = [
+      'ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE',
+      'NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE',
+    ] as const;
+    const originals = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    const data = {
+      version: 'test',
+      tags: [],
+      tagDetails: [],
+      totalArticles: 0,
+      totalWordCount: 0,
+      menus: [],
+      meta: {
+        about: { content: '', updatedAt: '' },
+        categories: [],
+        categoryDetails: [],
+        links: [],
+        rewards: [],
+        socials: [],
+        siteInfo: {},
+      },
+    } as unknown as Parameters<typeof getLayoutProps>[0];
+
+    try {
+      for (const key of keys) delete process.env[key];
+      expect(getLayoutProps(data).allowTrustedCustomCode).toBe(false);
+
+      process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE = 'TRUE';
+      expect(getLayoutProps(data).allowTrustedCustomCode).toBe(false);
+      process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE = 'true';
+      expect(getLayoutProps(data).allowTrustedCustomCode).toBe(true);
+
+      delete process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE;
+      process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE = 'true';
+      expect(getLayoutProps(data).allowTrustedCustomCode).toBe(true);
+    } finally {
+      for (const key of keys) {
+        const original = originals[key];
+        if (original === undefined) delete process.env[key];
+        else process.env[key] = original;
+      }
+    }
+  });
+
+  it('allows built-in analytics scripts without opening script-src to every origin', async () => {
+    const nextConfig = createRequire(import.meta.url)('../next.config.js');
+    const routes = await nextConfig.headers();
+    const csp = routes[0].headers.find(
+      (header: { key: string }) => header.key === 'Content-Security-Policy',
+    )?.value;
+
+    expect(csp).toContain('https://hm.baidu.com');
+    expect(csp).toContain('https://www.googletagmanager.com');
+    expect(csp).not.toMatch(/script-src[^;]*\shttps:\s/);
+    expect(csp).not.toMatch(/script-src[^;]*\shttp:\s/);
   });
 });

@@ -381,6 +381,9 @@ importers:
       mongoose:
         specifier: ^7.8.12
         version: 7.8.12
+      multer:
+        specifier: 2.3.0
+        version: 2.3.0
       passport:
         specifier: ^0.6.0
         version: 0.6.0
@@ -10585,7 +10588,7 @@ packages:
     resolution: {integrity: sha512-AF3r7P5dWxL8MxyITRMlORQNaOA2IkAFaTr4k7BUumjPtRpGDTZpl0Pb1XCO6JeDCBdp126Cgs9sMxqSjgYyRg==}
     engines: {node: '>= 0.6'}
     dependencies:
-      mime-db: 1.52.0
+      mime-db: 1.54.0
     dev: true
 
   /compressing@2.1.3:

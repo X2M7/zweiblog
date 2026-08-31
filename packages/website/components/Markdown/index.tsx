@@ -12,6 +12,7 @@ import { Heading } from './heading';
 import { Img } from './img';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { useSiteLanguage } from '../../utils/siteLanguage';
+import { safeCustomPageIframe } from './safeIframe';
 export default function ({ content }: { content: string }) {
   const { language } = useSiteLanguage();
   const plugins = useMemo(() => [
@@ -24,6 +25,7 @@ export default function ({ content }: { content: string }) {
     LinkTarget(language),
     Heading(),
     Img(),
+    safeCustomPageIframe(),
   ], [language]);
   return (
     <div className="markdown-body">

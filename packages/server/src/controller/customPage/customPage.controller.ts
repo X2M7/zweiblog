@@ -7,24 +7,41 @@ import { config } from 'src/config';
 import { CustomPageProvider } from 'src/provider/customPage/customPage.provider';
 import { normalizeManagedPath, resolvePathWithinRoot } from 'src/utils/safePath';
 
-const CUSTOM_PAGE_CSP = [
-  'sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads',
-  "default-src 'self' https: data: blob:",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:",
-  "style-src 'self' 'unsafe-inline' https:",
-  "img-src 'self' https: data: blob:",
-  "connect-src 'self' https: wss:",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "frame-ancestors 'self'",
-].join('; ');
+const CUSTOM_PAGE_SANDBOX_TOKENS = [
+  'allow-scripts',
+  'allow-forms',
+  'allow-modals',
+  'allow-popups',
+  'allow-popups-to-escape-sandbox',
+  'allow-downloads',
+];
 
-function setCustomPageSecurityHeaders(res: Response) {
-  // Custom pages intentionally support JavaScript. CSP sandboxing without
-  // allow-same-origin prevents that code from reading ZweiBlog's auth storage.
-  res.setHeader('Content-Security-Policy', CUSTOM_PAGE_CSP);
-  res.setHeader('Referrer-Policy', 'no-referrer');
+function getCustomPageCsp(sandboxMode: unknown) {
+  const sandboxTokens = [...CUSTOM_PAGE_SANDBOX_TOKENS];
+  if (sandboxMode === 'trusted') sandboxTokens.push('allow-same-origin');
+  return [
+    `sandbox ${sandboxTokens.join(' ')}`,
+    "default-src 'self' https: http: data: blob:",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob:",
+    "style-src 'self' 'unsafe-inline' https: http:",
+    "img-src 'self' https: http: data: blob:",
+    "connect-src 'self' https: http: wss: ws:",
+    "object-src 'none'",
+    "base-uri 'self' https: http:",
+    "frame-ancestors 'self'",
+  ].join('; ');
+}
+
+function setCustomPageSecurityHeaders(res: Response, sandboxMode: unknown) {
+  // Isolated pages intentionally receive an opaque origin. A trusted page can
+  // opt into same-origin compatibility, but all other sandbox restrictions
+  // (including the top-navigation restriction) remain enforced by the header.
+  res.setHeader('Content-Security-Policy', getCustomPageCsp(sandboxMode));
+  res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Custom-page project files are public assets. This lets isolated pages
+  // load same-project ES modules even though their sandboxed origin is opaque.
+  res.setHeader('Access-Control-Allow-Origin', '*');
 }
 
 @ApiTags('c')
@@ -68,7 +85,7 @@ export class PublicCustomPageController {
       throw new HttpException('Not found', 404);
     }
 
-    setCustomPageSecurityHeaders(res);
+    setCustomPageSecurityHeaders(res, currentPage.sandboxMode);
     const remainingSegments = requestSegments.slice(pageSegmentCount);
 
     if (currentPage.type === 'file') {

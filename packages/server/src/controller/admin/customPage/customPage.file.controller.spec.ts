@@ -1,5 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { config } from 'src/config';
+import { getCustomPageUploadTempRoot } from 'src/utils/customPageUpload';
 import { CustomPageController, getCustomPageArchiveName } from './customPage.controller';
 
 describe('CustomPageController single-file operations', () => {
@@ -9,6 +13,7 @@ describe('CustomPageController single-file operations', () => {
   const deleteCustomPageFile = jest.fn();
   const deleteCustomPageSubfolder = jest.fn();
   const exportCustomPageProject = jest.fn();
+  const uploadCustomPageFile = jest.fn();
   let controller: CustomPageController;
 
   beforeEach(() => {
@@ -18,6 +23,7 @@ describe('CustomPageController single-file operations', () => {
     deleteCustomPageFile.mockReset();
     deleteCustomPageSubfolder.mockReset();
     exportCustomPageProject.mockReset();
+    uploadCustomPageFile.mockReset();
     controller = new CustomPageController(
       { getCustomPageByPath } as any,
       {
@@ -25,6 +31,7 @@ describe('CustomPageController single-file operations', () => {
         deleteCustomPageFile,
         deleteCustomPageSubfolder,
         exportCustomPageProject,
+        uploadCustomPageFile,
       } as any,
     );
   });
@@ -47,6 +54,53 @@ describe('CustomPageController single-file operations', () => {
 
     expect(getCustomPageByPath).toHaveBeenCalledWith('/site');
     expect(renameCustomPageFile).toHaveBeenCalledWith('/site', 'assets/app.js', 'main');
+  });
+
+  it('always removes a staged upload after a successful controller response', async () => {
+    const originalStaticPath = config.staticPath;
+    const temporaryStaticPath = mkdtempSync(join(tmpdir(), 'zweiblog-controller-upload-'));
+    config.staticPath = temporaryStaticPath;
+    const temporaryUploadRoot = getCustomPageUploadTempRoot();
+    mkdirSync(temporaryUploadRoot, { recursive: true });
+    const temporaryUpload = join(temporaryUploadRoot, 'successful-upload');
+    writeFileSync(temporaryUpload, 'payload');
+    getCustomPageByPath.mockResolvedValue({ type: 'folder' });
+    uploadCustomPageFile.mockResolvedValue({ src: '/c/site/index.html', isNew: true });
+
+    try {
+      await expect(
+        controller.upload({ path: temporaryUpload, size: 7 }, '/site', 'index.html'),
+      ).resolves.toEqual({
+        statusCode: 200,
+        data: { src: '/c/site/index.html', isNew: true },
+      });
+      expect(existsSync(temporaryUpload)).toBe(false);
+    } finally {
+      config.staticPath = originalStaticPath;
+      rmSync(temporaryStaticPath, { recursive: true, force: true });
+    }
+  });
+
+  it('always removes a staged upload when validation or persistence fails', async () => {
+    const originalStaticPath = config.staticPath;
+    const temporaryStaticPath = mkdtempSync(join(tmpdir(), 'zweiblog-controller-upload-'));
+    config.staticPath = temporaryStaticPath;
+    const temporaryUploadRoot = getCustomPageUploadTempRoot();
+    mkdirSync(temporaryUploadRoot, { recursive: true });
+    const temporaryUpload = join(temporaryUploadRoot, 'failed-upload');
+    writeFileSync(temporaryUpload, 'payload');
+    getCustomPageByPath.mockResolvedValue({ type: 'folder' });
+    uploadCustomPageFile.mockRejectedValue(new Error('persistence failed'));
+
+    try {
+      await expect(
+        controller.upload({ path: temporaryUpload, size: 7 }, '/site', 'index.html'),
+      ).rejects.toThrow('persistence failed');
+      expect(existsSync(temporaryUpload)).toBe(false);
+    } finally {
+      config.staticPath = originalStaticPath;
+      rmSync(temporaryStaticPath, { recursive: true, force: true });
+    }
   });
 
   it('validates the multi-file page before deleting and delegates the exact paths', async () => {

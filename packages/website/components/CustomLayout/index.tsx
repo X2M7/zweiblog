@@ -4,19 +4,18 @@ import Script from 'next/script';
 import { createElement } from 'react';
 
 import { type HeadTag } from '../../utils/getLayoutProps';
-import { isUnsafeCustomCodeEnabled, sanitizeCustomHead, sanitizeCustomHtml } from './sanitize';
+import { isTrustedCustomCodeEnabled, sanitizeCustomHead, sanitizeCustomHtml } from './sanitize';
 
 export default function (props: {
   customCss?: string;
   customHtml?: string;
   customScript?: string;
   customHead?: HeadTag[];
+  allowTrustedCustomCode?: boolean;
 }) {
   const safeCustomHead = sanitizeCustomHead(props.customHead);
   const safeCustomHtml = props.customHtml ? sanitizeCustomHtml(decode(props.customHtml)) : '';
-  const allowUnsafeCustomCode = isUnsafeCustomCodeEnabled(
-    process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE,
-  );
+  const allowTrustedCustomCode = isTrustedCustomCodeEnabled(props.allowTrustedCustomCode);
   const renderHeadTags = () => {
     if (safeCustomHead.length) {
       return (
@@ -38,7 +37,7 @@ export default function (props: {
         {renderHeadTags()}
       </Head>
       {safeCustomHtml ? <div dangerouslySetInnerHTML={{ __html: safeCustomHtml }}></div> : null}
-      {allowUnsafeCustomCode && props.customScript ? (
+      {allowTrustedCustomCode && props.customScript ? (
         <Script strategy="beforeInteractive">{`${decode(props.customScript)}`}</Script>
       ) : null}
     </>

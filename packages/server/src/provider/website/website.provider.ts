@@ -44,6 +44,9 @@ const websiteInheritedEnvironmentKeys = [
   'ZWEI_BLOG_ALLOW_DOMAINS',
   'ZWEI_BLOG_REVALIDATE',
   'ZWEI_BLOG_REVALIDATE_TIME',
+  'ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE',
+  // Backward-compatible alias; new deployments should use the non-public
+  // runtime name above.
   'NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE',
 ] as const;
 

@@ -25,6 +25,8 @@ import {
   resolvePathWithinRoot,
 } from 'src/utils/safePath';
 import { readSafeImageMetadata } from 'src/utils/imageMetadata';
+import { assertCustomPageTemporaryUpload } from 'src/utils/customPageUpload';
+import { randomUUID } from 'node:crypto';
 
 const yazl: any = require('yazl');
 
@@ -34,6 +36,8 @@ const CUSTOM_PAGE_EXPORT_TEMP_PREFIX = 'zweiblog-custom-page-export-';
 const INVALID_ARCHIVE_ENTRY_NAME = /[/\\\u0000-\u001f\u007f]/;
 const MAX_CONCURRENT_CUSTOM_PAGE_EXPORTS = 2;
 const CUSTOM_PAGE_EXPORT_COPY_CHUNK_BYTES = 64 * 1024;
+const MAX_CUSTOM_PAGE_UPLOAD_DEPTH = 64;
+const MAX_CUSTOM_PAGE_UPLOAD_PATH_BYTES = 4096;
 
 export const customPageExportLimits = {
   maxEntries: 10_000,
@@ -73,6 +77,35 @@ function getValidatedCustomPageFileName(newBaseName: string, extension: string) 
     throw new BadRequestException('File name is too long');
   }
   return fileName;
+}
+
+function validateCustomPageUploadPath(filePath: string) {
+  if (
+    typeof filePath !== 'string' ||
+    !filePath ||
+    Buffer.byteLength(filePath, 'utf-8') > MAX_CUSTOM_PAGE_UPLOAD_PATH_BYTES
+  ) {
+    throw new BadRequestException('Invalid custom page file path');
+  }
+  const segments = filePath.replace(/\\/g, '/').split('/');
+  if (!segments.length || segments.length > MAX_CUSTOM_PAGE_UPLOAD_DEPTH) {
+    throw new BadRequestException('Invalid custom page file path');
+  }
+  for (const segment of segments) {
+    if (
+      !segment ||
+      segment === '.' ||
+      segment === '..' ||
+      segment.endsWith('.') ||
+      segment.endsWith(' ') ||
+      Buffer.byteLength(segment, 'utf-8') > 255 ||
+      INVALID_CUSTOM_PAGE_FILE_NAME.test(segment) ||
+      WINDOWS_RESERVED_FILE_NAME.test(segment.split('.')[0])
+    ) {
+      throw new BadRequestException('Invalid custom page file path');
+    }
+  }
+  return segments.join('/');
 }
 
 export function accountCustomPageExportFile(budget: CustomPageExportBudget, fileSize: number) {
@@ -313,7 +346,7 @@ export class LocalProvider {
       const realName = relativePathFromRoot(storageRoot, srcPath);
       // 创建文件夹。
       const byteLength = buffer.byteLength;
-      const realPath = `/static/${storagePath}/${realName}`;
+      const realPath = `/c/${realName}`;
       checkOrCreateByFilePath(srcPath);
       fs.writeFileSync(srcPath, buffer);
       const meta = { size: formatBytes(byteLength) };
@@ -322,6 +355,74 @@ export class LocalProvider {
         realPath,
       };
     }
+  }
+
+  async saveUploadedCustomPageFile(
+    pathname: string,
+    filePath: string,
+    temporaryPath: string,
+    reportedSize?: number,
+  ) {
+    const temporary = assertCustomPageTemporaryUpload(temporaryPath);
+    if (
+      reportedSize !== undefined &&
+      (!Number.isSafeInteger(reportedSize) || reportedSize < 0 || reportedSize !== temporary.size)
+    ) {
+      throw new BadRequestException('Uploaded file size changed unexpectedly');
+    }
+
+    const storageRoot = this.getStorageRoot('customPage');
+    const pageRoot = resolvePathWithinRoot(storageRoot, pathname);
+    if (relativePathFromRoot(storageRoot, pageRoot) === '') {
+      throw new BadRequestException('Invalid custom page path');
+    }
+    await fs.promises.mkdir(pageRoot, { recursive: true, mode: 0o700 });
+
+    const normalizedFilePath = validateCustomPageUploadPath(filePath);
+    let destination = resolvePathWithinRoot(pageRoot, normalizedFilePath);
+    await fs.promises.mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+    // Re-resolve after creating directories so any unexpected symbolic-link
+    // component is caught before the temporary file is moved.
+    destination = resolvePathWithinRoot(pageRoot, normalizedFilePath);
+    if (fs.existsSync(destination) && !fs.lstatSync(destination).isFile()) {
+      throw new BadRequestException('The custom page upload target must be a regular file');
+    }
+
+    const stagingName = `.${path.basename(destination)}.upload-${randomUUID()}`;
+    const stagingPath = resolvePathWithinRoot(pageRoot, path.dirname(normalizedFilePath), stagingName);
+    await fs.promises.rename(temporary.path, stagingPath);
+    try {
+      await fs.promises.chmod(stagingPath, 0o600).catch(() => undefined);
+      try {
+        await fs.promises.rename(stagingPath, destination);
+      } catch (error) {
+        // POSIX replaces an existing regular file atomically. Windows may
+        // reject that operation, so preserve the old file while replacing it.
+        if (!['EEXIST', 'EPERM', 'ENOTEMPTY'].includes((error as NodeJS.ErrnoException).code || '')) {
+          throw error;
+        }
+        const backupPath = resolvePathWithinRoot(
+          pageRoot,
+          path.dirname(normalizedFilePath),
+          `.${path.basename(destination)}.backup-${randomUUID()}`,
+        );
+        await fs.promises.rename(destination, backupPath);
+        try {
+          await fs.promises.rename(stagingPath, destination);
+          await fs.promises.rm(backupPath, { force: true });
+        } catch (replacementError) {
+          await fs.promises.rename(backupPath, destination).catch(() => undefined);
+          throw replacementError;
+        }
+      }
+    } finally {
+      await fs.promises.rm(stagingPath, { force: true }).catch(() => undefined);
+    }
+
+    return {
+      meta: { size: formatBytes(temporary.size) },
+      realPath: `/c/${relativePathFromRoot(storageRoot, destination)}`,
+    };
   }
 
   async getFolderFiles(p: string) {

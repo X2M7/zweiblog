@@ -3,7 +3,6 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 const isDev = process.env.NODE_ENV == 'development';
-const allowUnsafeCustomCode = process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE === 'true';
 // Next's standalone file tracer copies pnpm's linked dependency tree with
 // symlinks. Ordinary Windows accounts cannot create those links without
 // Developer Mode/elevation, while the Linux production image can. Keep the
@@ -18,9 +17,7 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'self'",
   "form-action 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}${
-    allowUnsafeCustomCode ? ' https: http:' : ''
-  }`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://hm.baidu.com https://www.googletagmanager.com`,
   "style-src 'self' 'unsafe-inline' https:",
   "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https:",

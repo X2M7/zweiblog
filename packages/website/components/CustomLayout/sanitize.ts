@@ -137,6 +137,6 @@ export function sanitizeCustomHead(tags?: HeadTag[]): SafeHeadTag[] {
   });
 }
 
-export function isUnsafeCustomCodeEnabled(value: string | undefined): boolean {
-  return value === 'true';
+export function isTrustedCustomCodeEnabled(value: unknown): boolean {
+  return value === true || value === 'true';
 }

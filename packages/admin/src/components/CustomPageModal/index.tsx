@@ -92,5 +92,22 @@ export default ({
       tooltip="自定义页面的路径，必须以斜杠开头，会加载到 /c 路径下。"
       rules={[{ required: true, message: '这是必填项' }]}
     />
+    <ProFormSelect
+      width="md"
+      name="sandboxMode"
+      label="运行模式"
+      initialValue="isolated"
+      options={[
+        { label: '隔离模式（推荐）', value: 'isolated' },
+        { label: '可信兼容模式', value: 'trusted' },
+      ]}
+      tooltip="隔离模式可运行脚本但不能读取本域存储或管理后台凭据；可信模式用于必须使用同源模块、存储或 API 的站长自编页面。"
+    />
+    <Alert
+      style={{ marginBottom: 8 }}
+      type="warning"
+      showIcon
+      message="仅对您完全信任并自行维护的代码使用可信兼容模式；它可以访问当前域名下的浏览器存储。"
+    />
   </ModalForm>
 );

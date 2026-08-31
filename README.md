@@ -249,7 +249,7 @@ ZweiBlog 本身是一个完整站点。外层反代时应代理整个 HTTP 入�
 
 ### Nginx 示例
 
-下面示例假设 Nginx 与 Docker 位于同一台主机，ZweiBlog 监听 `127.0.0.1:8080`。证书路径需要替换为实际值。仓库还提供了限制上传为 32 MiB 的保守模板 [`nginx.conf.example`](./docker-compose/reverse-proxy/nginx.conf.example)；下面为了兼容较大的后台备份导入，将代理上限提高到应用允许的最高值。
+下面示例假设 Nginx 与 Docker 位于同一台主机，ZweiBlog 监听 `127.0.0.1:8080`。证书路径需要替换为实际值。仓库还提供了 [`nginx.conf.example`](./docker-compose/reverse-proxy/nginx.conf.example)：普通路由使用 32 MiB 的保守上限，只有多文件自定义页面的精确上传路由不设固定请求体上限。下面为了兼容较大的后台备份导入，将普通路由的代理上限提高到应用允许的最高值。
 
 ```nginx
 map $http_upgrade $connection_upgrade {
@@ -272,6 +272,25 @@ server {
 
     # 后台备份文件默认最多 256 MiB；可按实际需要调低。
     client_max_body_size 512m;
+
+    # 多文件自定义页面项目采用磁盘流式上传，不设应用层单文件字节上限。
+    # 仅对这个精确且需要后台鉴权的接口解除 Nginx 请求体限制，
+    # 不要把 client_max_body_size 0 放到整个站点。
+    location = /api/admin/customPage/upload {
+        client_max_body_size 0;
+        proxy_request_buffering off;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -308,14 +327,17 @@ Caddy 会自动处理证书和常用代理请求头。若外层代理运行在�
 
 外层代理和应用都会限制请求大小，实际可上传大小取两者中较小的值：
 
-| 上传类型                       | 应用限制                                         |
-| ------------------------------ | ------------------------------------------------ |
-| 后台、初始化和站点设置中的图片 | 10 MiB                                           |
-| 访客评论图片                   | 5 MiB                                            |
-| 自定义页面单个文件             | 10 MiB                                           |
-| 后台 JSON 备份导入             | 默认 256 MiB；通过容器环境变量最多调整到 512 MiB |
+| 上传类型                       | 应用限制                                                     |
+| ------------------------------ | ------------------------------------------------------------ |
+| 后台、初始化和站点设置中的图片 | 10 MiB                                                       |
+| 访客评论图片                   | 5 MiB                                                        |
+| 多文件自定义页面项目文件       | 不设应用层单文件字节上限；上传内容流转到服务器磁盘           |
+| 单文件自定义页面 HTML          | 仍受 5 MiB JSON 请求体和 MongoDB 单文档容量约束              |
+| 后台 JSON 备份导入             | 默认 256 MiB；通过容器环境变量最多调整到 512 MiB             |
 
-仓库的 Nginx 模板使用 `client_max_body_size 32m`，足以处理图片和自定义页面文件，但会拒绝大于 32 MiB 的备份导入。需要导入更大的备份时，应在确认内存容量和 `ZWEI_BLOG_BACKUP_MAX_BYTES` 后同步提高外层代理限制。出现 HTTP 413 时先检查外层 Nginx、CDN 或面板的请求体限制；文件未超过代理限制但仍被拒绝时，再查看 ZweiBlog 容器日志中的应用错误。
+“不设应用层单文件字节上限”不等于无限资源：多文件页面上传仍受可用磁盘空间、文件系统限制、外层 Nginx/CDN/面板的请求体限制以及代理和客户端超时影响。仓库的 Nginx 模板只在精确的 `/api/admin/customPage/upload` 路由使用 `client_max_body_size 0` 和 `proxy_request_buffering off`，其余路由继续使用 32 MiB 的保守上限。自行配置 Nginx 时应保留同样的精确例外，避免放宽图片、评论和备份接口。
+
+多文件页面的项目 ZIP 导出也有独立的防滥用预算：单文件最多 256 MiB、项目未压缩总量最多 512 MiB、最多 10,000 个文件/条目、目录深度最多 64 层，同时最多执行 2 个导出。出现 HTTP 413 时先检查外层代理；连接中断或长时间无响应时再检查代理超时、磁盘余量和 ZweiBlog 容器日志。
 
 ### 真实访客 IP
 
@@ -474,8 +496,11 @@ sudo docker compose \
 | `ZWEI_BLOG_CADDY_TRUSTED_PROXIES` | 内置 Caddy 信任的外层代理 IP/CIDR | 无外层代理时留空；禁止全网段 |
 | `ZWEI_BLOG_TRUST_PROXY` | Express 信任的代理链 | 默认 `loopback`；反代时按上文加入同一精确地址 |
 | `ZWEI_BLOG_ENABLE_SWAGGER` | 在生产环境开放 Swagger | 默认关闭，不建议在公网长期开放 |
-| `ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION` | 允许流水线执行脚本 | 默认关闭 |
-| `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL` | 允许运行时安装 PicGo 插件 | 默认关闭 |
+| `ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE` | 执行整站“定制化”中的自定义脚本 | 默认关闭；只运行完全信任的代码 |
+| `ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION` | 允许流水线执行脚本 | 默认关闭；生产环境必须显式设为 `true` |
+| `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL` | 允许运行时安装 PicGo 插件 | 默认关闭；生产环境必须显式设为 `true` |
+
+以上三个可执行代码开关都是运行时环境变量。需要启用时，在 `docker-compose/.env` 中把对应值精确设为小写 `true`，然后重新创建 ZweiBlog 容器；生产环境中仅在后台保存配置不会绕过部署者开关。它们彼此独立：启用自定义页面的“可信兼容模式”不会同时启用整站脚本、流水线或 PicGo 插件安装。
 
 ## 本地开发
 

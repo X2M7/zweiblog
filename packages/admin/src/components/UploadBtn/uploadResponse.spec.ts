@@ -23,7 +23,9 @@ describe('upload response helpers', () => {
   });
 
   it('explains proxy body limits for a 413 response without echoing an HTML body', () => {
-    expect(getUploadErrorMessage('photo.png', 413)).toContain('client_max_body_size');
+    const message = getUploadErrorMessage('project.bin', 413);
+    expect(message).toContain('自定义页面本身不设应用层单文件上限');
+    expect(message).toContain('Nginx、CDN 或面板');
   });
 
   it('lets setting images zoom out and keeps the whole image inside the crop area', () => {

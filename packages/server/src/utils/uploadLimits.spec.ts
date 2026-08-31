@@ -4,8 +4,10 @@ import {
   assertBackupFileSize,
   backupUploadOptions,
   commentImageUploadOptions,
+  customPageUploadOptions,
   imageUploadOptions,
 } from './uploadLimits';
+import { customPageUploadStorage } from './customPageUpload';
 
 describe('backup upload and export limits', () => {
   it('uses one limit for backup upload and export validation', () => {
@@ -27,5 +29,16 @@ describe('backup upload and export limits', () => {
     expect(commentImageUploadOptions.limits.fileSize).toBeLessThan(
       imageUploadOptions.limits.fileSize,
     );
+  });
+
+  it('streams custom-page uploads to disk without an application-level byte limit', () => {
+    expect(customPageUploadOptions.storage).toBe(customPageUploadStorage);
+    expect(customPageUploadOptions.storage.constructor.name).toBe('DiskStorage');
+    expect(customPageUploadOptions.limits).toMatchObject({
+      files: 1,
+      fields: 8,
+      parts: 10,
+    });
+    expect(customPageUploadOptions.limits).not.toHaveProperty('fileSize');
   });
 });

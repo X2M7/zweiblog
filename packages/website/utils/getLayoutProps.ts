@@ -45,6 +45,7 @@ export interface LayoutProps {
   customScript?: string;
   customHtml?: string;
   customHead?: HeadTag[];
+  allowTrustedCustomCode: boolean;
 }
 
 export interface HeadTag {
@@ -131,6 +132,9 @@ export function getLayoutProps(data: PublicMetaProp): LayoutProps {
   }
 
   return {
+    allowTrustedCustomCode:
+      process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE === "true" ||
+      process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE === "true",
     showFriends,
     version: data?.version || "dev",
     subMenuOffset: siteInfo?.subMenuOffset || 0,
