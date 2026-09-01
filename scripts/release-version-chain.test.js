@@ -19,6 +19,13 @@ test('release workflow validates one package version before every image build', 
   assert.match(workflow, /ZWEI_BLOG_VERSIONS=\$\{\{ steps\.app-version\.outputs\.value \}\}/);
   assert.match(workflow, /ZWEI_BLOG_VERSIONS=\$\{\{ needs\.verify\.outputs\.app_version \}\}/);
   assert.doesNotMatch(workflow, /ZWEI_BLOG_VERSIONS=\$\{\{ steps\.meta\.outputs\.version \}\}/);
+  assert.doesNotMatch(workflow, /push:\s*\n\s+branches:/);
+  assert.equal(
+    workflow.match(
+      /type=raw,value=latest,enable=\$\{\{ startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| github\.ref == 'refs\/heads\/main' \}\}/g,
+    )?.length,
+    2,
+  );
 });
 
 test('the Dockerfile injects the same version into Next and the runtime image', () => {

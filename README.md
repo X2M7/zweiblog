@@ -149,7 +149,7 @@ ZWEIBLOG_HTTP_PORT=8080
 ZWEIBLOG_IMAGE=ccr.ccs.tencentyun.com/x2m7/zweiblog:latest
 ```
 
-GHCR 与腾讯云 TCR 使用相同标签；发布流程会校验两个仓库的镜像摘要一致。`latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。TCR 个人版不提供 SLA，拉取异常时可把地址改回 GHCR。
+GHCR 与腾讯云 TCR 使用相同标签；发布流程会校验两个仓库的镜像摘要一致。`latest` 跟随最新正式发布标签，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。TCR 个人版不提供 SLA，拉取异常时可把地址改回 GHCR。
 
 如果同一台服务器还保留旧 VanBlog，**不需要也不建议先删除旧项目**。先停止旧容器并保留其目录、MongoDB 数据和备份，把 ZweiBlog 克隆到新的目录；`.env.example` 已使用独立的 `COMPOSE_PROJECT_NAME=zweiblog`，默认端口和数据目录也与旧项目分开。确认内容、图片、评论及反向代理全部切换成功后，再决定是否清理旧项目。
 
@@ -188,7 +188,7 @@ sudo docker compose ps
 sudo docker compose logs -f zweiblog
 ```
 
-`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像，并把每个平台的同一摘要直接推送到 `ghcr.io/x2m7/zweiblog` 和 `ccr.ccs.tencentyun.com/x2m7/zweiblog`；随后分别生成双架构清单并校验两个仓库的最终摘要一致。整个过程不会从 GHCR 重新下载大镜像层。首次发布后，仓库维护者还需要确认两个仓库均为公开可读。
+`v*` 标签推送后（或维护者手动运行），[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像，并把每个平台的同一摘要直接推送到 `ghcr.io/x2m7/zweiblog` 和 `ccr.ccs.tencentyun.com/x2m7/zweiblog`；随后分别生成双架构清单并校验两个仓库的最终摘要一致。普通 `main` 推送只更新源码，不会在镜像仓库中提前发布未打标版本。整个过程不会从 GHCR 重新下载大镜像层。首次发布后，仓库维护者还需要确认两个仓库均为公开可读。
 
 如果镜像尚未公开、工作流尚未完成，或者希望确保运行的就是当前 checkout，可使用仓库提供的源码构建覆盖文件：
 
@@ -407,7 +407,7 @@ sudo docker compose up -d
 
 ## 升级与回滚
 
-ZweiBlog 从 `v1.0.0` 开始使用语义化版本。源码版本以根目录 `package.json` 为唯一来源，发布标签必须使用匹配的 `vX.Y.Z`；容器构建会把这个版本写入前台页脚，因此 `latest` 镜像也会显示实际应用版本，而不是显示 `latest`。以后发布新版本时，先更新 `package.json`，通过测试后再创建同名 Git 标签。
+ZweiBlog 从 `v1.0.0` 开始使用语义化版本。源码版本以根目录 `package.json` 为唯一来源，发布标签必须使用匹配的 `vX.Y.Z`；容器构建会把这个版本写入前台页脚，因此 `latest` 镜像也会显示实际应用版本，而不是显示 `latest`。以后发布新版本时，先更新 `package.json`并推送源码，待需要的镜像或源码镜像站同步完成且测试通过后，再创建同名 Git 标签触发镜像发布。
 
 升级前先完成上面的完整备份，并记录当前源码提交与镜像版本。使用固定版本标签时，先从 Releases 选择要升级到的目标版本，并把 `.env` 中的 `ZWEIBLOG_IMAGE` 改为对应标签；仅执行 `pull` 不会把一个固定标签自动改成新版本。随后：
 
