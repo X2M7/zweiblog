@@ -12,7 +12,10 @@ import {
   uploadCommentImage,
   type LocalComment,
 } from '../api/comments';
-import { CommentItem } from '../components/Comments/core';
+import {
+  COMMENT_FORM_PLACEHOLDERS,
+  CommentItem,
+} from '../components/Comments/core';
 
 function jsonResponse(data: unknown) {
   return {
@@ -137,6 +140,18 @@ describe('local comment API', () => {
 });
 
 describe('local comment rendering', () => {
+  it('uses concise matching Chinese and English form prompts', () => {
+    expect(COMMENT_FORM_PLACEHOLDERS).toEqual({
+      nick: { zh: '昵称（可选）', en: 'Name (optional)' },
+      mail: {
+        zh: '邮箱（仅站长可见）',
+        en: 'Email (visible to site owner only)',
+      },
+      link: { zh: '个人网址（可选）', en: 'Website (optional)' },
+      content: { zh: '欢迎评论', en: 'Leave a comment' },
+    });
+  });
+
   it('labels administrator comments', () => {
     const comment: LocalComment = {
       id: 'admin',

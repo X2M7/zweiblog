@@ -1,17 +1,17 @@
 import Link from "next/link";
 import Headroom from "headroom.js";
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import SearchCard from "../SearchCard";
 import ThemeButton from "../ThemeButton";
 import KeyCard from "../KeyCard";
 import { MenuItem } from "../../api/getAllData";
 import AdminButton from "../AdminButton";
-import { ThemeContext } from "../../utils/themeContext";
 import RssButton from "../RssButton";
 import Item from "./item";
 import { encodeQuerystring } from "../../utils/encode";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 import SiteLanguageSwitch from "./languageSwitch";
+import ThemeLogo from "../ThemeLogo";
 export default function (props: {
   logo: string;
   logoDark: string;
@@ -33,15 +33,7 @@ export default function (props: {
 }) {
   const [showSearch, setShowSearch] = useState(false);
   const [headroom, setHeadroom] = useState<Headroom>();
-  const { theme } = useContext(ThemeContext);
   const { language, localizedPath, t } = useSiteLanguage();
-
-  const picUrl = useMemo(() => {
-    if (theme.includes("dark") && props.logoDark && props.logoDark != "") {
-      return props.logoDark;
-    }
-    return props.logo;
-  }, [theme, props]);
   useEffect(() => {
     const el = document.querySelector("#nav");
     if (el && !headroom) {
@@ -103,12 +95,12 @@ export default function (props: {
             </div>
             {props.headerLeftContent == "siteLogo" && (
               <div className="hidden md:block transform translate-x-2">
-                <img
+                <ThemeLogo
                   alt={t("站点标志", "Site logo")}
-                  src={picUrl}
+                  src={props.logo}
+                  darkSrc={props.logoDark}
                   width={52}
                   height={52}
-                  className=""
                 />
               </div>
             )}

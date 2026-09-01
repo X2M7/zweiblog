@@ -133,7 +133,9 @@ export TZ='UTC'
 export ACME_EMAIL=''
 export ZWEI_BLOG_CADDY_HTTPS='off'
 export ZWEI_BLOG_TRUST_PROXY='loopback'
-export ZWEI_BLOG_CADDY_TRUSTED_PROXIES=''
+# The smoke process connects to Caddy over loopback and acts as the fixture's
+# outer TLS proxy for the forwarded-protocol regression below.
+export ZWEI_BLOG_CADDY_TRUSTED_PROXIES='127.0.0.1'
 export ZWEI_BLOG_ENABLE_SWAGGER='false'
 export ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION='false'
 export ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL='false'
@@ -151,21 +153,73 @@ app_container="$(compose ps --quiet zweiblog)"
 # Docker HOSTNAME regression would make 3001 reachable on the container IP and
 # leave bundled Caddy unable to connect to 127.0.0.1:3001.
 docker exec --interactive "${app_container}" node <<'NODE'
+const http = require('node:http');
 const os = require('node:os');
 
-async function fetchHealthy(url) {
-  const response = await fetch(url, {
-    redirect: 'manual',
-    signal: AbortSignal.timeout(10_000),
+function requestHealthy(url, { headers = {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = http.get(url, { headers }, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const status = response.statusCode || 0;
+        const body = Buffer.concat(chunks).toString('utf8');
+        if (status >= 500) {
+          reject(new Error(`${url} returned ${status}`));
+          return;
+        }
+        resolve({ status, headers: response.headers, body });
+      });
+    });
+    request.setTimeout(10_000, () => {
+      request.destroy(new Error(`${url} timed out`));
+    });
+    request.on('error', reject);
   });
-  await response.arrayBuffer();
-  if (response.status >= 500) throw new Error(`${url} returned ${response.status}`);
 }
 
 (async () => {
-  await fetchHealthy('http://127.0.0.1:3000/api/public/category');
-  await fetchHealthy('http://127.0.0.1:3001/');
-  await fetchHealthy('http://127.0.0.1/');
+  await requestHealthy('http://127.0.0.1:3000/api/public/category');
+  await requestHealthy('http://127.0.0.1:3001/');
+  // Reproduce an outer HTTPS proxy feeding the bundled HTTP listener. The
+  // English middleware rewrite must stay on loopback HTTP instead of trying
+  // TLS against port 3001 and returning Internal Server Error.
+  const directEnglish = await requestHealthy('http://127.0.0.1:3001/?lang=en&source=direct-smoke', {
+    headers: {
+      host: 'localhost:3001',
+      'x-forwarded-proto': 'https',
+    },
+  });
+  if (directEnglish.status !== 200 || !/<html[^>]*\blang="en"/i.test(directEnglish.body)) {
+    throw new Error('direct reverse-proxy simulation did not render the English page');
+  }
+
+  const missingEnglish = await requestHealthy(
+    'http://127.0.0.1:3001/definitely-missing?lang=en&source=direct-smoke',
+    {
+      headers: {
+        host: 'localhost:3001',
+        'x-forwarded-proto': 'https',
+      },
+    },
+  );
+  if (missingEnglish.status !== 404 || !/<html[^>]*\blang="en"/i.test(missingEnglish.body)) {
+    throw new Error('English not-found rewrite did not preserve its status and language');
+  }
+
+  // Exercise the complete production-shaped hop: a trusted outer HTTPS proxy
+  // connects to bundled Caddy over HTTP, which then forwards to loopback Next.
+  const proxiedEnglish = await requestHealthy('http://127.0.0.1/?lang=en&source=caddy-smoke', {
+    headers: {
+      host: 'blog.example.test',
+      'x-forwarded-for': '192.0.2.10',
+      'x-forwarded-host': 'blog.example.test',
+      'x-forwarded-proto': 'https',
+    },
+  });
+  if (proxiedEnglish.status !== 200 || !/<html[^>]*\blang="en"/i.test(proxiedEnglish.body)) {
+    throw new Error('Caddy reverse-proxy simulation did not render the English page');
+  }
 
   const addresses = Object.values(os.networkInterfaces())
     .flat()
@@ -587,4 +641,4 @@ if access_log_contains "${smoke_token}"; then
   fail 'Caddy access log leaked a sensitive request token'
 fi
 
-echo 'Docker smoke test passed: health, listeners, Caddy routes, multi-file HTML assets/PDF ranges, >10 MiB custom-page upload, and access-log redaction.'
+echo 'Docker smoke test passed: health, listeners, Caddy routes, HTTPS-proxied English rewrites, multi-file HTML assets/PDF ranges, >10 MiB custom-page upload, and access-log redaction.'

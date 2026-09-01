@@ -1,4 +1,5 @@
 import { compressImgToWebp } from 'src/utils/webp';
+import { readSafeImageMetadata } from 'src/utils/imageMetadata';
 import { StaticProvider } from './static.provider';
 
 jest.mock('src/utils/webp', () => ({
@@ -30,10 +31,14 @@ function webpBuffer() {
   return buffer;
 }
 
-function createProvider(enableWebp = true) {
+function createProvider(enableWebp = true, enableWaterMark = false) {
   const provider = new StaticProvider(
     {} as any,
-    { getStaticSetting: jest.fn().mockResolvedValue({ storageType: 'local', enableWebp }) } as any,
+    {
+      getStaticSetting: jest
+        .fn()
+        .mockResolvedValue({ storageType: 'local', enableWebp, enableWaterMark }),
+    } as any,
     {} as any,
     {} as any,
     {} as any,
@@ -140,5 +145,40 @@ describe('StaticProvider image upload conversion', () => {
       undefined,
     );
     expect(result.src).toMatch(/\.webp$/);
+  });
+
+  it('rasterizes additional formats before storage even when optional compression is off', async () => {
+    const provider = createProvider(false);
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6"><rect width="8" height="6" fill="#369"/></svg>',
+    );
+
+    const result = await provider.upload({ buffer: svg, originalname: 'logo.svg' }, 'img');
+
+    expect(mockedCompressImgToWebp).not.toHaveBeenCalled();
+    expect(provider.saveFile).toHaveBeenCalledWith(
+      'webp',
+      expect.stringMatching(/\.webp$/),
+      expect.any(Buffer),
+      'img',
+      expect.any(String),
+      undefined,
+    );
+    expect(result.src).toMatch(/\.webp$/);
+  });
+
+  it('watermarks the normalized representation of an additional format', async () => {
+    const provider = createProvider(false, true);
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#369"/></svg>',
+    );
+
+    await provider.upload({ buffer: svg, originalname: 'logo.svg' }, 'img', false, undefined, {
+      withWaterMark: true,
+      waterMarkText: 'ZweiBlog',
+    });
+
+    const savedBuffer = (provider.saveFile as jest.Mock).mock.calls[0][2] as Buffer;
+    expect(readSafeImageMetadata(savedBuffer)).toEqual({ type: 'webp', width: 80, height: 60 });
   });
 });

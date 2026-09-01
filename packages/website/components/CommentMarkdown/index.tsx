@@ -5,6 +5,7 @@ import { Viewer } from '@bytemd/react';
 import React from 'react';
 import 'katex/dist/katex.min.css';
 import { sanitizeMarkdownSchema } from '../Markdown/sanitizeSchema';
+import { katexStrictMode } from '../Markdown/katexOptions';
 
 // Comments intentionally use a smaller plugin surface than articles. In
 // particular, untrusted comments cannot invoke Mermaid's diagram runtime.
@@ -19,6 +20,7 @@ const plugins = [
       trust: false,
       maxSize: 20,
       maxExpand: 1000,
+      strict: katexStrictMode,
     },
   }),
 ];

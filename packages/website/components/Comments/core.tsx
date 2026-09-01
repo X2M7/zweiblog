@@ -19,6 +19,14 @@ import {
   normalizeCommentPath,
   uploadCommentImage,
 } from "../../api/comments";
+import {
+  COMMENT_IMAGE_ACCEPT,
+  COMMENT_IMAGE_HINT_EN,
+  COMMENT_IMAGE_HINT_ZH,
+  COMMENT_IMAGE_SUPPORT_EN,
+  COMMENT_IMAGE_SUPPORT_ZH,
+  isSupportedCommentImage,
+} from "./imageUpload";
 import CommentMarkdown from "../CommentMarkdown";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 import type { Language } from "../../utils/siteLanguage";
@@ -28,7 +36,12 @@ const PROFILE_KEY = "zweiblog.local-comment-profile";
 const LIKED_KEY = "zweiblog.local-comment-liked";
 const COMMENT_MAX_LENGTH = 50_000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const COMMENT_IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
+export const COMMENT_FORM_PLACEHOLDERS = {
+  nick: { zh: '昵称（可选）', en: 'Name (optional)' },
+  mail: { zh: '邮箱（仅站长可见）', en: 'Email (visible to site owner only)' },
+  link: { zh: '个人网址（可选）', en: 'Website (optional)' },
+  content: { zh: '欢迎评论', en: 'Leave a comment' },
+} as const;
 const COMMENT_ENVIRONMENT_NAMES_EN: Record<string, string> = {
   "未知地区": "Unknown location",
   "本地网络": "Local network",
@@ -537,8 +550,13 @@ function CommentPanel() {
     setError("");
     setMessage("");
     setToolNotice("");
-    if (!COMMENT_IMAGE_TYPES.has(file.type.toLowerCase())) {
-      setError(t("仅支持 PNG、JPG、GIF 和 WebP 图片", "Only PNG, JPG, GIF, and WebP images are supported."));
+    if (!isSupportedCommentImage(file)) {
+      setError(
+        t(
+          COMMENT_IMAGE_SUPPORT_ZH,
+          COMMENT_IMAGE_SUPPORT_EN,
+        ),
+      );
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -655,7 +673,10 @@ function CommentPanel() {
             maxLength={64}
             onChange={(event) => setProfile({ ...profile, nick: event.target.value })}
             aria-label={t("昵称", "Name")}
-            placeholder={t("昵称（可选，留空匿名）", "Name (optional; leave blank to comment anonymously)")}
+            placeholder={t(
+              COMMENT_FORM_PLACEHOLDERS.nick.zh,
+              COMMENT_FORM_PLACEHOLDERS.nick.en,
+            )}
             value={profile.nick}
           />
           <input
@@ -664,7 +685,10 @@ function CommentPanel() {
             maxLength={254}
             onChange={(event) => setProfile({ ...profile, mail: event.target.value })}
             aria-label={t("邮箱", "Email")}
-            placeholder={t("邮箱（仅站长可见）", "Email (visible to the owner only)")}
+            placeholder={t(
+              COMMENT_FORM_PLACEHOLDERS.mail.zh,
+              COMMENT_FORM_PLACEHOLDERS.mail.en,
+            )}
             type="email"
             value={profile.mail}
           />
@@ -674,7 +698,10 @@ function CommentPanel() {
             maxLength={500}
             onChange={(event) => setProfile({ ...profile, link: event.target.value })}
             aria-label={t("个人网址", "Website")}
-            placeholder={t("个人网址（可选）", "Website (optional)")}
+            placeholder={t(
+              COMMENT_FORM_PLACEHOLDERS.link.zh,
+              COMMENT_FORM_PLACEHOLDERS.link.en,
+            )}
             type="url"
             value={profile.link}
           />
@@ -719,8 +746,8 @@ function CommentPanel() {
           }}
           aria-label={t("评论内容", "Comment")}
           placeholder={t(
-            "支持 Markdown、网络图片与 TeX，例如：$E = mc^2$ 或 $$\\int_0^1 x^2 dx$$",
-            "Markdown, remote images, and TeX are supported, for example: $E = mc^2$ or $$\\int_0^1 x^2 dx$$",
+            COMMENT_FORM_PLACEHOLDERS.content.zh,
+            COMMENT_FORM_PLACEHOLDERS.content.en,
           )}
           ref={textareaRef}
           value={content}
@@ -787,7 +814,7 @@ function CommentPanel() {
           <div className="space-y-3 border-t border-slate-100 px-2 py-3 dark:border-gray-700">
             <div className="flex flex-wrap items-center gap-2">
               <input
-                accept="image/gif,image/jpeg,image/png,image/webp"
+                accept={COMMENT_IMAGE_ACCEPT}
                 className="hidden"
                 onChange={uploadImage}
                 ref={fileInputRef}
@@ -801,7 +828,9 @@ function CommentPanel() {
               >
                 {uploading ? t("上传中…", "Uploading…") : t("上传本地图片", "Upload local image")}
               </button>
-              <span className="text-xs text-gray-400">{t("支持 PNG、JPG、GIF、WebP，最大 5 MB", "PNG, JPG, GIF, and WebP up to 5 MB")}</span>
+              <span className="text-xs text-gray-400">
+                {t(COMMENT_IMAGE_HINT_ZH, COMMENT_IMAGE_HINT_EN)}
+              </span>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
               <input

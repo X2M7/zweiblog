@@ -1,4 +1,5 @@
 import CopyUploadBtn from '@/components/CopyUploadBtn';
+import { IMAGE_UPLOAD_ACCEPT } from '@/constants/imageUpload';
 import ObjTable from '@/components/ObjTable';
 import UploadBtn from '@/components/UploadBtn';
 import { useUploadActivityTracker } from '@/components/UploadBtn/uploadActivity';
@@ -230,7 +231,7 @@ const ImgPage = () => {
               );
             }}
             url="/api/admin/img/upload?withWaterMark=true"
-            accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
+            accept={IMAGE_UPLOAD_ACCEPT}
           />
           <UploadBtn
             setLoading={setUploadLoading}
@@ -247,7 +248,7 @@ const ImgPage = () => {
               );
             }}
             url="/api/admin/img/upload?withWaterMark=true"
-            accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
+            accept={IMAGE_UPLOAD_ACCEPT}
           />
         </Space>
       }

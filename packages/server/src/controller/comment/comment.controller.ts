@@ -21,7 +21,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { createHmac, randomBytes } from 'crypto';
-import sharp from 'sharp';
 import { CommentProvider } from 'src/provider/comment/comment.provider';
 import { CommentMaintenanceProvider } from 'src/provider/comment/commentMaintenance.provider';
 import { RateLimitProvider } from 'src/provider/rateLimit/rateLimit.provider';
@@ -30,7 +29,7 @@ import { normalizeCommentId, normalizeCommentPath, normalizeCommentPaths } from 
 import { parseBoundedInteger } from 'src/utils/query';
 import { CommentImageProvider } from 'src/provider/comment/commentImage.provider';
 import { commentImageUploadOptions } from 'src/utils/uploadLimits';
-import { readSafeImageMetadata } from 'src/utils/imageMetadata';
+import { normalizeImageToWebp, readSafeImageMetadata } from 'src/utils/imageMetadata';
 
 const REACTION_COOKIE = 'zweiblog_comment_actor';
 const REACTION_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1_000;
@@ -214,24 +213,10 @@ export class PublicCommentController {
     if (!this.commentImageProvider || !file || !Buffer.isBuffer(file.buffer)) {
       throw new BadRequestException('请选择一张图片');
     }
-    readSafeImageMetadata(file.buffer);
-    let normalized: Buffer;
-    try {
-      // Re-encoding removes EXIF/GPS metadata and trailing polyglot payloads.
-      // SVG is never accepted by readSafeImageMetadata.
-      normalized = await sharp(file.buffer, {
-        // A static first frame prevents tiny multi-frame files from expanding
-        // into an unbounded animation during anonymous processing.
-        animated: false,
-        failOn: 'error',
-        limitInputPixels: 40_000_000,
-      })
-        .rotate()
-        .webp({ quality: 82, effort: 4 })
-        .toBuffer();
-    } catch {
-      throw new BadRequestException('图片无法安全解码');
-    }
+    // Re-encoding removes metadata, SVG active content and trailing polyglot
+    // payloads. Animated inputs deliberately become one static first frame so
+    // anonymous uploads cannot expand into an unbounded animation.
+    const { buffer: normalized } = await normalizeImageToWebp(file.buffer, 82);
     if (normalized.byteLength > 5 * 1024 * 1024) {
       throw new PayloadTooLargeException('处理后的图片超过 5 MB');
     }

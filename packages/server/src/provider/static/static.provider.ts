@@ -22,7 +22,12 @@ import { UploadConfig } from 'src/types/upload';
 import { addWaterMarkToIMG } from 'src/utils/watermark';
 import { checkTrue } from 'src/utils/checkTrue';
 import { compressImgToWebp } from 'src/utils/webp';
-import { readSafeImageMetadata } from 'src/utils/imageMetadata';
+import {
+  prepareImageForStorage,
+  readSafeImageMetadata,
+  readSafeImageMetadataAsync,
+  SafeImageMetadata,
+} from 'src/utils/imageMetadata';
 import { createPinnedHttpAgents } from 'src/utils/safeRemoteUrl';
 @Injectable()
 export class StaticProvider {
@@ -61,7 +66,17 @@ export class StaticProvider {
     const fileType = arr[arr.length - 1];
     let buf = buffer;
     let currentSign = encryptFileMD5(buf);
-    let imageMetadata = type === 'img' ? readSafeImageMetadata(buf) : null;
+    let imageMetadata: SafeImageMetadata | null = null;
+    if (type === 'img') {
+      // Browser-safe formats keep their original bytes. Formats with weak
+      // browser support, and SVG in particular, are fully decoded and stored
+      // as inert WebP before watermarking or sending them to a configured
+      // image host.
+      const prepared = await prepareImageForStorage(buf);
+      buf = prepared.buffer;
+      imageMetadata = prepared.metadata;
+      currentSign = encryptFileMD5(buf);
+    }
     const staticConfigInDB = await this.settingProvider.getStaticSetting();
     if (type == 'img') {
       try {
@@ -72,7 +87,7 @@ export class StaticProvider {
           if (waterMarkConfigInDB && checkTrue(waterMarkConfigInDB?.enableWaterMark)) {
             const waterMarkText = updateConfig.waterMarkText || waterMarkConfigInDB.waterMarkText;
             if (waterMarkText && waterMarkText.trim() !== '') {
-              buf = await addWaterMarkToIMG(buffer, waterMarkText);
+              buf = await addWaterMarkToIMG(buf, waterMarkText);
               imageMetadata = readSafeImageMetadata(buf);
               currentSign = encryptFileMD5(buf);
             }
@@ -197,7 +212,7 @@ export class StaticProvider {
     if (!buffer) {
       return null;
     }
-    const result = readSafeImageMetadata(buffer);
+    const result = await readSafeImageMetadataAsync(buffer);
     const meta: ImgMeta = { ...result, size: formatBytes(buffer.byteLength) };
     const filename = link.split('/').pop();
     const fileType = filename?.split('.')?.pop() || '';

@@ -1,7 +1,23 @@
+import React from "react";
 import ImageBox from "../ImageBox";
 import RunningTime from "../RunningTime";
 import Viewer from "../Viewer";
 import { useSiteLanguage } from "../../utils/siteLanguage";
+
+export function PoweredBy({ version }: { version: string }) {
+  return (
+    <p className="footer-powered-by-zweiblog">
+      Powered By&nbsp;
+      <a
+        href="https://github.com/X2M7/zweiblog"
+        target="_blank"
+        className="hover:text-gray-900 dark:hover:text-dark-hover transition ua ua-link"
+      >
+        ZweiBlog <span>{version}</span>
+      </a>
+    </p>
+  );
+}
 
 export default function ({
   ipcHref,
@@ -59,16 +75,7 @@ export default function ({
           </p>
         )}
         <RunningTime since={since}></RunningTime>
-        <p className="footer-powered-by-zweiblog">
-          Powered By&nbsp;
-          <a
-            href="https://github.com/X2M7/zweiblog"
-            target={"_blank"}
-            className="hover:text-gray-900 dark:hover:text-dark-hover transition ua ua-link"
-          >
-            ZweiBlog <span>{version}</span>
-          </a>
-        </p>
+        <PoweredBy version={version} />
 
         <p className="select-none footer-copy-right">
           © {new Date(since).getFullYear()} - {new Date().getFullYear()}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useContext, useEffect, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import Headroom from "headroom.js";
 import { SocialItem } from "../../api/getAllData";
 import SocialCard from "../SocialCard";
@@ -77,13 +77,16 @@ export default function (props: { option: AuthorCardProps }) {
           <div className="text-sm text-gray-500 mb-2 dark:text-dark-light">
             {description}
           </div>
-          <div className="flex">
+          <div
+            className="flex -mx-10 w-52 justify-center gap-3"
+            data-testid="author-statistics"
+          >
             <Link href={localizedPath("/timeline")}>
               <div className="group flex flex-col justify-center items-center text-gray-600 text-sm px-1 dark:text-dark ">
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.postNum}
                 </div>
-                <div className="group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
+                <div className="whitespace-nowrap group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
                   {t("日志", "Posts")}
                 </div>
               </div>
@@ -93,7 +96,7 @@ export default function (props: { option: AuthorCardProps }) {
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.catelogNum}
                 </div>
-                <div className="group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
+                <div className="whitespace-nowrap group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
                   {t("分类", "Categories")}
                 </div>
               </div>
@@ -103,7 +106,7 @@ export default function (props: { option: AuthorCardProps }) {
                 <div className="group-hover:text-gray-900 font-bold group-hover:font-black dark:group-hover:text-dark-hover">
                   {props.option.tagNum}
                 </div>
-                <div className=" group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
+                <div className="whitespace-nowrap group-hover:text-gray-900 group-hover:font-normal text-gray-500 dark:text-dark-light dark:group-hover:text-dark-hover">
                   {t("标签", "Tags")}
                 </div>
               </div>

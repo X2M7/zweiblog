@@ -1,5 +1,6 @@
 import { errorImg } from '@/pages/Static/img';
 import { getImgLink } from '@/pages/Static/img/tools';
+import { BROWSER_CROPPABLE_IMAGE_ACCEPT, IMAGE_UPLOAD_ACCEPT } from '@/constants/imageUpload';
 import { ProFormText } from '@ant-design/pro-form';
 import { Image, message, Space } from 'antd';
 import { debounce } from 'lodash';
@@ -109,7 +110,7 @@ export default function (props: {
                 onStart={handleUploadStart}
                 onFinish={handleUploadFinish}
                 url={dest}
-                accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
+                accept={IMAGE_UPLOAD_ACCEPT}
               />
               <UploadBtn
                 setLoading={setUploadLoading}
@@ -121,7 +122,7 @@ export default function (props: {
                 onStart={handleUploadStart}
                 onFinish={handleUploadFinish}
                 url={dest}
-                accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
+                accept={BROWSER_CROPPABLE_IMAGE_ACCEPT}
               />
             </Space>
           </div>

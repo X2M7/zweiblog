@@ -23,6 +23,8 @@ jobs:
   verify:
     name: Run test suite
     runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.app-version.outputs.value }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,11 +38,20 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Resolve and validate ZweiBlog application version
+        id: app-version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          app_version="$(node scripts/resolve-app-version.js)"
+          echo "Application version: ${app_version}"
+          echo "value=${app_version}" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test container configuration renderer
-        run: node --test scripts/render-caddy-config.test.js
+      - name: Test release helpers and container configuration renderer
+        run: node --test scripts/resolve-app-version.test.js scripts/release-version-chain.test.js scripts/render-caddy-config.test.js
 
       - name: Check shell script syntax
         run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
@@ -68,7 +79,7 @@ jobs:
           tags: zweiblog:release-smoke
           build-args: |
             ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
-            ZWEI_BLOG_VERSIONS=smoke-${{ github.sha }}
+            ZWEI_BLOG_VERSIONS=${{ steps.app-version.outputs.value }}
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
 
@@ -143,7 +154,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
-            ZWEI_BLOG_VERSIONS=${{ steps.meta.outputs.version }}
+            ZWEI_BLOG_VERSIONS=${{ needs.verify.outputs.app_version }}
           cache-from: type=gha,scope=${{ matrix.suffix }}
           cache-to: type=gha,mode=max,scope=${{ matrix.suffix }}
           provenance: mode=max

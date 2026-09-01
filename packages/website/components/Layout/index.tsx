@@ -7,7 +7,6 @@ import GaAnalysis from "../gaAnalysis";
 import { LayoutProps } from "../../utils/getLayoutProps";
 // import ImageProvider from "../ImageProvider";
 import { RealThemeType, ThemeContext } from "../../utils/themeContext";
-import { getTheme } from "../../utils/theme";
 import CustomLayout from "../CustomLayout";
 import { Toaster } from "react-hot-toast";
 import Footer from "../Footer";
@@ -37,7 +36,10 @@ export default function (props: {
   // console.log("script", decode(props.option.customScript as string));
   const [isOpen, setIsOpen] = useState(false);
   const { current } = useRef({ hasInit: false });
-  const [theme, setTheme] = useState<RealThemeType>(getTheme("auto"));
+  // Keep the server and browser's initial React tree identical. The blocking
+  // theme bootstrap script applies the real HTML class before first paint, and
+  // ThemeButton synchronizes this state during its layout effect.
+  const [theme, setTheme] = useState<RealThemeType>("auto-light");
   const handleClose = () => {
     console.log("关闭或刷新页面");
     localStorage.removeItem("saidHello");

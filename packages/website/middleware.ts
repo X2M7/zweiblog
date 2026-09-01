@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEnglishArticleRewritePath } from "./utils/articleLanguage";
 import {
-  getEnglishNotFoundRewritePath,
   getEnglishSiteRewritePath,
+  getInternalLanguageRewriteUrl,
 } from "./utils/siteLanguageRouting";
 
 export function middleware(request: NextRequest) {
@@ -10,23 +10,13 @@ export function middleware(request: NextRequest) {
   const pageRewritePath =
     getEnglishArticleRewritePath(request.nextUrl.pathname, queryLanguage) ||
     getEnglishSiteRewritePath(request.nextUrl.pathname, queryLanguage);
-  // Run the known-page check first so valid dotted article slugs remain
-  // localizable, while requests for files such as /logo.svg are never turned
-  // into an English 404 page.
-  const looksLikeAsset = /\/[^/]+\.[^/]+$/.test(request.nextUrl.pathname);
-  const rewritePath =
-    pageRewritePath ||
-    (!looksLikeAsset
-      ? getEnglishNotFoundRewritePath(request.nextUrl.pathname, queryLanguage)
-      : null);
-  if (!rewritePath) return NextResponse.next();
+  if (!pageRewritePath) return NextResponse.next();
 
-  const target = request.nextUrl.clone();
-  target.pathname = rewritePath;
-  return NextResponse.rewrite(
-    target,
-    pageRewritePath ? undefined : { status: 404 },
+  const target = getInternalLanguageRewriteUrl(
+    request.nextUrl,
+    pageRewritePath,
   );
+  return NextResponse.rewrite(target);
 }
 
 export const config = {
