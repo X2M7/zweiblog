@@ -77,7 +77,7 @@ jobs:
         run: bash scripts/docker-smoke-test.sh zweiblog:release-smoke
 
   publish:
-    name: Build and publish (${{ matrix.platform }})
+    name: Build and publish to both registries (${{ matrix.platform }})
     runs-on: ubuntu-latest
     needs: verify
     permissions:
@@ -108,6 +108,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Tencent TCR
+        uses: docker/login-action@v3
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -122,14 +129,17 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build and push platform image
+      - name: Build and push platform image to both registries
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          tags: |
+            ${{ env.IMAGE_NAME }}
+            ${{ env.TCR_IMAGE_NAME }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
@@ -138,6 +148,19 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.suffix }}
           provenance: mode=max
           sbom: true
+
+      - name: Verify platform digest in both registries
+        env:
+          PLATFORM_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ ! "$PLATFORM_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid platform image digest"
+            exit 1
+          fi
+          docker buildx imagetools inspect "${IMAGE_NAME}@${PLATFORM_DIGEST}" >/dev/null
+          docker buildx imagetools inspect "${TCR_IMAGE_NAME}@${PLATFORM_DIGEST}" >/dev/null
 
       - name: Export digest
         run: |
@@ -154,15 +177,12 @@ jobs:
           retention-days: 1
 
   merge:
-    name: Publish multi-architecture manifest
+    name: Publish and verify multi-architecture manifests
     runs-on: ubuntu-latest
     needs: publish
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_digest: ${{ steps.export.outputs.digest }}
-      tags_json: ${{ steps.export.outputs.tags_json }}
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
@@ -181,6 +201,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Tencent TCR
+        uses: docker/login-action@v3
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -195,166 +222,119 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Create manifest list
+      - name: Create matching manifest lists in both registries
+        id: manifests
         working-directory: /tmp/digests
-        run: |
-          tags=()
-          while IFS= read -r tag; do
-            tags+=(--tag "$tag")
-          done < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
-          docker buildx imagetools create \
-            --metadata-file /tmp/manifest-metadata.json \
-            "${tags[@]}" \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
-
-      - name: Export verified manifest identity
-        id: export
         env:
           METADATA_JSON: ${{ steps.meta.outputs.json }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          digest="$(
-            jq -er '
-              .["containerimage.descriptor"].digest |
-              select(test("^sha256:[0-9a-f]{64}$"))
-            ' /tmp/manifest-metadata.json
-          )"
-          tags_json="$(
-            jq -cer '.tags | select(type == "array" and length > 0)' \
-              <<< "$METADATA_JSON"
-          )"
-          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
-          printf 'tags_json=%s\n' "$tags_json" >> "$GITHUB_OUTPUT"
 
-      - name: Inspect published image
-        run: docker buildx imagetools inspect "${{ env.IMAGE_NAME }}@${{ steps.export.outputs.digest }}"
-
-  mirror-tcr:
-    name: Mirror verified image to Tencent TCR
-    runs-on: ubuntu-latest
-    needs: merge
-    timeout-minutes: 45
-    permissions:
-      contents: read
-      packages: read
-    env:
-      SOURCE_DIGEST: ${{ needs.merge.outputs.image_digest }}
-      SOURCE_TAGS_JSON: ${{ needs.merge.outputs.tags_json }}
-    steps:
-      - name: Install registry copy tool
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends skopeo
-
-      - name: Log in to container registries
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
-          TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          if [[ -z "$TCR_USERNAME" || -z "$TCR_PASSWORD" ]]; then
-            echo "::error::TCR_USERNAME and TCR_PASSWORD repository secrets are required"
-            exit 1
-          fi
-          printf '%s' "$GHCR_TOKEN" | skopeo login --username "$GITHUB_ACTOR" --password-stdin ghcr.io
-          printf '%s' "$TCR_PASSWORD" | skopeo login --username "$TCR_USERNAME" --password-stdin ccr.ccs.tencentyun.com
-
-      - name: Copy, verify, and promote image tags
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-
-          if [[ ! "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "::error::Invalid source image digest"
-            exit 1
-          fi
-          if ! jq -e '
-            type == "array" and length > 0 and
-            all(.[]; type == "string")
-          ' <<< "$SOURCE_TAGS_JSON" >/dev/null; then
-            echo "::error::Invalid source image tag metadata"
+          mapfile -t digest_files < <(
+            find . -maxdepth 1 -type f -printf '%f\n' | sort
+          )
+          if [[ "${#digest_files[@]}" -ne 2 ]]; then
+            echo "::error::Expected exactly two platform digests"
             exit 1
           fi
 
-          source_ref="${IMAGE_NAME}@${SOURCE_DIGEST}"
-          source_digest="$(skopeo inspect --format '{{.Digest}}' "docker://${source_ref}")"
-          if [[ "$source_digest" != "$SOURCE_DIGEST" ]]; then
-            echo "::error::GHCR source digest changed unexpectedly"
-            exit 1
-          fi
-
-          manifest_json="$(skopeo inspect --raw "docker://${source_ref}")"
-          jq -e '
-            any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "amd64") and
-            any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "arm64")
-          ' <<< "$manifest_json" >/dev/null || {
-            echo "::error::GHCR image is missing the linux/amd64 or linux/arm64 manifest"
-            exit 1
-          }
-
-          promote_tag() {
-            local tag="$1"
-            local destination_ref="${TCR_IMAGE_NAME}:${tag}"
-            skopeo copy --all --preserve-digests --retry-times 5 \
-              "docker://${source_ref}" \
-              "docker://${destination_ref}"
-            local promoted_digest
-            promoted_digest="$(skopeo inspect --format '{{.Digest}}' "docker://${destination_ref}")"
-            if [[ "$promoted_digest" != "$source_digest" ]]; then
-              echo "::error::TCR tag ${tag} does not match the verified image digest"
+          ghcr_sources=()
+          tcr_sources=()
+          for digest_hex in "${digest_files[@]}"; do
+            if [[ ! "$digest_hex" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::Invalid platform digest: ${digest_hex}"
               exit 1
             fi
-          }
+            ghcr_sources+=("${IMAGE_NAME}@sha256:${digest_hex}")
+            tcr_sources+=("${TCR_IMAGE_NAME}@sha256:${digest_hex}")
+          done
 
-          mapfile -t published_tags < <(
-            jq -r --arg image "$IMAGE_NAME" \
-              '.[] | select(startswith($image + ":")) | ltrimstr($image + ":")' \
-              <<< "$SOURCE_TAGS_JSON"
-          )
-
-          if [[ "${#published_tags[@]}" -eq 0 ]]; then
-            echo "::error::No image tags are available for Tencent TCR"
-            exit 1
-          fi
-          source_tag_count="$(jq 'length' <<< "$SOURCE_TAGS_JSON")"
-          if [[ "${#published_tags[@]}" -ne "$source_tag_count" ]]; then
-            echo "::error::Unexpected image name in published tag metadata"
+          mapfile -t published_refs < <(jq -r '.tags[]' <<< "$METADATA_JSON")
+          if [[ "${#published_refs[@]}" -eq 0 ]]; then
+            echo "::error::No image tags were generated"
             exit 1
           fi
 
-          for tag in "${published_tags[@]}"; do
+          ghcr_tags=()
+          tcr_tags=()
+          source_prefix="${IMAGE_NAME}:"
+          for source_ref in "${published_refs[@]}"; do
+            if [[ "$source_ref" != "$source_prefix"* ]]; then
+              echo "::error::Unexpected image reference: ${source_ref}"
+              exit 1
+            fi
+            tag="${source_ref#"$source_prefix"}"
             if [[ ! "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
               echo "::error::Invalid container image tag: ${tag}"
               exit 1
             fi
-            case "$tag" in
-              main|latest) continue ;;
-            esac
-            promote_tag "$tag"
+            ghcr_tags+=(--tag "$source_ref")
+            tcr_tags+=(--tag "${TCR_IMAGE_NAME}:${tag}")
           done
 
-          for mutable_tag in main latest; do
-            for tag in "${published_tags[@]}"; do
-              if [[ "$tag" == "$mutable_tag" ]]; then
-                promote_tag "$tag"
-                break
-              fi
-            done
-          done
+          docker buildx imagetools create \
+            --metadata-file /tmp/ghcr-manifest.json \
+            "${ghcr_tags[@]}" \
+            "${ghcr_sources[@]}"
+          docker buildx imagetools create \
+            --metadata-file /tmp/tcr-manifest.json \
+            "${tcr_tags[@]}" \
+            "${tcr_sources[@]}"
 
-      - name: Log out of container registries
-        if: always()
+          ghcr_digest="$(
+            jq -er '
+              .["containerimage.descriptor"].digest |
+              select(test("^sha256:[0-9a-f]{64}$"))
+            ' /tmp/ghcr-manifest.json
+          )"
+          tcr_digest="$(
+            jq -er '
+              .["containerimage.descriptor"].digest |
+              select(test("^sha256:[0-9a-f]{64}$"))
+            ' /tmp/tcr-manifest.json
+          )"
+          if [[ "$ghcr_digest" != "$tcr_digest" ]]; then
+            echo "::error::GHCR and Tencent TCR manifest digests differ"
+            exit 1
+          fi
+          printf 'digest=%s\n' "$ghcr_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify both registries expose the same multi-architecture image
+        env:
+          MANIFEST_DIGEST: ${{ steps.manifests.outputs.digest }}
+        shell: bash
         run: |
-          skopeo logout ccr.ccs.tencentyun.com || true
-          skopeo logout ghcr.io || true
+          set -Eeuo pipefail
+          if [[ ! "$MANIFEST_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid multi-architecture manifest digest"
+            exit 1
+          fi
+
+          for image_name in "$IMAGE_NAME" "$TCR_IMAGE_NAME"; do
+            manifest_json="$(
+              docker buildx imagetools inspect \
+                "${image_name}@${MANIFEST_DIGEST}" \
+                --format '{{json .Manifest}}'
+            )"
+            observed_digest="$(jq -er '.digest' <<< "$manifest_json")"
+            if [[ "$observed_digest" != "$MANIFEST_DIGEST" ]]; then
+              echo "::error::${image_name} returned an unexpected manifest digest"
+              exit 1
+            fi
+            if ! jq -e '
+              any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "amd64") and
+              any(.manifests[]?; .platform.os == "linux" and .platform.architecture == "arm64")
+            ' <<< "$manifest_json" >/dev/null; then
+              echo "::error::${image_name} is missing linux/amd64 or linux/arm64"
+              exit 1
+            fi
+          done
 
   github-release:
     name: Create GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: mirror-tcr
+    needs: merge
     runs-on: ubuntu-latest
     permissions:
       contents: write

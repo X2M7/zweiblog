@@ -143,7 +143,7 @@ ZWEIBLOG_HTTP_BIND=127.0.0.1
 ZWEIBLOG_HTTP_PORT=8080
 ```
 
-中国大陆服务器可只替换镜像地址，使用发布流程自动同步到腾讯云的公开镜像：
+中国大陆服务器可只替换镜像地址，使用发布流程同时发布到腾讯云的公开镜像：
 
 ```dotenv
 ZWEIBLOG_IMAGE=ccr.ccs.tencentyun.com/x2m7/zweiblog:latest
@@ -188,7 +188,7 @@ sudo docker compose ps
 sudo docker compose logs -f zweiblog
 ```
 
-`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像并发布到 `ghcr.io/x2m7/zweiblog`；测试、架构和摘要校验通过后，再把同一 OCI 镜像同步到 `ccr.ccs.tencentyun.com/x2m7/zweiblog`。同步时先写固定/摘要标签，最后更新 `main`、`latest` 等可变标签，并逐一校验摘要。首次发布后，仓库维护者还需要确认两个仓库均为公开可读。
+`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像，并把每个平台的同一摘要直接推送到 `ghcr.io/x2m7/zweiblog` 和 `ccr.ccs.tencentyun.com/x2m7/zweiblog`；随后分别生成双架构清单并校验两个仓库的最终摘要一致。整个过程不会从 GHCR 重新下载大镜像层。首次发布后，仓库维护者还需要确认两个仓库均为公开可读。
 
 如果镜像尚未公开、工作流尚未完成，或者希望确保运行的就是当前 checkout，可使用仓库提供的源码构建覆盖文件：
 

@@ -30,7 +30,7 @@ ZweiBlog 是一个支持完整中英文站点、本地评论与项目化自定�
 
 当前发布方式、数据持久化、升级、备份、Nginx/Caddy 反代和真实访客 IP 配置均以仓库根目录的 [README](https://github.com/X2M7/zweiblog#readme) 为准。旧版 VanBlog 的镜像名和一键安装地址不适用于 ZweiBlog。
 
-推荐使用仓库中的 Docker Compose；镜像可选择 `ghcr.io/x2m7/zweiblog:latest`，中国大陆服务器也可使用同步的 `ccr.ccs.tencentyun.com/x2m7/zweiblog:latest`。MongoDB 不应映射到公网。首次部署前必须使用仓库提供的脚本生成本地 Docker secrets。
+推荐使用仓库中的 Docker Compose；镜像可选择 `ghcr.io/x2m7/zweiblog:latest`，中国大陆服务器也可使用同时发布的 `ccr.ccs.tencentyun.com/x2m7/zweiblog:latest`。MongoDB 不应映射到公网。首次部署前必须使用仓库提供的脚本生成本地 Docker secrets。
 
 ## 隐私与安全
 

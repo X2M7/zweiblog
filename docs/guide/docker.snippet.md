@@ -34,7 +34,7 @@ sudo docker compose ps
 sudo docker compose logs -f zweiblog
 ```
 
-默认镜像是 `ghcr.io/x2m7/zweiblog:latest`。中国大陆服务器可在 `.env` 中改用同步后的公开镜像 `ccr.ccs.tencentyun.com/x2m7/zweiblog:latest`；两个仓库使用相同标签。生产环境建议固定版本标签。如果镜像尚未公开，或需要从当前 checkout 构建：
+默认镜像是 `ghcr.io/x2m7/zweiblog:latest`。中国大陆服务器可在 `.env` 中改用同时发布的公开镜像 `ccr.ccs.tencentyun.com/x2m7/zweiblog:latest`；两个仓库使用相同标签。生产环境建议固定版本标签。如果镜像尚未公开，或需要从当前 checkout 构建：
 
 ```bash
 sudo docker compose \
