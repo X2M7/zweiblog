@@ -27,6 +27,7 @@ import { customCodeBlock } from './plugins/codeBlock';
 import { LinkTarget } from './plugins/linkTarget';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { safeCustomPageIframe } from './safeIframe';
+import { ExternalLatexTheme } from './externalLatex';
 
 export default function EditorComponent(props: {
   value: string;
@@ -55,6 +56,7 @@ export default function EditorComponent(props: {
       Heading(),
       customCodeBlock(),
       LinkTarget(),
+      ExternalLatexTheme(),
       safeCustomPageIframe(siteBaseUrl),
     ];
   }, [siteBaseUrl]);

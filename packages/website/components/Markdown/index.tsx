@@ -14,6 +14,7 @@ import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { useSiteLanguage } from '../../utils/siteLanguage';
 import { useSiteConfig } from '../../utils/siteConfig';
 import { safeCustomPageIframe } from './safeIframe';
+import { ExternalLatexTheme } from './externalLatex';
 export default function ({ content }: { content: string }) {
   const { language } = useSiteLanguage();
   const { baseUrl } = useSiteConfig();
@@ -27,6 +28,7 @@ export default function ({ content }: { content: string }) {
     LinkTarget(language),
     Heading(),
     Img(),
+    ExternalLatexTheme(),
     safeCustomPageIframe(baseUrl),
   ], [baseUrl, language]);
   return (

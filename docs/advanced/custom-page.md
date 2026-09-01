@@ -59,7 +59,49 @@ PS：路径必须以 `/` 开头，实际的访问路径会在前面加上 `/c`�
 
 文章中的 `iframe` 会被强制附加隔离沙箱；即使目标页面选择了可信兼容模式，嵌入文章时也不能获得同源存储或后台凭据。需要同源能力时应让访客直接打开 `/c/...` 页面，而不是在文章中嵌入。
 
-如果页面会请求同站 `/svg/<TeX>` 生成公式图片，还需要单独启用可选的[本地 LaTeX / Upmath 渲染器](./local-latex.md)并配置精确的 Nginx `/svg/` 反代；它不会随默认 ZweiBlog 编排自动启动。
+ZweiBlog 不附带、拉取或启动 LaTeX 渲染器，也不需要在博客域名配置 `/svg/` 反代。需要通过图片展示公式时，直接复用已有的独立服务：`https://tex.xumin.net/svg/<URL 编码后的 TeX>`。文章和后台预览会在暗色主题下自动添加 `c=eaeaea`，让默认黑色公式变为浅色，同时保留 SVG 的透明背景和显式颜色；切回亮色主题时会自动恢复无颜色参数的地址。该逻辑只匹配 `tex.xumin.net` 的 `/svg/` 与 `/svgb/`，不会修改普通图片。
+
+自定义页面在独立沙箱中运行，页面自己的公式预览应直接生成同一个外部地址，不要使用博客域名的 `/svg/`：
+
+```js
+const RENDER_BASE = 'https://tex.xumin.net/svg/';
+const DARK_COLOR = 'eaeaea';
+const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
+
+function isDark() {
+  const theme = document.documentElement.dataset.theme || 'auto';
+  if (theme === 'dark') return true;
+  if (theme === 'light') return false;
+  const hour = new Date().getHours();
+  return hour > 18 || hour < 8 || darkMedia.matches;
+}
+
+function buildUrl(tex) {
+  return RENDER_BASE + encodeURIComponent((tex || '').trim());
+}
+
+function buildPreviewUrl(tex) {
+  const url = new URL(buildUrl(tex));
+  if (isDark()) url.searchParams.set('c', DARK_COLOR);
+  return url.toString();
+}
+
+function update() {
+  const canonical = buildUrl(texEl.value);
+  urlEl.value = canonical;
+  imgEl.src = buildPreviewUrl(texEl.value);
+}
+
+darkMedia.addEventListener?.('change', update);
+new MutationObserver(update).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme'],
+});
+```
+
+这里假设页面中已有 `texEl`、`urlEl` 与 `imgEl`。预览容器不要固定为白色背景，应使用页面的主题背景变量，例如 `background: var(--input-bg)`。自定义页面保存的是数据库内容，升级镜像不会覆盖现有页面；旧页面仍使用 `//xumin.net/svg/` 时，需要在后台编辑一次并替换为上面的地址。
+
+升级后，如果“系统设置 → 自定义设置 → 自定义脚本”中还保留旧的 `Upmath SVG 自动适配深色模式` 代码块，请只删除该代码块，保留其他自定义脚本。文章与后台预览现在已经内置同样的精确适配，继续保留旧代码会产生两个重复的监听器。
 
 ### 编辑页面
 

@@ -67,6 +67,7 @@ ZweiBlog 已经加入与上游不同的数据字段、接口和交互，不应�
 - **可编辑的友情链接页**：友情链接页像“关于”页一样支持中英文 Markdown 内容；链接和导航项目均可在后台调整顺序。
 - **扩展的联系方式目录**：提供更丰富的国内外平台类型，并为链接、邮箱、账号和二维码等不同值类型做相应校验与展示。
 - **项目化自定义页面**：支持单文件页面和多文件页面；多文件页面带项目树、文件上传、重命名、单文件删除、文件夹递归删除及整个项目 ZIP 导出。
+- **外部 LaTeX SVG 深色适配**：直接复用 `tex.xumin.net` 的现有渲染接口；前台文章和后台预览在暗色主题下把默认黑色公式切换为 `#eaeaea`，亮色主题自动恢复。ZweiBlog 镜像不附带或启动 LaTeX 渲染器。
 
 ### 基础能力
 
@@ -102,7 +103,6 @@ NestJS API ──→ MongoDB 8.0（仅 Docker 内部网络）
 | 默认编排 | [`docker-compose/docker-compose.yml`](./docker-compose/docker-compose.yml) |
 | 部署变量模板 | [`docker-compose/.env.example`](./docker-compose/.env.example) |
 | 源码构建覆盖文件 | [`docker-compose/docker-compose.build.yml`](./docker-compose/docker-compose.build.yml) |
-| 可选本地 LaTeX 渲染 | [`docker-compose/docker-compose.upmath.yml`](./docker-compose/docker-compose.upmath.yml) / [部署说明](./docs/advanced/local-latex.md) |
 | Nginx/Caddy 反代示例 | [`docker-compose/reverse-proxy/`](./docker-compose/reverse-proxy/) |
 | Caddy 路由模板 | [`caddyTemplate.json`](./caddyTemplate.json) |
 | MongoDB 用户初始化 | [`docker-compose/mongo-init.js`](./docker-compose/mongo-init.js) |
