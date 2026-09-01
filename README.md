@@ -143,7 +143,13 @@ ZWEIBLOG_HTTP_BIND=127.0.0.1
 ZWEIBLOG_HTTP_PORT=8080
 ```
 
-`latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。
+中国大陆服务器可只替换镜像地址，使用发布流程自动同步到腾讯云的公开镜像：
+
+```dotenv
+ZWEIBLOG_IMAGE=ccr.ccs.tencentyun.com/x2m7/zweiblog:latest
+```
+
+GHCR 与腾讯云 TCR 使用相同标签；发布流程会校验两个仓库的镜像摘要一致。`latest` 跟随 `main` 分支，适合体验最新版本；生产环境建议把 `ZWEIBLOG_IMAGE` 固定为与源码 Release 对应的版本标签，并在测试后再升级。TCR 个人版不提供 SLA，拉取异常时可把地址改回 GHCR。
 
 如果同一台服务器还保留旧 VanBlog，**不需要也不建议先删除旧项目**。先停止旧容器并保留其目录、MongoDB 数据和备份，把 ZweiBlog 克隆到新的目录；`.env.example` 已使用独立的 `COMPOSE_PROJECT_NAME=zweiblog`，默认端口和数据目录也与旧项目分开。确认内容、图片、评论及反向代理全部切换成功后，再决定是否清理旧项目。
 
@@ -173,7 +179,7 @@ docker compose config --quiet
 
 ### 3. 获取镜像并启动
 
-正常情况下直接拉取 GHCR 镜像：
+配置好 `.env` 中的 GHCR 或腾讯云 TCR 镜像后启动：
 
 ```bash
 sudo docker compose pull
@@ -182,7 +188,7 @@ sudo docker compose ps
 sudo docker compose logs -f zweiblog
 ```
 
-`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像并发布到 `ghcr.io/x2m7/zweiblog`。首次发布后，仓库维护者还需要在 GitHub Packages 中确认镜像为公开可读。
+`main` 或 `v*` 标签推送后，[发布流程](./.github/workflows/release.yml) 会构建 `linux/amd64` 与 `linux/arm64` 镜像并发布到 `ghcr.io/x2m7/zweiblog`；测试、架构和摘要校验通过后，再把同一 OCI 镜像同步到 `ccr.ccs.tencentyun.com/x2m7/zweiblog`。同步时先写固定/摘要标签，最后更新 `main`、`latest` 等可变标签，并逐一校验摘要。首次发布后，仓库维护者还需要确认两个仓库均为公开可读。
 
 如果镜像尚未公开、工作流尚未完成，或者希望确保运行的就是当前 checkout，可使用仓库提供的源码构建覆盖文件：
 
