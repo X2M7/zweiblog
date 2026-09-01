@@ -57,6 +57,10 @@ const SAFE_PRESENTATION_DECLARATION = [
   String.raw`flex-wrap\s*:\s*(?:nowrap|wrap|wrap-reverse)`,
   String.raw`justify-content\s*:\s*(?:start|end|center|space-between|space-around|space-evenly)`,
   String.raw`align-items\s*:\s*(?:start|end|center|stretch|baseline)`,
+  // Diagram authors commonly rotate a short arrow between display equations.
+  // Limit this to quarter turns so articles cannot use scale, translate,
+  // matrix, perspective, or arbitrary rotations to obscure the surrounding UI.
+  String.raw`transform\s*:\s*rotate\(\s*-?(?:0|90|180|270|360)deg\s*\)`,
   String.raw`aspect-ratio\s*:\s*(?:auto|(?:\d+(?:\.\d+)?|\.\d+)(?:\s*\/\s*(?:\d+(?:\.\d+)?|\.\d+))?)`,
 ].join('|');
 const SAFE_PRESENTATION_STYLE = new RegExp(
