@@ -24,6 +24,7 @@ import {
   Language,
   SiteLanguageProvider,
 } from "../utils/siteLanguage";
+import { SiteConfigProvider } from "../utils/siteConfig";
 
 function MyApp({ Component, pageProps }: AppProps) {
   const { current } = useRef({ hasInit: false });
@@ -75,13 +76,15 @@ function MyApp({ Component, pageProps }: AppProps) {
           content="width=device-width, initial-scale=1, user-scalable=no"
         />
       </Head>
-      <SiteLanguageProvider initialLanguage={initialLanguage}>
-        <GlobalContext.Provider
-          value={{ state: globalState, setState: setGlobalState }}
-        >
-          <Component {...pageProps} />
-        </GlobalContext.Provider>
-      </SiteLanguageProvider>
+      <SiteConfigProvider baseUrl={pageProps?.layoutProps?.baseUrl}>
+        <SiteLanguageProvider initialLanguage={initialLanguage}>
+          <GlobalContext.Provider
+            value={{ state: globalState, setState: setGlobalState }}
+          >
+            <Component {...pageProps} />
+          </GlobalContext.Provider>
+        </SiteLanguageProvider>
+      </SiteConfigProvider>
     </>
   );
 }

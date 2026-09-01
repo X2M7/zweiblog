@@ -27,6 +27,10 @@ import {
 import { readSafeImageMetadata } from 'src/utils/imageMetadata';
 import { assertCustomPageTemporaryUpload } from 'src/utils/customPageUpload';
 import { randomUUID } from 'node:crypto';
+import {
+  CUSTOM_PAGE_MAX_PATH_BYTES,
+  CUSTOM_PAGE_MAX_PATH_SEGMENTS,
+} from 'src/utils/customPagePathLimits';
 
 const yazl: any = require('yazl');
 
@@ -36,8 +40,6 @@ const CUSTOM_PAGE_EXPORT_TEMP_PREFIX = 'zweiblog-custom-page-export-';
 const INVALID_ARCHIVE_ENTRY_NAME = /[/\\\u0000-\u001f\u007f]/;
 const MAX_CONCURRENT_CUSTOM_PAGE_EXPORTS = 2;
 const CUSTOM_PAGE_EXPORT_COPY_CHUNK_BYTES = 64 * 1024;
-const MAX_CUSTOM_PAGE_UPLOAD_DEPTH = 64;
-const MAX_CUSTOM_PAGE_UPLOAD_PATH_BYTES = 4096;
 
 export const customPageExportLimits = {
   maxEntries: 10_000,
@@ -83,12 +85,12 @@ function validateCustomPageUploadPath(filePath: string) {
   if (
     typeof filePath !== 'string' ||
     !filePath ||
-    Buffer.byteLength(filePath, 'utf-8') > MAX_CUSTOM_PAGE_UPLOAD_PATH_BYTES
+    Buffer.byteLength(filePath, 'utf-8') > CUSTOM_PAGE_MAX_PATH_BYTES
   ) {
     throw new BadRequestException('Invalid custom page file path');
   }
   const segments = filePath.replace(/\\/g, '/').split('/');
-  if (!segments.length || segments.length > MAX_CUSTOM_PAGE_UPLOAD_DEPTH) {
+  if (!segments.length || segments.length > CUSTOM_PAGE_MAX_PATH_SEGMENTS) {
     throw new BadRequestException('Invalid custom page file path');
   }
   for (const segment of segments) {

@@ -102,6 +102,7 @@ NestJS API ──→ MongoDB 8.0（仅 Docker 内部网络）
 | 默认编排 | [`docker-compose/docker-compose.yml`](./docker-compose/docker-compose.yml) |
 | 部署变量模板 | [`docker-compose/.env.example`](./docker-compose/.env.example) |
 | 源码构建覆盖文件 | [`docker-compose/docker-compose.build.yml`](./docker-compose/docker-compose.build.yml) |
+| 可选本地 LaTeX 渲染 | [`docker-compose/docker-compose.upmath.yml`](./docker-compose/docker-compose.upmath.yml) / [部署说明](./docs/advanced/local-latex.md) |
 | Nginx/Caddy 反代示例 | [`docker-compose/reverse-proxy/`](./docker-compose/reverse-proxy/) |
 | Caddy 路由模板 | [`caddyTemplate.json`](./caddyTemplate.json) |
 | MongoDB 用户初始化 | [`docker-compose/mongo-init.js`](./docker-compose/mongo-init.js) |

@@ -9,24 +9,24 @@ type HastNode = {
   children?: HastNode[];
 };
 
-function removeInvalidIframes(node: HastNode) {
+function removeInvalidIframes(node: HastNode, siteBaseUrl?: string) {
   if (!Array.isArray(node.children)) return;
   node.children = node.children.filter((child) => {
     if (child.type !== 'element' || child.tagName !== 'iframe') return true;
-    const properties = sanitizeCustomPageIframeProperties(child.properties);
+    const properties = sanitizeCustomPageIframeProperties(child.properties, siteBaseUrl);
     if (!properties) return false;
     child.properties = properties;
     return true;
   });
-  for (const child of node.children) removeInvalidIframes(child);
+  for (const child of node.children) removeInvalidIframes(child, siteBaseUrl);
 }
 
 /** Final defense after ByteMD sanitization and all editor preview plugins. */
-export function safeCustomPageIframe(): BytemdPlugin {
+export function safeCustomPageIframe(siteBaseUrl?: string): BytemdPlugin {
   return {
     rehype: (processor) =>
       processor.use(() => (tree: HastNode) => {
-        removeInvalidIframes(tree);
+        removeInvalidIframes(tree, siteBaseUrl);
       }),
   };
 }

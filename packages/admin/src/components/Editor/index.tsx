@@ -37,6 +37,7 @@ export default function EditorComponent(props: {
   const { loading, setLoading } = props;
   const { initialState } = useModel('@@initialState');
   const navTheme = initialState.settings.navTheme;
+  const siteBaseUrl = initialState?.baseUrl || '';
   const themeClass = navTheme.toLowerCase().includes('dark') ? 'dark' : 'light';
   const plugins = useMemo(() => {
     return [
@@ -54,9 +55,9 @@ export default function EditorComponent(props: {
       Heading(),
       customCodeBlock(),
       LinkTarget(),
-      safeCustomPageIframe(),
+      safeCustomPageIframe(siteBaseUrl),
     ];
-  }, []);
+  }, [siteBaseUrl]);
 
   return (
     <div style={{ height: '100%' }} className={themeClass}>
@@ -66,7 +67,7 @@ export default function EditorComponent(props: {
           plugins={plugins}
           onChange={props.onChange}
           locale={cn}
-          sanitize={sanitizeMarkdownSchema}
+          sanitize={(schema) => sanitizeMarkdownSchema(schema, siteBaseUrl)}
           uploadImages={async (files: File[]) => {
             setLoading(true);
             const res = [];

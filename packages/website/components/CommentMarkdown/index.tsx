@@ -8,7 +8,20 @@ import { sanitizeMarkdownSchema } from '../Markdown/sanitizeSchema';
 
 // Comments intentionally use a smaller plugin surface than articles. In
 // particular, untrusted comments cannot invoke Mermaid's diagram runtime.
-const plugins = [gfm(), highlight(), math()];
+const plugins = [
+  gfm(),
+  highlight(),
+  math({
+    katexOptions: {
+      // Comments are anonymous input. Keep KaTeX's HTML extensions disabled
+      // and cap user-provided dimensions/macro work so a short formula cannot
+      // create an enormous layout or monopolize the renderer.
+      trust: false,
+      maxSize: 20,
+      maxExpand: 1000,
+    },
+  }),
+];
 const BLOCKED_MEDIA_TAGS = new Set(['audio', 'iframe', 'picture', 'source', 'video']);
 
 export function sanitizeCommentMarkdownSchema(schema: any) {

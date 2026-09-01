@@ -9,7 +9,10 @@ import {
   sanitizeCustomHead,
   sanitizeCustomHtml,
 } from '../components/CustomLayout/sanitize';
-import { sanitizeMarkdownSchema } from '../components/Markdown/sanitizeSchema';
+import {
+  normalizeCustomPageIframeSrc,
+  sanitizeMarkdownSchema,
+} from '../components/Markdown/sanitizeSchema';
 import { safeCustomPageIframe } from '../components/Markdown/safeIframe';
 import CommentMarkdown from '../components/CommentMarkdown';
 import { getLayoutProps, type HeadTag } from '../utils/getLayoutProps';
@@ -41,6 +44,25 @@ describe('Markdown sanitization', () => {
     expect(html).not.toContain('<iframe');
     expect(html).not.toMatch(/<div[^>]+class="[^"]*fixed/i);
     expect(html).not.toContain('<style');
+  });
+
+  it('caps anonymous-comment TeX dimensions without breaking normal formulas', () => {
+    const html = renderToStaticMarkup(
+      createElement(CommentMarkdown, {
+        content: [
+          'Normal: $E = mc^2$',
+          'Oversized: $\\rule{999999em}{999999em}$',
+        ].join('\n\n'),
+      }),
+    );
+
+    expect(html).toContain('katex');
+    expect(html).toContain('Normal:');
+    expect(html).toContain('height:20em');
+    expect(html).toContain('border-right-width:20em');
+    expect(html).not.toMatch(
+      /(?:height|border-(?:right|top)-width)\s*:\s*999999em/i,
+    );
   });
 
   it('allows only sandboxed custom-page iframe attributes while removing executable tags', () => {
@@ -111,6 +133,52 @@ describe('Markdown sanitization', () => {
     expect(html).not.toMatch(
       /<script|onerror|javascript:|data:text\/html|evil\.example|\/c\/\.\.|allow-same-origin|allow-top-navigation|clipboard-read/i,
     );
+  });
+
+  it('normalizes configured same-origin absolute /c embeds during SSR', () => {
+    const baseUrl = 'https://xumin.net/blog/';
+    const html = renderToStaticMarkup(
+      createElement(Viewer, {
+        value: [
+          '<iframe src="https://xumin.net/c/latex?formula=x%5E2#preview%20pane"></iframe>',
+          '<iframe src="https://XUMIN.NET:443/c/tools/demo"></iframe>',
+          '<iframe src="https://www.xumin.net/c/latex"></iframe>',
+          '<iframe src="http://xumin.net/c/latex"></iframe>',
+          '<iframe src="//xumin.net/c/latex"></iframe>',
+          '<iframe src="https://xumin.net/c/../admin"></iframe>',
+          '<iframe src="https://xumin.net/c/%2e%2e/admin"></iframe>',
+          '<iframe src="https://xumin.net.evil.example/c/latex"></iframe>',
+        ].join('\n'),
+        plugins: [safeCustomPageIframe(baseUrl)],
+        remarkRehype: { allowDangerousHtml: true },
+        sanitize: (schema) => sanitizeMarkdownSchema(schema, baseUrl),
+      }),
+    );
+
+    expect(html).toContain('src="/c/latex?formula=x%5E2#preview%20pane"');
+    expect(html).toContain('src="/c/tools/demo"');
+    expect((html.match(/<iframe/g) || []).length).toBe(2);
+    expect(html).not.toMatch(/www\.xumin|http:\/\/xumin|%2e|\.evil\.example|\/c\/\.\./i);
+  });
+
+  it('normalizes only root-safe URLs from the configured site origin', () => {
+    const baseUrl = 'https://xumin.net:443/some/base/path';
+
+    expect(normalizeCustomPageIframeSrc('/c/latex', baseUrl)).toBe('/c/latex');
+    expect(
+      normalizeCustomPageIframeSrc('https://xumin.net/c/latex?q=x%5E2#preview', baseUrl),
+    ).toBe('/c/latex?q=x%5E2#preview');
+    expect(normalizeCustomPageIframeSrc('HTTPS://XUMIN.NET:443/c/latex', baseUrl)).toBe(
+      '/c/latex',
+    );
+    expect(normalizeCustomPageIframeSrc('//xumin.net/c/latex', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://evil.example/c/latex', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('http://xumin.net/c/latex', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://xumin.net/c/../admin', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://xumin.net/c/%2e%2e/admin', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://xumin.net/c/%2Fadmin', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://xumin.net/c\\latex', baseUrl)).toBeNull();
+    expect(normalizeCustomPageIframeSrc('https://xumin.net/c/latex', '')).toBeNull();
   });
 });
 
@@ -213,6 +281,7 @@ describe('runtime compatibility controls', () => {
     try {
       for (const key of keys) delete process.env[key];
       expect(getLayoutProps(data).allowTrustedCustomCode).toBe(false);
+      expect(getLayoutProps(data).baseUrl).toBe('');
 
       process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE = 'TRUE';
       expect(getLayoutProps(data).allowTrustedCustomCode).toBe(false);

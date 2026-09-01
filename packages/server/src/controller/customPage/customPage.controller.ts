@@ -1,48 +1,17 @@
 import { Controller, Get, HttpException, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { config } from 'src/config';
 import { CustomPageProvider } from 'src/provider/customPage/customPage.provider';
 import { normalizeManagedPath, resolvePathWithinRoot } from 'src/utils/safePath';
-
-const CUSTOM_PAGE_SANDBOX_TOKENS = [
-  'allow-scripts',
-  'allow-forms',
-  'allow-modals',
-  'allow-popups',
-  'allow-popups-to-escape-sandbox',
-  'allow-downloads',
-];
-
-function getCustomPageCsp(sandboxMode: unknown) {
-  const sandboxTokens = [...CUSTOM_PAGE_SANDBOX_TOKENS];
-  if (sandboxMode === 'trusted') sandboxTokens.push('allow-same-origin');
-  return [
-    `sandbox ${sandboxTokens.join(' ')}`,
-    "default-src 'self' https: http: data: blob:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: blob:",
-    "style-src 'self' 'unsafe-inline' https: http:",
-    "img-src 'self' https: http: data: blob:",
-    "connect-src 'self' https: http: wss: ws:",
-    "object-src 'none'",
-    "base-uri 'self' https: http:",
-    "frame-ancestors 'self'",
-  ].join('; ');
-}
-
-function setCustomPageSecurityHeaders(res: Response, sandboxMode: unknown) {
-  // Isolated pages intentionally receive an opaque origin. A trusted page can
-  // opt into same-origin compatibility, but all other sandbox restrictions
-  // (including the top-navigation restriction) remain enforced by the header.
-  res.setHeader('Content-Security-Policy', getCustomPageCsp(sandboxMode));
-  res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  // Custom-page project files are public assets. This lets isolated pages
-  // load same-project ES modules even though their sandboxed origin is opaque.
-  res.setHeader('Access-Control-Allow-Origin', '*');
-}
+import {
+  CUSTOM_PAGE_MAX_PATH_BYTES,
+  CUSTOM_PAGE_MAX_PATH_SEGMENTS,
+  getDirectoryRedirectLocation,
+  resolveCustomPageFileRequest,
+} from './customPageRouting';
+import { setCustomPageSecurityHeaders } from './customPageSecurity';
 
 @ApiTags('c')
 @Controller('c')
@@ -58,15 +27,18 @@ export class PublicCustomPageController {
       throw new HttpException('Invalid path', 400);
     }
 
-    if (!requestPath || requestPath.length > 1024) {
+    if (!requestPath) {
       throw new HttpException('Not found', 404);
+    }
+    if (Buffer.byteLength(requestPath, 'utf8') > CUSTOM_PAGE_MAX_PATH_BYTES) {
+      throw new HttpException('Invalid path', 400);
     }
 
     const customPageRoot = path.join(config.staticPath, 'customPage');
     // Perform containment validation before using the path for DB or file lookups.
     resolvePathWithinRoot(customPageRoot, requestPath);
     const requestSegments = requestPath.replace(/\\/g, '/').split('/').filter(Boolean);
-    if (requestSegments.length > 32) {
+    if (requestSegments.length > CUSTOM_PAGE_MAX_PATH_SEGMENTS) {
       throw new HttpException('Invalid path', 400);
     }
 
@@ -98,23 +70,29 @@ export class PublicCustomPageController {
 
     if (currentPage.type === 'folder') {
       const pageRoot = resolvePathWithinRoot(customPageRoot, currentPage.path);
-      let relativeFilePath = remainingSegments.join('/');
-      let absolutePath = resolvePathWithinRoot(pageRoot, relativeFilePath);
+      // The response varies only when a missing extensionless path is eligible
+      // for the HTML SPA fallback. Declaring it for all project files also
+      // prevents a cached 404 from hiding a later browser navigation response.
+      res.vary('Accept');
+      const resolution = resolveCustomPageFileRequest({
+        pageRoot,
+        remainingSegments,
+        requestHasTrailingSlash: req.path.endsWith('/'),
+        acceptHeader: req.headers.accept,
+      });
 
-      if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isDirectory()) {
-        if (!req.path.endsWith('/')) {
-          res.redirect(302, `${req.path}/`);
-          return;
-        }
-        relativeFilePath = `${relativeFilePath}/index.html`;
-        absolutePath = resolvePathWithinRoot(pageRoot, relativeFilePath);
+      if (resolution.kind === 'directory-redirect') {
+        res.redirect(302, getDirectoryRedirectLocation(req.path, req.originalUrl));
+        return;
       }
-
-      if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+      if (resolution.kind === 'not-found') {
         throw new HttpException('Not found', 404);
       }
 
-      res.sendFile(absolutePath);
+      // Express derives MIME from the requested file and implements RFC range
+      // responses. Keeping range support explicit is important for local PDFs,
+      // video and audio embedded in custom pages.
+      res.sendFile(resolution.absolutePath, { acceptRanges: true, dotfiles: 'ignore' });
       return;
     }
 

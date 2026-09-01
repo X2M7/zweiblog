@@ -1,5 +1,6 @@
 import CodeEditor from '@/components/CodeEditor';
 import UploadBtn from '@/components/UploadBtn';
+import { useUploadActivityTracker } from '@/components/UploadBtn/uploadActivity';
 import {
   deleteCustomPageFolder,
   deleteCustomPageFile,
@@ -73,6 +74,7 @@ export default function () {
   const [fileActionLoading, setFileActionLoading] = useState(false);
   const [projectExportLoading, setProjectExportLoading] = useState(false);
   const projectExportLock = useRef(false);
+  const fileTreeRequestId = useRef(0);
   const type = history.location.query?.type;
   const path = history.location.query?.path;
   const id = history.location.query?.id;
@@ -200,16 +202,17 @@ export default function () {
       return;
     } else {
       if (isFolder) {
+        const requestId = ++fileTreeRequestId.current;
         setTreeLoading(true);
         try {
           setCurrObj({ name: path });
           const { data } = await getCustomPageFolderTreeByPath(path);
-          if (data) {
+          if (data && requestId === fileTreeRequestId.current) {
             setTreeData(data);
             setExpandedKeys(getCustomPageDirectoryKeys(data));
           }
         } finally {
-          setTreeLoading(false);
+          if (requestId === fileTreeRequestId.current) setTreeLoading(false);
         }
       } else if (type == 'pipeline') {
         if (!id) {
@@ -234,6 +237,9 @@ export default function () {
       }
     }
   }, [id, isFolder, path, type]);
+  const uploadActivity = useUploadActivityTracker(setUploadLoading, () => {
+    void fetchData();
+  });
   const handleSave = async () => {
     if (type == 'file') {
       setEditorLoading(true);
@@ -512,16 +518,15 @@ export default function () {
               },
               {
                 key: 'uploadFile',
+                disabled: fileActionsDisabled,
                 label: (
                   <UploadBtn
                     setLoading={setUploadLoading}
+                    activity={uploadActivity}
                     folder={true}
                     muti={true}
                     customUpload={true}
                     text="上传文件夹"
-                    onFinish={(info) => {
-                      fetchData();
-                    }}
                     url={`/api/admin/customPage/upload?path=${path}`}
                     accept="*"
                     loading={uploadLoading}
@@ -531,18 +536,17 @@ export default function () {
               },
               {
                 key: 'uploadFolder',
+                disabled: fileActionsDisabled,
                 label: (
                   <UploadBtn
                     basePath={pathPrefix}
                     customUpload={true}
                     plainText={true}
                     setLoading={setUploadLoading}
+                    activity={uploadActivity}
                     folder={false}
                     muti={false}
                     text="上传文件"
-                    onFinish={(info) => {
-                      fetchData();
-                    }}
                     url={`/api/admin/customPage/upload?path=${path}`}
                     accept="*"
                     loading={uploadLoading}
@@ -551,13 +555,14 @@ export default function () {
               },
             ]
           : []),
-        ...(type == 'file'
+        ...(['file', 'folder'].includes(String(type))
           ? [
               {
                 key: 'view',
                 label: '查看',
                 onClick: () => {
-                  window.open(`/c${path}`);
+                  const target = `/c${path}${type === 'folder' ? '/' : ''}`;
+                  window.open(target, '_blank', 'noopener,noreferrer');
                 },
               },
             ]

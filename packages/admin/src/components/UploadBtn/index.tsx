@@ -1,6 +1,12 @@
 import { Button, message, Upload } from 'antd';
 import ImgCrop from 'antd-img-crop';
 import { RcFile } from 'antd/lib/upload';
+import { useRef } from 'react';
+import {
+  UploadActivityTracker,
+  trackUploadLifecycle,
+  useUploadActivityTracker,
+} from './uploadActivity';
 import {
   buildUploadUrl,
   fitEntireImageCropProps,
@@ -12,7 +18,9 @@ import {
 export default function (props: {
   setLoading: (loading: boolean) => void;
   text: string;
-  onFinish: Function;
+  onFinish?: Function;
+  onStart?: (file: RcFile) => void;
+  activity?: UploadActivityTracker;
   url: string;
   accept: string;
   muti: boolean;
@@ -23,6 +31,10 @@ export default function (props: {
   loading?: boolean;
   plainText?: boolean;
 }) {
+  const localActivity = useUploadActivityTracker(props.setLoading);
+  const activity = props.activity || localActivity;
+  const activeUploads = useRef(new Map<string, () => void>());
+
   const upload = (file: RcFile, rPath: string) => {
     const formData = new FormData();
     let fileName = rPath || file.name;
@@ -30,7 +42,8 @@ export default function (props: {
       fileName = `${props.basePath}/${file.name}`;
     }
     formData.append('file', file, fileName);
-    props.setLoading(true);
+    const releaseUpload = activity.start();
+    props.onStart?.(file);
     fetch(buildUploadUrl(props.url, fileName), {
       method: 'POST',
       body: formData,
@@ -42,18 +55,19 @@ export default function (props: {
     })
       .then(requireSuccessfulUpload)
       .then((response) => {
-        props?.onFinish(file, file.name, response);
+        props.onFinish?.(file, file.name, response);
       })
       .catch((error) => {
         message.error(getUploadErrorFromUnknown(error, file.name));
       })
       .finally(() => {
-        props.setLoading(false);
+        releaseUpload();
       });
   };
   const Core = (
     <Upload
       showUploadList={false}
+      disabled={props.loading}
       // name="file"
       multiple={props.muti}
       accept={props.accept}
@@ -77,14 +91,21 @@ export default function (props: {
         })(),
       }}
       onChange={(info) => {
-        props?.setLoading(true);
+        if (props.customUpload) return;
+
+        const lifecycle = trackUploadLifecycle(
+          activeUploads.current,
+          activity,
+          info.file,
+          info.file.status,
+        );
+        if (lifecycle === 'started') props.onStart?.(info.file as RcFile);
         if (info.file.status !== 'uploading') {
           // console.log(info.file, info.fileList);
         }
-        if (info.file.status === 'done') {
-          props?.setLoading(false);
+        if (info.file.status === 'done' || info.file.status === 'success') {
           if (isSuccessfulUpload(info.file.response)) {
-            props?.onFinish(info.file);
+            props.onFinish?.(info.file);
           } else {
             message.error(getUploadErrorMessage(info.file.name, 200, info.file.response));
           }
@@ -92,14 +113,13 @@ export default function (props: {
           message.error(
             getUploadErrorMessage(info.file.name, info.file.xhr?.status, info.file.response),
           );
-          props?.setLoading(false);
         }
       }}
     >
       {props.plainText ? (
         props.text
       ) : (
-        <Button type="primary" loading={props.loading}>
+        <Button type="primary" loading={props.loading} disabled={props.loading}>
           {props.text}
         </Button>
       )}

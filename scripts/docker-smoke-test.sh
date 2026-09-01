@@ -2,14 +2,14 @@
 
 set -Eeuo pipefail
 
-script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+script_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly script_dir
-repo_root="$(CDPATH= cd -- "${script_dir}/.." && pwd -P)"
+repo_root="$(CDPATH='' cd -- "${script_dir}/.." && pwd -P)"
 readonly repo_root
 readonly compose_file="${repo_root}/docker-compose/docker-compose.yml"
 readonly smoke_image="${1:-zweiblog:smoke}"
 readonly smoke_http_port="${ZWEIBLOG_SMOKE_HTTP_PORT:-18080}"
-temp_parent="$(CDPATH= cd -- "${RUNNER_TEMP:-/tmp}" && pwd -P)"
+temp_parent="$(CDPATH='' cd -- "${RUNNER_TEMP:-/tmp}" && pwd -P)"
 readonly temp_parent
 temp_root="$(mktemp -d "${temp_parent}/zweiblog-smoke.XXXXXX")"
 readonly temp_root
@@ -205,8 +205,10 @@ done
 readonly external_base="http://127.0.0.1:${smoke_http_port}"
 root_status="$(curl --silent --show-error --output "${temp_root}/root.html" \
   --write-out '%{http_code}' --max-time 20 "${external_base}/")"
-[[ "${root_status}" =~ ^[0-9]{3}$ ]] && ((root_status >= 200 && root_status < 500)) ||
+if [[ ! "${root_status}" =~ ^[0-9]{3}$ ]] ||
+  ((root_status < 200 || root_status >= 500)); then
   fail "bundled Caddy root route returned ${root_status}"
+fi
 
 curl --fail --silent --show-error --max-time 20 \
   "${external_base}/admin/" >"${temp_root}/admin.html"
@@ -286,6 +288,228 @@ node -e \
   "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(value?.statusCode!==200||value?.data?.path!=='/smoke-upload')process.exit(1)" \
   "${temp_root}/custom-page-create.json" || fail 'the smoke custom page could not be created'
 
+# Upload a small but realistic multi-file web project. This catches regressions
+# where the HTML entry point works while its relative script, module, stylesheet,
+# data, or document assets are missing, rewritten, or served with nosniff-
+# incompatible media types.
+readonly web_fixture_root="${temp_root}/custom-page-web-project"
+mkdir -p \
+  "${web_fixture_root}/assets" \
+  "${web_fixture_root}/data" \
+  "${web_fixture_root}/docs"
+node - "${web_fixture_root}" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = process.argv[2];
+
+function createMinimalPdf() {
+  const stream = 'BT\n/F1 18 Tf\n36 72 Td\n(ZweiBlog PDF range smoke) Tj\nET\n';
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(stream, 'latin1')} >>\nstream\n${stream}endstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+  const offsets = [];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf, 'latin1'));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = Buffer.byteLength(pdf, 'latin1');
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'latin1');
+}
+
+const fixtures = new Map([
+  [
+    'index.html',
+    `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>ZweiBlog custom-page smoke</title>
+    <link rel="stylesheet" href="./assets/site.css">
+    <script type="module" src="./assets/app.js"></script>
+  </head>
+  <body>
+    <main id="app">Loading the custom-page smoke fixture...</main>
+    <a id="manual" href="./docs/manual.pdf">PDF manual</a>
+  </body>
+</html>
+`,
+  ],
+  [
+    'assets/app.js',
+    `import { smokeMessage } from './module.js';
+
+const mount = document.querySelector('#app');
+mount.dataset.smokeReady = 'true';
+mount.textContent = smokeMessage;
+fetch('../data/config.json')
+  .then((response) => response.json())
+  .then(({ route }) => { mount.dataset.route = route; });
+`,
+  ],
+  ['assets/module.js', `export const smokeMessage = 'ZweiBlog multi-file HTML is ready';\n`],
+  [
+    'assets/site.css',
+    `:root { color-scheme: light dark; }
+#app[data-smoke-ready="true"] { display: block; }
+`,
+  ],
+  ['data/config.json', `${JSON.stringify({ route: 'relative-assets' })}\n`],
+  ['docs/manual.pdf', createMinimalPdf()],
+]);
+
+for (const [relativePath, content] of fixtures) {
+  fs.writeFileSync(path.join(root, relativePath), content, { mode: 0o600 });
+}
+NODE
+
+upload_custom_page_fixture() {
+  local relative_path="$1"
+  local media_type="$2"
+  local encoded_path response_file returned_path
+  encoded_path="$(node -e \
+    'process.stdout.write(encodeURIComponent(process.argv[1]))' "${relative_path}")"
+  response_file="${temp_root}/custom-upload-${relative_path//\//-}.json"
+  curl --fail --silent --show-error --max-time 60 \
+    --header "token: ${smoke_token}" \
+    --form "file=@${web_fixture_root}/${relative_path};type=${media_type};filename=${relative_path##*/}" \
+    "${external_base}/api/admin/customPage/upload?path=%2Fsmoke-upload&name=${encoded_path}" \
+    >"${response_file}"
+  returned_path="$(node -e \
+    "const fs=require('node:fs'),value=JSON.parse(fs.readFileSync(process.argv[1],'utf8')),src=value?.data?.src;if(value?.statusCode!==200||typeof src!=='string')process.exit(1);process.stdout.write(src)" \
+    "${response_file}")"
+  [[ "${returned_path}" == "/c/smoke-upload/${relative_path}" ]] ||
+    fail "the custom-page fixture upload returned an unexpected path for ${relative_path}"
+}
+
+upload_custom_page_fixture 'index.html' 'text/html'
+upload_custom_page_fixture 'assets/app.js' 'text/javascript'
+upload_custom_page_fixture 'assets/module.js' 'text/javascript'
+upload_custom_page_fixture 'assets/site.css' 'text/css'
+upload_custom_page_fixture 'data/config.json' 'application/json'
+upload_custom_page_fixture 'docs/manual.pdf' 'application/pdf'
+
+entry_redirect_headers="${temp_root}/custom-page-entry-redirect.headers"
+entry_redirect_status="$(curl --silent --show-error --output /dev/null \
+  --dump-header "${entry_redirect_headers}" --write-out '%{http_code}' --max-time 20 \
+  "${external_base}/c/smoke-upload")"
+[[ "${entry_redirect_status}" == '302' ]] ||
+  fail "the extensionless custom-page project route returned ${entry_redirect_status} instead of 302"
+tr -d '\015' <"${entry_redirect_headers}" >"${entry_redirect_headers}.normalized"
+grep -Fxiq 'location: /c/smoke-upload/' "${entry_redirect_headers}.normalized" ||
+  fail 'the custom-page project route did not redirect to its trailing-slash entry point'
+
+assert_custom_page_asset() {
+  local relative_path="$1"
+  local content_type_pattern="$2"
+  local label headers_file normalized_headers downloaded_file source_hash downloaded_hash
+  label="${relative_path//\//-}"
+  headers_file="${temp_root}/custom-page-${label}.headers"
+  normalized_headers="${headers_file}.normalized"
+  downloaded_file="${temp_root}/custom-page-${label}.downloaded"
+
+  curl --fail --silent --show-error --max-time 30 \
+    --header 'Accept-Encoding: identity' \
+    --dump-header "${headers_file}" \
+    --output "${downloaded_file}" \
+    "${external_base}/c/smoke-upload/${relative_path}"
+  tr -d '\015' <"${headers_file}" >"${normalized_headers}"
+  grep -Eiq "^content-type:[[:space:]]*${content_type_pattern}([[:space:]]*;.*)?$" \
+    "${normalized_headers}" ||
+    fail "the custom-page ${relative_path} response has an unexpected Content-Type"
+
+  source_hash="$(openssl dgst -sha256 "${web_fixture_root}/${relative_path}" | awk '{print $NF}')"
+  downloaded_hash="$(openssl dgst -sha256 "${downloaded_file}" | awk '{print $NF}')"
+  [[ "${downloaded_hash}" == "${source_hash}" ]] ||
+    fail "the custom-page ${relative_path} response does not match the uploaded SHA-256"
+}
+
+assert_custom_page_asset 'index.html' 'text/html'
+assert_custom_page_asset 'assets/app.js' '(application|text)/javascript'
+assert_custom_page_asset 'assets/module.js' '(application|text)/javascript'
+assert_custom_page_asset 'assets/site.css' 'text/css'
+assert_custom_page_asset 'data/config.json' 'application/json'
+assert_custom_page_asset 'docs/manual.pdf' 'application/pdf'
+
+# A client-side router refresh should receive the project entry point, while a
+# typo in a concrete asset URL must stay a 404 instead of being disguised as
+# HTML (which browsers report as a misleading module/MIME failure).
+spa_fallback_headers="${temp_root}/custom-page-spa-fallback.headers"
+spa_fallback_body="${temp_root}/custom-page-spa-fallback.body"
+curl --fail --silent --show-error --max-time 30 \
+  --header 'Accept: text/html' \
+  --header 'Accept-Encoding: identity' \
+  --dump-header "${spa_fallback_headers}" \
+  --output "${spa_fallback_body}" \
+  "${external_base}/c/smoke-upload/client/route?marker=${route_marker}"
+tr -d '\015' <"${spa_fallback_headers}" >"${spa_fallback_headers}.normalized"
+grep -Eiq '^content-type:[[:space:]]*text/html([[:space:]]*;.*)?$' \
+  "${spa_fallback_headers}.normalized" ||
+  fail 'the custom-page SPA fallback did not return HTML'
+spa_fallback_hash="$(openssl dgst -sha256 "${spa_fallback_body}" | awk '{print $NF}')"
+index_fixture_hash="$(openssl dgst -sha256 "${web_fixture_root}/index.html" | awk '{print $NF}')"
+[[ "${spa_fallback_hash}" == "${index_fixture_hash}" ]] ||
+  fail 'the custom-page SPA fallback did not return the uploaded index.html'
+
+missing_asset_status="$(curl --silent --show-error --output /dev/null \
+  --write-out '%{http_code}' --max-time 20 \
+  --header 'Accept: text/html' \
+  "${external_base}/c/smoke-upload/assets/missing.js")"
+[[ "${missing_asset_status}" == '404' ]] ||
+  fail "a missing custom-page script returned ${missing_asset_status} instead of 404"
+
+# The browser must be allowed to execute the module graph while the project
+# remains sandboxed, and isolated module requests need CORS because their
+# document origin is opaque.
+custom_html_headers="${temp_root}/custom-page-index.html.headers.normalized"
+grep -Eiq '^content-security-policy:.*sandbox[^;]*allow-scripts' "${custom_html_headers}" ||
+  fail 'the custom-page HTML response does not permit sandboxed scripts'
+grep -Eiq "^content-security-policy:.*script-src[^;]*'self'" "${custom_html_headers}" ||
+  fail 'the custom-page HTML response CSP does not permit project scripts'
+custom_module_headers="${temp_root}/custom-page-assets-module.js.headers.normalized"
+grep -Fxiq 'access-control-allow-origin: *' "${custom_module_headers}" ||
+  fail 'the custom-page ES module response is missing isolated-page CORS'
+grep -Fxiq 'x-content-type-options: nosniff' "${custom_module_headers}" ||
+  fail 'the custom-page ES module response is missing nosniff protection'
+
+# PDF viewers commonly request only part of a document. Verify byte ranges all
+# the way through Caddy and Nest, including Content-Range and payload integrity.
+readonly pdf_range_start=7
+readonly pdf_range_end=47
+pdf_size="$(node -e \
+  "process.stdout.write(String(require('node:fs').statSync(process.argv[1]).size))" \
+  "${web_fixture_root}/docs/manual.pdf")"
+pdf_range_headers="${temp_root}/custom-page-pdf-range.headers"
+pdf_range_body="${temp_root}/custom-page-pdf-range.body"
+pdf_range_status="$(curl --silent --show-error --output "${pdf_range_body}" \
+  --dump-header "${pdf_range_headers}" --write-out '%{http_code}' --max-time 30 \
+  --header 'Accept-Encoding: identity' \
+  --header "Range: bytes=${pdf_range_start}-${pdf_range_end}" \
+  "${external_base}/c/smoke-upload/docs/manual.pdf")"
+[[ "${pdf_range_status}" == '206' ]] ||
+  fail "the custom-page PDF range request returned ${pdf_range_status} instead of 206"
+tr -d '\015' <"${pdf_range_headers}" >"${pdf_range_headers}.normalized"
+grep -Fxiq \
+  "content-range: bytes ${pdf_range_start}-${pdf_range_end}/${pdf_size}" \
+  "${pdf_range_headers}.normalized" ||
+  fail 'the custom-page PDF response has an invalid Content-Range'
+node -e \
+  'const fs=require("node:fs"),[source,target,start,end]=process.argv.slice(1);fs.writeFileSync(target,fs.readFileSync(source).subarray(Number(start),Number(end)+1))' \
+  "${web_fixture_root}/docs/manual.pdf" "${temp_root}/custom-page-pdf-range.expected" \
+  "${pdf_range_start}" "${pdf_range_end}"
+expected_range_hash="$(openssl dgst -sha256 "${temp_root}/custom-page-pdf-range.expected" | awk '{print $NF}')"
+actual_range_hash="$(openssl dgst -sha256 "${pdf_range_body}" | awk '{print $NF}')"
+[[ "${actual_range_hash}" == "${expected_range_hash}" ]] ||
+  fail 'the custom-page PDF range payload does not match the requested bytes'
+
 readonly custom_upload_size=$((11 * 1024 * 1024 + 17))
 readonly custom_upload_file="${temp_root}/large-custom-page-upload.bin"
 node -e \
@@ -363,4 +587,4 @@ if access_log_contains "${smoke_token}"; then
   fail 'Caddy access log leaked a sensitive request token'
 fi
 
-echo 'Docker smoke test passed: health, listeners, Caddy routes, >10 MiB custom-page upload, and access-log redaction.'
+echo 'Docker smoke test passed: health, listeners, Caddy routes, multi-file HTML assets/PDF ranges, >10 MiB custom-page upload, and access-log redaction.'

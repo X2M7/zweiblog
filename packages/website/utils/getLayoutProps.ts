@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { AuthorCardProps } from "../components/AuthorCard";
 import { checkLogin } from "./auth";
 export interface LayoutProps {
+  baseUrl: string;
   description: string;
   descriptionEn?: string;
   ipcNumber: string;
@@ -132,6 +133,7 @@ export function getLayoutProps(data: PublicMetaProp): LayoutProps {
   }
 
   return {
+    baseUrl: siteInfo?.baseUrl || "",
     allowTrustedCustomCode:
       process.env.ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE === "true" ||
       process.env.NEXT_PUBLIC_ZWEI_BLOG_ALLOW_UNSAFE_CUSTOM_CODE === "true",

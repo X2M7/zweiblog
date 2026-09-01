@@ -9,7 +9,11 @@ export interface UploadApiResponse<T = unknown> {
 export const fitEntireImageCropProps = {
   quality: 1,
   fillColor: 'rgba(255,255,255,0)',
-  minZoom: 0.01,
+  // antd-img-crop renders the exported canvas from the selected source
+  // rectangle. Allowing zoom below 1 together with unrestricted positioning
+  // can move that rectangle outside the source image and produce a blank
+  // upload. `contain` already shows the complete source at zoom 1.
+  minZoom: 1,
   maxZoom: 3,
   showReset: true,
   resetText: '重置',
@@ -18,7 +22,7 @@ export const fitEntireImageCropProps = {
   modalCancel: '取消',
   cropperProps: {
     objectFit: 'contain' as const,
-    restrictPosition: false,
+    restrictPosition: true,
   } as NonNullable<ImgCropProps['cropperProps']>,
 };
 

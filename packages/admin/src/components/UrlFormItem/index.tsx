@@ -1,10 +1,15 @@
 import { errorImg } from '@/pages/Static/img';
 import { getImgLink } from '@/pages/Static/img/tools';
 import { ProFormText } from '@ant-design/pro-form';
-import { Image, message } from 'antd';
+import { Image, message, Space } from 'antd';
 import { debounce } from 'lodash';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import UploadBtn from '../UploadBtn';
+import {
+  getUploadKey,
+  shouldApplyUploadResult,
+  useUploadActivityTracker,
+} from '../UploadBtn/uploadActivity';
 
 export default function (props: {
   name: string;
@@ -16,6 +21,9 @@ export default function (props: {
   isFavicon?: boolean;
 }) {
   const [url, setUrl] = useState('');
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const latestUploadKey = useRef<string>();
+  const uploadActivity = useUploadActivityTracker(setUploadLoading);
   const handleOnChange = debounce((ev) => {
     const val = ev?.target?.value;
     if (val && val != url) {
@@ -39,6 +47,33 @@ export default function (props: {
     }
     return r;
   }, [props]);
+  const handleUploadFinish = (info: any) => {
+    if (!shouldApplyUploadResult(latestUploadKey.current, info)) return;
+    if (info?.response?.data?.isNew) {
+      message.success(`${info.name} 上传成功!`);
+    } else {
+      message.warning(`${info.name} 已存在!`);
+    }
+    const src = getImgLink(info?.response?.data?.src);
+    setUrl(src);
+    if (props?.formRef?.setFieldsValue) {
+      const oldVal = props.formRef.getFieldsValue();
+      props?.formRef?.setFieldsValue({
+        ...oldVal,
+        [props.name]: src,
+      });
+    }
+    if (props.formRef?.current?.setFieldsValue) {
+      const oldVal = props.formRef.current.getFieldsValue();
+      props?.formRef?.current.setFieldsValue({
+        ...oldVal,
+        [props.name]: src,
+      });
+    }
+  };
+  const handleUploadStart = (info: any) => {
+    latestUploadKey.current = getUploadKey(info);
+  };
   return (
     <>
       <ProFormText
@@ -63,39 +98,32 @@ export default function (props: {
                 backgroundColor: 'rgba(127, 127, 127, 0.08)',
               }}
             />
-            <div style={{ marginLeft: 10 }}>
+            <Space style={{ marginLeft: 10 }} wrap>
               <UploadBtn
-                setLoading={() => {}}
+                setLoading={setUploadLoading}
+                activity={uploadActivity}
+                loading={uploadLoading}
                 muti={false}
-                crop={true}
-                text="上传图片"
-                onFinish={(info) => {
-                  if (info?.response?.data?.isNew) {
-                    message.success(`${info.name} 上传成功!`);
-                  } else {
-                    message.warning(`${info.name} 已存在!`);
-                  }
-                  const src = getImgLink(info?.response?.data?.src);
-                  setUrl(src);
-                  if (props?.formRef?.setFieldsValue) {
-                    const oldVal = props.formRef.getFieldsValue();
-                    props?.formRef?.setFieldsValue({
-                      ...oldVal,
-                      [props.name]: src,
-                    });
-                  }
-                  if (props.formRef?.current?.setFieldsValue) {
-                    const oldVal = props.formRef.current.getFieldsValue();
-                    props?.formRef?.current.setFieldsValue({
-                      ...oldVal,
-                      [props.name]: src,
-                    });
-                  }
-                }}
+                crop={false}
+                text="上传原图"
+                onStart={handleUploadStart}
+                onFinish={handleUploadFinish}
                 url={dest}
                 accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
               />
-            </div>
+              <UploadBtn
+                setLoading={setUploadLoading}
+                activity={uploadActivity}
+                loading={uploadLoading}
+                muti={false}
+                crop={true}
+                text="裁剪上传"
+                onStart={handleUploadStart}
+                onFinish={handleUploadFinish}
+                url={dest}
+                accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
+              />
+            </Space>
           </div>
         }
         rules={props.required ? [{ required: true, message: '这是必填项' }] : undefined}

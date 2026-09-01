@@ -68,7 +68,12 @@ describe('custom page routes on Express 5', () => {
 
     expect(response.text).toContain('localStorage.setItem');
     expect(response.headers['content-security-policy']).toContain('allow-same-origin');
-    expect(response.headers['content-security-policy']).not.toContain('allow-top-navigation');
+    expect(response.headers['content-security-policy']).toContain(
+      'allow-top-navigation-by-user-activation',
+    );
+    expect(response.headers['content-security-policy']).not.toMatch(
+      /\ballow-top-navigation(?:\s|;)/,
+    );
   });
 
   it('redirects nested legacy paths without losing suffixes', async () => {

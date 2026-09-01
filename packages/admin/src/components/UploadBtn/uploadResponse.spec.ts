@@ -28,11 +28,11 @@ describe('upload response helpers', () => {
     expect(message).toContain('Nginx、CDN 或面板');
   });
 
-  it('lets setting images zoom out and keeps the whole image inside the crop area', () => {
-    expect(fitEntireImageCropProps.minZoom).toBeLessThan(1);
+  it('keeps crop coordinates inside the source image so zooming cannot create a blank file', () => {
+    expect(fitEntireImageCropProps.minZoom).toBe(1);
     expect(fitEntireImageCropProps.cropperProps).toMatchObject({
       objectFit: 'contain',
-      restrictPosition: false,
+      restrictPosition: true,
     });
   });
 });

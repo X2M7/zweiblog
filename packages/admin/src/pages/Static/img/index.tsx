@@ -1,6 +1,7 @@
 import CopyUploadBtn from '@/components/CopyUploadBtn';
 import ObjTable from '@/components/ObjTable';
 import UploadBtn from '@/components/UploadBtn';
+import { useUploadActivityTracker } from '@/components/UploadBtn/uploadActivity';
 import {
   deleteAllIMG,
   deleteImgBySign,
@@ -32,6 +33,7 @@ const ImgPage = () => {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   const [page, setPage] = useTab(1, 'page');
   const [responsive, setResponsive] = useState(false);
@@ -168,6 +170,9 @@ const ImgPage = () => {
       setLoading(false);
     }
   }, [setData, page, pageSize, setTotal, setLoading]);
+  const uploadActivity = useUploadActivityTracker(setUploadLoading, () => {
+    void fetchData();
+  });
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -209,7 +214,9 @@ const ImgPage = () => {
           )}
 
           <CopyUploadBtn
-            setLoading={setLoading}
+            setLoading={setUploadLoading}
+            activity={uploadActivity}
+            loading={uploadLoading}
             onError={() => {
               message.error('剪切板无图片！');
             }}
@@ -221,14 +228,14 @@ const ImgPage = () => {
                 data.isNew ? '剪切板图片上传成功! ' : '剪切板图片已存在! ',
                 false,
               );
-
-              fetchData();
             }}
             url="/api/admin/img/upload?withWaterMark=true"
             accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
           />
           <UploadBtn
-            setLoading={setLoading}
+            setLoading={setUploadLoading}
+            activity={uploadActivity}
+            loading={uploadLoading}
             muti={true}
             text="上传图片"
             onFinish={(info) => {
@@ -238,8 +245,6 @@ const ImgPage = () => {
                 info?.response?.data?.isNew ? `${info.name} 上传成功! ` : `${info.name} 已存在! `,
                 false,
               );
-
-              fetchData();
             }}
             url="/api/admin/img/upload?withWaterMark=true"
             accept=".png,.jpg,.jpeg,.jfif,.webp,.gif"
@@ -288,7 +293,7 @@ const ImgPage = () => {
           setResponsive(offset.width < 601);
         }}
       >
-        <Spin spinning={loading}>
+        <Spin spinning={loading || uploadLoading}>
           {data.length == 0 && (
             <Empty description="暂无图片，快上传呀~" style={{ marginTop: 100 }} />
           )}

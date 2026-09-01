@@ -12,9 +12,11 @@ import { Heading } from './heading';
 import { Img } from './img';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { useSiteLanguage } from '../../utils/siteLanguage';
+import { useSiteConfig } from '../../utils/siteConfig';
 import { safeCustomPageIframe } from './safeIframe';
 export default function ({ content }: { content: string }) {
   const { language } = useSiteLanguage();
+  const { baseUrl } = useSiteConfig();
   const plugins = useMemo(() => [
     gfm(),
     highlight(),
@@ -25,15 +27,15 @@ export default function ({ content }: { content: string }) {
     LinkTarget(language),
     Heading(),
     Img(),
-    safeCustomPageIframe(),
-  ], [language]);
+    safeCustomPageIframe(baseUrl),
+  ], [baseUrl, language]);
   return (
     <div className="markdown-body">
       <Viewer
         value={content}
         plugins={plugins}
         remarkRehype={{ allowDangerousHtml: true }}
-        sanitize={sanitizeMarkdownSchema}
+        sanitize={(schema) => sanitizeMarkdownSchema(schema, baseUrl)}
       />
     </div>
   );
