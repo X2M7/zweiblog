@@ -129,6 +129,7 @@ export default function (props: {
               ipcNumber={props.option.ipcNumber}
               since={props.option.since}
               version={props.option.version}
+              copyrightAggreement={props.option.copyrightAggreement}
               gaBeianLogoUrl={props.option.gaBeianLogoUrl}
               gaBeianNumber={props.option.gaBeianNumber}
               gaBeianUrl={props.option.gaBeianUrl}

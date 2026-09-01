@@ -19,11 +19,22 @@ export function PoweredBy({ version }: { version: string }) {
   );
 }
 
+export function formatFooterCopyright(
+  since: string,
+  copyrightAggreement: string,
+  now = new Date(),
+) {
+  const yearRange = `© ${new Date(since).getFullYear()} - ${now.getFullYear()}`;
+  const agreement = copyrightAggreement?.trim();
+  return agreement ? `${yearRange} ${agreement}` : yearRange;
+}
+
 export default function ({
   ipcHref,
   ipcNumber,
   since,
   version,
+  copyrightAggreement,
   gaBeianLogoUrl,
   gaBeianNumber,
   gaBeianUrl,
@@ -37,6 +48,7 @@ export default function ({
   ipcHref: string;
   since: string;
   version: string;
+  copyrightAggreement: string;
 }) {
   const { t } = useSiteLanguage();
   return (
@@ -77,8 +89,8 @@ export default function ({
         <RunningTime since={since}></RunningTime>
         <PoweredBy version={version} />
 
-        <p className="select-none footer-copy-right">
-          © {new Date(since).getFullYear()} - {new Date().getFullYear()}
+        <p className="select-none break-words px-2 footer-copy-right">
+          {formatFooterCopyright(since, copyrightAggreement)}
         </p>
         <p className="select-none footer-viewer">
           <Viewer></Viewer>

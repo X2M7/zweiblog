@@ -5,7 +5,6 @@ import { AdminGuard } from 'src/provider/auth/auth.guard';
 import { ISRProvider } from 'src/provider/isr/isr.provider';
 import { MetaProvider } from 'src/provider/meta/meta.provider';
 import { config } from 'src/config';
-import { WebsiteProvider } from 'src/provider/website/website.provider';
 import { PipelineProvider } from 'src/provider/pipeline/pipeline.provider';
 import { ApiToken } from 'src/provider/swagger/token';
 @ApiTags('site')
@@ -16,7 +15,6 @@ export class SiteMetaController {
   constructor(
     private readonly metaProvider: MetaProvider,
     private readonly isrProvider: ISRProvider,
-    private readonly websiteProvider: WebsiteProvider,
     private readonly pipelineProvider: PipelineProvider,
   ) {}
 
@@ -40,7 +38,9 @@ export class SiteMetaController {
     const data = await this.metaProvider.updateSiteInfo(updateDto);
     this.pipelineProvider.dispatchEvent('updateSiteInfo', updateDto);
     this.isrProvider.activeAll('更新站点配置触发增量渲染！');
-    this.websiteProvider.restart('更新站点信息');
+    // Site metadata is read again by getStaticProps during ISR. Restarting the
+    // only Next.js process here creates an avoidable upstream outage, so keep
+    // serving the previous page until the refreshed cache is ready.
     return {
       statusCode: 200,
       data,
