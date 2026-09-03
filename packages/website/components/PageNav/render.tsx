@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { CSSProperties } from "react";
+import React, { CSSProperties } from "react";
 import { PageItem } from "./core";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 const commonCls =
-  "inline-flex justify-center items-center   transition-all text-gray-600";
+  "inline-flex justify-center items-center transition-all";
 const btnCls =
-  "bg-white hover:bg-gray-200 dark:hover:bg-dark-hover dark:hover:pg-text-dark-hover";
+  "bg-white text-gray-600 hover:bg-gray-200 dark:bg-dark-1 dark:pg-text-dark dark:hover:bg-dark-hover dark:hover:pg-text-dark-hover";
+const currentBtnCls =
+  "bg-[var(--theme-color)] text-white font-semibold shadow-sm hover:brightness-95 dark:bg-dark-hover dark:pg-text-dark-hover dark:shadow-none";
 const commonStyle: CSSProperties = {
   height: "28px",
   width: "28px",
@@ -17,13 +19,11 @@ const renderLink = (item: PageItem, isCur: boolean, localizedPath: (href: string
     <Link
       href={localizedPath(item.href)}
       key={`LinkItem-${item.page}-${item.type}-${item.href}`}
+      aria-current={isCur ? "page" : undefined}
     >
       <div
         style={commonStyle}
-        className={`${commonCls} ${btnCls}  ${isCur
-          ? "bg-gray-200 dark:bg-dark-hover dark:pg-text-dark-hover"
-          : "dark:bg-dark-1 dark:pg-text-dark "
-          }`}
+        className={`${commonCls} ${isCur ? currentBtnCls : btnCls}`}
       >
         {item.page}
       </div>
