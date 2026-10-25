@@ -1,0 +1,154 @@
+# Prepared recovery workflow; not installed in the repository or triggered.
+# Install only on ci/native-arm64-v1.0.4-recovery, based on the release commit.
+# This workflow never writes release tags, latest, or a GitHub Release.
+name: Build v1.0.4 native ARM64 recovery candidate
+run-name: v1.0.4 native ARM64 candidate from 725c5dd
+
+on:
+  push:
+    branches:
+      - ci/native-arm64-v1.0.4-recovery
+
+concurrency:
+  group: native-arm64-v1.0.4-recovery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/x2m7/zweiblog
+  SOURCE_SHA: 725c5dd3a92586c8dfe87748e8f0df8c9c560173
+  RELEASE_TAG: v1.0.4
+
+jobs:
+  native-arm64:
+    if: github.repository == 'X2M7/zweiblog'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the immutable release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js for release validation and smoke helpers
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify source, tag, version, and native architecture
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(uname -m)" == aarch64 ]]
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
+          [[ "$(git rev-parse "${RELEASE_TAG}^{commit}")" == "$SOURCE_SHA" ]]
+          [[ -z "$(git status --porcelain)" ]]
+          app_version="$(node -e 'const v=require("./scripts/resolve-app-version");process.stdout.write(v.resolveAppVersion(require("./package.json").version,"tag",process.env.RELEASE_TAG))')"
+          [[ "$app_version" == "$RELEASE_TAG" ]]
+          printf 'version=%s\n' "$app_version" >> "$GITHUB_OUTPUT"
+          printf 'Source: %s; release: %s; workflow commit: %s\n' "$SOURCE_SHA" "$RELEASE_TAG" "$GITHUB_SHA"
+
+      - name: Set up native Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push an untagged ARM64 candidate with attestations
+        id: build
+        uses: docker/build-push-action@v6
+        env:
+          BUILDX_GIT_CHECK_DIRTY: "true"
+          BUILDX_GIT_LABELS: "true"
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          tags: ${{ env.IMAGE_NAME }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/X2M7/zweiblog
+            org.opencontainers.image.revision=${{ env.SOURCE_SHA }}
+            org.opencontainers.image.version=${{ env.RELEASE_TAG }}
+            org.opencontainers.image.url=https://github.com/X2M7/zweiblog/tree/${{ env.SOURCE_SHA }}
+          build-args: |
+            ZWEI_BLOG_BUILD_SERVER=http://127.0.0.1:3000
+            ZWEI_BLOG_VERSIONS=${{ steps.source.outputs.version }}
+          cache-from: |
+            type=gha,scope=arm64
+            type=gha,scope=native-arm64-v1.0.4-recovery
+          cache-to: type=gha,mode=max,scope=native-arm64-v1.0.4-recovery
+          provenance: mode=max
+          sbom: true
+
+      - name: Verify the candidate identity and pull its native image
+        env:
+          PLATFORM_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$PLATFORM_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p "$RUNNER_TEMP/arm64-candidate"
+          docker buildx imagetools inspect "$IMAGE_NAME@$PLATFORM_DIGEST" --raw > "$RUNNER_TEMP/arm64-candidate/manifest.json"
+          jq -e '
+            ([.manifests[]? | select(.platform.os == "linux" and .platform.architecture == "arm64")] | length) == 1 and
+            ([.manifests[]? | select(.platform.os == "linux" and .platform.architecture != "arm64")] | length) == 0 and
+            any(.manifests[]?; .annotations["vnd.docker.reference.type"] == "attestation-manifest")
+          ' "$RUNNER_TEMP/arm64-candidate/manifest.json" >/dev/null
+          docker pull --platform linux/arm64 "$IMAGE_NAME@$PLATFORM_DIGEST"
+          docker image inspect "$IMAGE_NAME@$PLATFORM_DIGEST" > "$RUNNER_TEMP/arm64-candidate/image.json"
+          jq -e --arg sha "$SOURCE_SHA" --arg version "$RELEASE_TAG" '
+            .[0].Os == "linux" and .[0].Architecture == "arm64" and
+            .[0].Config.Labels["org.opencontainers.image.revision"] == $sha and
+            .[0].Config.Labels["org.opencontainers.image.version"] == $version and
+            (.[0].Config.Env | index("ZWEI_BLOG_VERSION=" + $version)) != null
+          ' "$RUNNER_TEMP/arm64-candidate/image.json" >/dev/null
+
+      - name: Gate the recovery candidate on a real native Compose deployment
+        timeout-minutes: 10
+        env:
+          PLATFORM_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash scripts/docker-smoke-test.sh "$IMAGE_NAME@$PLATFORM_DIGEST" 2>&1 | tee "$RUNNER_TEMP/arm64-candidate/smoke.log"
+
+      - name: Record the successful candidate without publishing aliases
+        env:
+          PLATFORM_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf '%s\n' "$PLATFORM_DIGEST" > "$RUNNER_TEMP/arm64-candidate/digest.txt"
+          jq -n \
+            --arg image "$IMAGE_NAME" --arg digest "$PLATFORM_DIGEST" \
+            --arg source "$SOURCE_SHA" --arg version "$RELEASE_TAG" \
+            --arg workflowCommit "$GITHUB_SHA" --arg workflowRef "$GITHUB_WORKFLOW_REF" \
+            --arg runUrl "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{image:$image,digest:$digest,sourceRevision:$source,version:$version,platform:"linux/arm64",nativeComposeSmokePassed:true,workflowCommit:$workflowCommit,workflowRef:$workflowRef,runUrl:$runUrl,formalTagsPublished:false}' \
+            > "$RUNNER_TEMP/arm64-candidate/result.json"
+          printf 'Native ARM64 candidate passed: %s@%s\n' "$IMAGE_NAME" "$PLATFORM_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the smoke-tested candidate identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-arm64-v1.0.4-${{ github.run_id }}
+          path: ${{ runner.temp }}/arm64-candidate/
+          if-no-files-found: error
+          retention-days: 7
