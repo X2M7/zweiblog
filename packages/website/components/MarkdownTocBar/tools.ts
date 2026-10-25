@@ -104,7 +104,9 @@ const trimArrZero = (arr: any) => {
 };
 export const getEl = (item: NavItem, all: NavItem[]) => {
   const tagName = `h${item.level}`;
-  const els = document.querySelectorAll(`${tagName}[data-id="${item.text}"]`);
+  // Compare text as data, never interpolate an article title into a selector.
+  const els = Array.from(document.querySelectorAll(`${tagName}.markdown-heading`))
+    .filter((el) => el.getAttribute("data-id") === item.text);
   if (els.length > 1) {
     // 相同的规则找 index
     const index = all

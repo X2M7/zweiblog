@@ -16,7 +16,15 @@ import {
   UnsupportedMediaTypeException,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
+import {
+  CommentImageUploadGuard,
+  CommentImageProcessingLease,
+  COMMENT_IMAGE_LEASE,
+  COMMENT_IMAGE_TARGET,
+} from './commentImageUpload.guard';
+import { assertSameOriginCommentRequest } from 'src/utils/commentOrigin';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -59,41 +67,7 @@ export class PublicCommentController {
   }
 
   private assertSameOrigin(request: Request) {
-    if (String(request.headers['sec-fetch-site'] || '').toLocaleLowerCase() === 'cross-site') {
-      throw new ForbiddenException('Cross-site comment changes are not allowed');
-    }
-    let host = request.get('host');
-    const remoteAddress = request.socket?.remoteAddress;
-    const trustProxy = request.app?.get?.('trust proxy fn');
-    // Next's local rewrite changes the upstream Host and preserves the browser
-    // host in X-Forwarded-Host. Honor it only when Express' configured trust
-    // function confirms the immediate peer (Caddy/Next) is trusted.
-    if (remoteAddress && typeof trustProxy === 'function' && trustProxy(remoteAddress, 0)) {
-      const forwardedHost = String(request.headers['x-forwarded-host'] || '')
-        .split(',')[0]
-        .trim();
-      if (forwardedHost) host = forwardedHost;
-    }
-    if (!host) throw new ForbiddenException('A valid request host is required');
-    let expectedOrigin: string;
-    try {
-      if (/[\u0000-\u0020\\/?#@]/u.test(host)) throw new Error('invalid host');
-      expectedOrigin = new URL(`${request.protocol}://${host}`).origin;
-    } catch {
-      throw new ForbiddenException('A valid request host is required');
-    }
-    for (const header of ['origin', 'referer'] as const) {
-      const value = request.headers[header];
-      if (!value) continue;
-      try {
-        if (new URL(String(value)).origin !== expectedOrigin) {
-          throw new ForbiddenException('Cross-site comment changes are not allowed');
-        }
-      } catch (error) {
-        if (error instanceof ForbiddenException) throw error;
-        throw new ForbiddenException('Invalid request origin');
-      }
-    }
+    assertSameOriginCommentRequest(request);
   }
 
   private assertSameOriginJson(request: Request) {
@@ -204,31 +178,38 @@ export class PublicCommentController {
   }
 
   @Post('/image')
+  @UseGuards(CommentImageUploadGuard)
   @UseInterceptors(FileInterceptor('file', commentImageUploadOptions))
   async uploadImage(@UploadedFile() file: Express.Multer.File, @Req() request: Request) {
-    this.assertSameOrigin(request);
-    const ip = this.requestIp(request);
-    await this.assertRateLimit('comment:image:ip-hour', ip, 10, 3_600);
-    await this.assertRateLimit('comment:image:ip-day', ip, 30, 86_400);
-    if (!this.commentImageProvider || !file || !Buffer.isBuffer(file.buffer)) {
-      throw new BadRequestException('请选择一张图片');
+    const lease: CommentImageProcessingLease | undefined = request[COMMENT_IMAGE_LEASE];
+    if (!lease) throw new ForbiddenException('A comment image processing reservation is required');
+    lease.beginProcessing();
+    try {
+      this.assertSameOrigin(request);
+      const target = request[COMMENT_IMAGE_TARGET];
+      if (!target) throw new ForbiddenException('A validated comment upload target is required');
+      if (!this.commentImageProvider || !file || !Buffer.isBuffer(file.buffer)) {
+        throw new BadRequestException('请选择一张图片');
+      }
+      // Re-encoding removes metadata, SVG active content and trailing polyglot
+      // payloads. Animated inputs deliberately become one static first frame so
+      // anonymous uploads cannot expand into an unbounded animation.
+      const { buffer: normalized } = await normalizeImageToWebp(file.buffer, 82);
+      if (normalized.byteLength > 5 * 1024 * 1024) {
+        throw new PayloadTooLargeException('处理后的图片超过 5 MB');
+      }
+      readSafeImageMetadata(normalized);
+      const saved = await this.commentImageProvider.saveNormalizedWebp(normalized, target);
+      return {
+        statusCode: 200,
+        data: {
+          src: saved.src,
+          markdown: `![图片](${saved.src})`,
+        },
+      };
+    } finally {
+      lease.release();
     }
-    // Re-encoding removes metadata, SVG active content and trailing polyglot
-    // payloads. Animated inputs deliberately become one static first frame so
-    // anonymous uploads cannot expand into an unbounded animation.
-    const { buffer: normalized } = await normalizeImageToWebp(file.buffer, 82);
-    if (normalized.byteLength > 5 * 1024 * 1024) {
-      throw new PayloadTooLargeException('处理后的图片超过 5 MB');
-    }
-    readSafeImageMetadata(normalized);
-    const saved = await this.commentImageProvider.saveNormalizedWebp(normalized);
-    return {
-      statusCode: 200,
-      data: {
-        src: saved.src,
-        markdown: `![图片](${saved.src})`,
-      },
-    };
   }
 
   @Post('/:id/like')

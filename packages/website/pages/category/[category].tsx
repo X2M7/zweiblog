@@ -1,11 +1,11 @@
-import { getPublicMeta } from "../../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../../components/AuthorCard";
 import Layout from "../../components/Layout";
 import TimeLineItem from "../../components/TimeLineItem";
 import { Article } from "../../types/article";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getCategoryPagesProps } from "../../utils/getPageProps";
-import { revalidate } from "../../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../../utils/requestPageProps";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 export interface CategoryPagesProps {
   layoutProps: LayoutProps;
@@ -61,25 +61,7 @@ const CategoryPages = (props: CategoryPagesProps) => {
 };
 
 export default CategoryPages;
-export async function getStaticPaths() {
-  const data = await getPublicMeta();
-
-  const paths = data.meta.categories.map((category) => ({
-    params: {
-      category: category,
-    },
-  }));
-
-  return {
-    paths,
-    fallback: "blocking",
-  };
-}
-export async function getStaticProps({
-  params,
-}: any): Promise<{ props: CategoryPagesProps; revalidate?: number }> {
-  return {
-    props: await getCategoryPagesProps(params.category),
-    ...revalidate,
-  };
+export async function getServerSideProps({ params, res }: GetServerSidePropsContext): Promise<{ props: CategoryPagesProps }> {
+  preventPageCaching(res);
+  return { props: await getCategoryPagesProps(String(params.category)) };
 }

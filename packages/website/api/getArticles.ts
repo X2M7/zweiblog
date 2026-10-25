@@ -23,7 +23,7 @@ export const getArticlesByOption = async (
   queryString = encodeQuerystring(queryString);
   try {
     const url = `${config.baseUrl}api/public/article?${queryString}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     const { statusCode, data } = await res.json();
     if (statusCode == 233) {
       return { articles: [], total: 0, totalWordCount: 0 };
@@ -44,7 +44,7 @@ export const getArticlesByOption = async (
 export const getArticlesByTimeLine = async () => {
   try {
     const url = `${config.baseUrl}api/public/timeline`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     const { data } = await res.json();
     return data;
   } catch (err) {
@@ -59,7 +59,7 @@ export const getArticlesByTimeLine = async () => {
 export const getArticlesByCategory = async () => {
   try {
     const url = `${config.baseUrl}api/public/category`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     const { data } = await res.json();
     return data;
   } catch (err) {
@@ -74,7 +74,7 @@ export const getArticlesByCategory = async () => {
 export const getArticlesByTag = async (tagName: string) => {
   try {
     const url = `${config.baseUrl}api/public/tag`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     const { data } = await res.json();
     return data;
   } catch (err) {
@@ -88,9 +88,15 @@ export const getArticlesByTag = async (tagName: string) => {
 };
 export const getArticleByIdOrPathname = async (id: string) => {
   try {
-    const url = `${config.baseUrl}api/public/article/${id}`;
-    const res = await fetch(url);
-    const { data } = await res.json();
+    const url = `${config.baseUrl}api/public/article/${encodeURIComponent(id)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const { statusCode, data } = await res.json();
+    if (res.status === 404 || statusCode === 404 || statusCode === 233) {
+      return { article: null };
+    }
+    if (!res.ok || statusCode !== 200 || !data?.article) {
+      throw new Error("Unable to load current article permissions");
+    }
     const { article, pre, next } = data;
     const r: any = { article };
     if (pre) {
@@ -117,8 +123,7 @@ export const getArticleByIdOrPathname = async (id: string) => {
       console.log("无法连接，采用默认值");
       return {};
     } else {
-      // console.log(err);
-      return {};
+      throw err;
     }
   }
 };

@@ -113,6 +113,9 @@ export async function scanImgsOfArticles() {
 export async function exportAllImgs() {
   return request('/api/admin/img/export', {
     method: 'POST',
+    responseType: 'blob',
+    getResponse: true,
+    skipErrorHandler: true,
   });
 }
 

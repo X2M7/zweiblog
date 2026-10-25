@@ -2,9 +2,11 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -18,12 +20,14 @@ import { config } from 'src/config';
 import { checkTrue } from 'src/utils/checkTrue';
 import { ApiToken } from 'src/provider/swagger/token';
 import { imageUploadOptions } from 'src/utils/uploadLimits';
+import type { Response } from 'express';
 
 @ApiTags('img')
 @UseGuards(...AdminGuard)
 @ApiToken
 @Controller('/api/admin/img')
 export class ImgController {
+  private readonly logger = new Logger(ImgController.name);
   constructor(private readonly staticProvider: StaticProvider) {}
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', imageUploadOptions))
@@ -73,12 +77,35 @@ export class ImgController {
     };
   }
   @Post('export')
-  async exportAllImgs() {
-    const res = await this.staticProvider.exportAllImg();
-    return {
-      statusCode: 200,
-      data: res,
+  async exportAllImgs(@Res() res: Response) {
+    const archive = await this.staticProvider.exportAllImg();
+    const cleanup = async () => {
+      try {
+        await archive.cleanup();
+      } catch {
+        this.logger.error('Failed to remove private image export');
+      }
     };
+    // The client may disconnect while the snapshot is still being built.
+    if (res.destroyed) {
+      await cleanup();
+      return;
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.type('application/zip');
+    res.once('close', () => {
+      void cleanup();
+    });
+    try {
+      return res.download(archive.archivePath, 'zweiblog-images.zip', (error) => {
+        void cleanup();
+        if (error && !res.headersSent) res.status(500).end();
+      });
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
   }
   @Delete('/all/delete')
   async deleteALL() {

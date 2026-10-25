@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { ArticleProvider } from '../article/article.provider';
 import { Feed } from 'feed';
@@ -10,40 +10,76 @@ import { MarkdownProvider } from '../markdown/markdown.provider';
 import { washUrl } from 'src/utils/washUrl';
 
 @Injectable()
-export class RssProvider {
+export class RssProvider implements OnModuleInit {
   logger = new Logger(RssProvider.name);
   timer = null;
+  private generation = 0;
+  private maintenanceHolds = 0;
+  private readonly feedFiles = ['feed.json', 'feed.xml', 'atom.xml'];
   constructor(
     private readonly articleProvider: ArticleProvider,
     private readonly metaProvider: MetaProvider,
     private readonly markdownProvider: MarkdownProvider,
   ) {}
 
-  async generateRssFeed(info?: string, delay?: number) {
-    // 生成 RSS 订阅需要遍历全部文章数据，所以防抖时间长一点吧。
+  onModuleInit() {
+    // Previously generated feeds may predate the current privacy policy.
+    // Revoke them before Nest starts listening; failure must abort startup.
+    this.invalidateRssFeed();
+  }
+
+  private removePublishedFeeds() {
+    for (const filename of this.feedFiles) {
+      fs.rmSync(path.join(config.staticPath, 'rss', filename), { force: true });
+    }
+  }
+
+  invalidateRssFeed() {
+    ++this.generation;
     if (this.timer) {
       clearTimeout(this.timer);
+      this.timer = null;
     }
+    this.removePublishedFeeds();
+    return this.generation;
+  }
+
+  pauseRssFeed(): (info?: string) => Promise<void> {
+    this.invalidateRssFeed();
+    ++this.maintenanceHolds;
+    let released = false;
+    return async (info?: string) => {
+      if (released) return;
+      released = true;
+      --this.maintenanceHolds;
+      if (this.maintenanceHolds === 0) await this.generateRssFeed(info);
+    };
+  }
+
+  async generateRssFeed(info?: string, delay?: number) {
+    // Privacy changes revoke existing exports immediately, including during
+    // the debounce period or when the next database lookup fails.
+    const generation = this.invalidateRssFeed();
+    // Maintenance may span several scheduled refreshes. Only the last
+    // release may schedule publication of the resulting database state.
+    if (this.maintenanceHolds > 0) return;
+    // 生成 RSS 订阅需要遍历全部文章数据，所以防抖时间长一点吧。
     this.timer = setTimeout(
       () => {
-        this.generateRssFeedFn(info);
+        this.timer = null;
+        if (generation === this.generation) void this.generateRssFeedFn(info);
       },
       delay || 3 * 60 * 1000,
     );
   }
 
   async generateRssFeedFn(info?: string) {
+    if (this.maintenanceHolds > 0) return;
+    const generation = ++this.generation;
     this.logger.log(info + '重新生成 RSS 订阅');
     try {
-      let articles = await this.articleProvider.getAll('public', false, false);
-      articles = articles.map((a: any) => {
-        const article = a?._doc || a;
-        if (article.private) {
-          return { ...article, content: '此文章已加密' };
-        } else {
-          return article;
-        }
-      });
+      this.removePublishedFeeds();
+      const articles = await this.articleProvider.getAllForPublicFeed();
       const meta = await this.metaProvider.getAll();
       const email = process.env.EMAIL;
       const author = {
@@ -81,6 +117,7 @@ export class RssProvider {
         author,
       });
       for (const article of articles) {
+        const content = article.private ? '此文章已加密' : article.content || '';
         const url = `${siteUrl}post/${article.pathname || article.id}`;
         const category = {
           name: article.category,
@@ -91,7 +128,7 @@ export class RssProvider {
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.5.1/katex.min.css">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.6.0/build/styles/default.min.css">
       ${this.markdownProvider
-        .renderMarkdown(article.content)
+        .renderMarkdown(content)
         .replace(
           /<div class="mermaid">/g,
           `<div class="mermaid" style="background: #f3f3f3; padding: 8px;"> <p>Mermaid 图表 RSS 暂无法显示，具体请查看原文</p>`,
@@ -101,7 +138,7 @@ export class RssProvider {
           id: url,
           link: url,
           description: this.markdownProvider.renderMarkdown(
-            this.markdownProvider.getDescription(article.content),
+            this.markdownProvider.getDescription(content),
           ),
           category: [category],
           content: html,
@@ -113,11 +150,15 @@ export class RssProvider {
       }
       const rssPath = path.join(config.staticPath, 'rss');
 
+      // A newer mutation may have revoked this snapshot while the queries
+      // above were pending. Never republish it over the newer generation.
+      if (generation !== this.generation) return;
       fs.mkdirSync(rssPath, { recursive: true });
       fs.writeFileSync(path.join(rssPath, 'feed.json'), feed.json1());
       fs.writeFileSync(path.join(rssPath, 'feed.xml'), feed.rss2());
       fs.writeFileSync(path.join(rssPath, 'atom.xml'), feed.atom1());
     } catch (err) {
+      if (generation === this.generation) this.removePublishedFeeds();
       this.logger.error('生成订阅源失败！');
       this.logger.error(JSON.stringify(err, null, 2));
     }

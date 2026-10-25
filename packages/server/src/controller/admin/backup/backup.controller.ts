@@ -31,6 +31,7 @@ import { ApiToken } from 'src/provider/swagger/token';
 import { assertBackupFileSize, backupUploadOptions } from 'src/utils/uploadLimits';
 import { CommentProvider } from 'src/provider/comment/comment.provider';
 import { CommentMaintenanceProvider } from 'src/provider/comment/commentMaintenance.provider';
+import { RssProvider } from 'src/provider/rss/rss.provider';
 
 @ApiTags('backup')
 @UseGuards(...AdminGuard)
@@ -51,6 +52,7 @@ export class BackupController {
     private readonly staticProvider: StaticProvider,
     private readonly commentProvider: CommentProvider,
     private readonly commentMaintenanceProvider: CommentMaintenanceProvider,
+    private readonly rssProvider: RssProvider,
   ) {}
 
   @Get('export')
@@ -168,49 +170,56 @@ export class BackupController {
     }
     delete meta._id;
 
-    await this.commentProvider.importMigrationTombstonesFromBackup(commentMigrationTombstones);
-    await this.categoryProvider.importFromBackup(categories);
-    await this.articleProvider.importArticles(articles);
-    await this.tagProvider.importFromBackup(tagDetails ?? tags);
-    const commentImport = (await this.commentProvider.importFromBackup(commentsForImport)) || {
-      imported: 0,
-      skipped: 0,
-    };
-    await this.draftProvider.importDrafts(drafts);
-    await this.userProvider.importFromBackup(user);
-    await this.metaProvider.update(meta);
-    await this.settingProvider.importSetting(setting);
-    await this.staticProvider.importItems(staticItems);
-    if (visit) {
-      await this.visitProvider.import(visit);
-    }
-    if (viewer) {
-      await this.viewerProvider.import(viewer);
-    }
-    return {
-      statusCode: 200,
-      data: {
-        message: '备份导入完成',
-        processed: {
-          categories: Array.isArray(categories) ? categories.length : 0,
-          articles: Array.isArray(articles) ? articles.length : 0,
-          drafts: Array.isArray(drafts) ? drafts.length : 0,
-          staticItems: Array.isArray(staticItems) ? staticItems.length : 0,
-          comments: Array.isArray(comments) ? comments.length : 0,
-          visits: Array.isArray(visit) ? visit.length : 0,
-          viewers: Array.isArray(viewer) ? viewer.length : 0,
-          administrator: user ? 1 : 0,
-          metadata: meta ? 1 : 0,
-          settings: setting ? 1 : 0,
+    // A restore can change privacy even if a later import step fails. Revoke
+    // old feeds before the first write and rebuild only after writes finish.
+    const resumeRssFeed = this.rssProvider.pauseRssFeed();
+    try {
+      await this.commentProvider.importMigrationTombstonesFromBackup(commentMigrationTombstones);
+      await this.categoryProvider.importFromBackup(categories);
+      await this.articleProvider.importArticles(articles);
+      await this.tagProvider.importFromBackup(tagDetails ?? tags);
+      const commentImport = (await this.commentProvider.importFromBackup(commentsForImport)) || {
+        imported: 0,
+        skipped: 0,
+      };
+      await this.draftProvider.importDrafts(drafts);
+      await this.userProvider.importFromBackup(user);
+      await this.metaProvider.update(meta);
+      await this.settingProvider.importSetting(setting);
+      await this.staticProvider.importItems(staticItems);
+      if (visit) {
+        await this.visitProvider.import(visit);
+      }
+      if (viewer) {
+        await this.viewerProvider.import(viewer);
+      }
+      return {
+        statusCode: 200,
+        data: {
+          message: '备份导入完成',
+          processed: {
+            categories: Array.isArray(categories) ? categories.length : 0,
+            articles: Array.isArray(articles) ? articles.length : 0,
+            drafts: Array.isArray(drafts) ? drafts.length : 0,
+            staticItems: Array.isArray(staticItems) ? staticItems.length : 0,
+            comments: Array.isArray(comments) ? comments.length : 0,
+            visits: Array.isArray(visit) ? visit.length : 0,
+            viewers: Array.isArray(viewer) ? viewer.length : 0,
+            administrator: user ? 1 : 0,
+            metadata: meta ? 1 : 0,
+            settings: setting ? 1 : 0,
+          },
+          comments: {
+            supplied: Array.isArray(comments) ? comments.length : 0,
+            written: Number(commentImport.imported) || 0,
+            skipped:
+              (Number(commentImport.skipped) || 0) + (Number(reconciledComments.suppressed) || 0),
+            quarantined: Number(reconciledArticleTargets.quarantined) || 0,
+          },
         },
-        comments: {
-          supplied: Array.isArray(comments) ? comments.length : 0,
-          written: Number(commentImport.imported) || 0,
-          skipped:
-            (Number(commentImport.skipped) || 0) + (Number(reconciledComments.suppressed) || 0),
-          quarantined: Number(reconciledArticleTargets.quarantined) || 0,
-        },
-      },
-    };
+      };
+    } finally {
+      await resumeRssFeed('备份导入后刷新 RSS');
+    }
   }
 }

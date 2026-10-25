@@ -190,3 +190,36 @@ describe('ArticleProvider content password security', () => {
     expect(articleModel.updateOne).not.toHaveBeenCalled();
   });
 });
+
+describe('resolved password rate-limit identities', () => {
+  it.each(['slug', '%73lug', ' slug ', '7', '007'])(
+    'returns one stable article identity for %s',
+    async (id) => {
+      const { provider, articleModel } = makeProvider();
+      articleModel.findOne.mockReturnValue(
+        queryResult({ _id: 'stable-article', id: 7, pathname: 'slug', category: 'notes' }),
+      );
+      await expect(provider.resolvePasswordTarget(id)).resolves.toMatchObject({
+        identity: 'article:stable-article',
+      });
+    },
+  );
+  it('uses the shared category record identity whenever its password protects the article', async () => {
+    const { provider, articleModel, categoryModel } = makeProvider();
+    articleModel.findOne.mockReturnValue(
+      queryResult({ _id: 'article-7', id: 7, category: 'locked', private: true }),
+    );
+    categoryModel.findOne.mockReturnValue(queryResult({ _id: 'category-2', private: true }));
+    await expect(provider.resolvePasswordTarget('7')).resolves.toMatchObject({
+      identity: 'category:category-2',
+    });
+  });
+});
+
+describe('viewer article lookup', () => {
+  it('returns null for missing nonnumeric slugs without a Mongo numeric cast failure', async () => {
+    const { provider, articleModel } = makeProvider();
+    await expect(provider.getViewerTarget('not-real')).resolves.toBeNull();
+    expect(articleModel.findOne).toHaveBeenCalledTimes(1);
+  });
+});

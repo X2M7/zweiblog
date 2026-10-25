@@ -3,7 +3,7 @@ ENV NODE_OPTIONS='--max_old_space_size=4096 --openssl-legacy-provider'
 ENV EEE=production
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
-COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
 COPY ./packages/admin/ ./packages/admin/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -12,13 +12,13 @@ RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/admin...
-RUN pnpm --filter @zweiblog/admin build
+RUN pnpm --filter @zweiblog/admin exec cross-env NODE_OPTIONS='--max-old-space-size=1536 --openssl-legacy-provider' umi build
 
 FROM node:22-alpine AS SERVER_BUILDER
 ENV NODE_OPTIONS=--max_old_space_size=4096
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
-COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
 COPY ./packages/server/ ./packages/server/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -33,7 +33,7 @@ RUN pnpm --filter @zweiblog/server deploy --prod /out/server
 FROM node:22-alpine AS RUNTIME_DEPS_BUILDER
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
-COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
 COPY ./packages/cli/ ./packages/cli/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -47,7 +47,7 @@ RUN pnpm --filter zweiblog-cli deploy --prod /out/cli
 FROM node:22-alpine AS WEBSITE_BUILDER
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
-COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./tsconfig.base.json ./
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./tsconfig.base.json ./
 COPY ./packages/website ./packages/website
 ENV isBuild=t
 ARG ZWEI_BLOG_ALLOW_DOMAINS=""
@@ -63,7 +63,7 @@ RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/theme-default...
-RUN pnpm --filter @zweiblog/theme-default build
+RUN CIRCLE_NODE_TOTAL=2 NODE_OPTIONS=--max-old-space-size=1536 pnpm --filter @zweiblog/theme-default build
 
 FROM node:22-alpine AS RUNNER
 LABEL org.opencontainers.image.source="https://github.com/X2M7/zweiblog" \

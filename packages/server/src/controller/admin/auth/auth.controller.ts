@@ -6,6 +6,7 @@ import {
   Put,
   Body,
   UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
@@ -22,6 +23,8 @@ import { InitProvider } from 'src/provider/init/init.provider';
 import { PipelineProvider } from 'src/provider/pipeline/pipeline.provider';
 import { ApiToken } from 'src/provider/swagger/token';
 import { timingSafeStringEqual } from 'src/utils/crypto';
+import { TokenGuard } from 'src/provider/auth/token.guard';
+import { RateLimitProvider } from 'src/provider/rateLimit/rateLimit.provider';
 
 @ApiTags('tag')
 @Controller('/api/admin/auth/')
@@ -35,6 +38,7 @@ export class AuthController {
     private readonly initProvider: InitProvider,
     private readonly pipelineProvider: PipelineProvider,
     private readonly loginGuard: LoginGuard,
+    private readonly rateLimitProvider: RateLimitProvider,
   ) {}
 
   @UseGuards(LoginGuard, AuthGuard('local'))
@@ -58,17 +62,26 @@ export class AuthController {
     };
   }
 
+  @UseGuards(AuthGuard('jwt'), TokenGuard)
   @Post('/logout')
   async logout(@Request() request: any) {
     const token = request.headers['token'];
-    if (!token) {
+    if (typeof token !== 'string' || !token) {
       throw new UnauthorizedException({
         statusCode: 401,
         message: '无登录凭证！',
       });
     }
-    void this.pipelineProvider.dispatchEvent('logout', {});
-    await this.tokenProvider.disableToken(token);
+    const limit = await this.rateLimitProvider.consume('logout', String(request.user.id), 30, 60);
+    if (!limit.allowed) {
+      throw new HttpException({ statusCode: 429, retryAfter: limit.retryAfterSeconds }, 429);
+    }
+    const result = await this.tokenProvider.disableToken(token);
+    // Concurrent requests may both pass the guards. Only the request that
+    // actually revokes the session is allowed to dispatch the event.
+    if ((result?.modifiedCount ?? 0) > 0) {
+      void this.pipelineProvider.dispatchEvent('logout', {});
+    }
     return {
       statusCode: 200,
       data: '登出成功！',

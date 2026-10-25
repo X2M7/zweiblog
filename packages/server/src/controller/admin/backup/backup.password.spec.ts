@@ -62,6 +62,8 @@ const makeController = () => {
   const maintenance: any = {
     withExclusive: jest.fn((_operation, action) => action({ assertOwned: jest.fn() })),
   };
+  const resumeRssFeed = jest.fn().mockResolvedValue(undefined);
+  const rss: any = { pauseRssFeed: jest.fn(() => resumeRssFeed), resumeRssFeed };
   const controller = new BackupController(
     article,
     category,
@@ -75,8 +77,9 @@ const makeController = () => {
     staticProvider,
     comment,
     maintenance,
+    rss,
   );
-  return { controller, article, category, tag, comment };
+  return { controller, article, category, tag, comment, rss };
 };
 
 describe('backup password round trip', () => {
@@ -161,7 +164,7 @@ describe('backup password round trip', () => {
   });
 
   it('rejects invalid comments before importing any other backup section', async () => {
-    const { controller, article, category, comment } = makeController();
+    const { controller, article, category, comment, rss } = makeController();
     comment.validateBackup.mockImplementation(() => {
       throw new BadRequestException('invalid comments');
     });
@@ -185,5 +188,49 @@ describe('backup password round trip', () => {
     expect(category.importFromBackup).not.toHaveBeenCalled();
     expect(article.importArticles).not.toHaveBeenCalled();
     expect(comment.importFromBackup).not.toHaveBeenCalled();
+    expect(rss.pauseRssFeed).not.toHaveBeenCalled();
+    expect(rss.resumeRssFeed).not.toHaveBeenCalled();
+  });
+
+  it('revokes RSS before backup writes and rebuilds only after an in-flight import finishes', async () => {
+    const { controller, category, comment, rss } = makeController();
+    let started: () => void;
+    let finish: () => void;
+    const categoryStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    category.importFromBackup.mockImplementation(() => {
+      started();
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    const pending = controller.importAll({
+      buffer: Buffer.from(JSON.stringify({ articles: [], meta: {}, comments: [] })),
+    } as any);
+    await categoryStarted;
+
+    expect(rss.pauseRssFeed.mock.invocationCallOrder[0]).toBeLessThan(
+      comment.importMigrationTombstonesFromBackup.mock.invocationCallOrder[0],
+    );
+    expect(rss.resumeRssFeed).not.toHaveBeenCalled();
+    finish();
+    await pending;
+    expect(rss.resumeRssFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes RSS even when backup import fails after changing category privacy', async () => {
+    const { controller, article, category, rss } = makeController();
+    article.importArticles.mockRejectedValue(new Error('article import failed'));
+
+    await expect(
+      controller.importAll({
+        buffer: Buffer.from(JSON.stringify({ articles: [], meta: {}, comments: [] })),
+      } as any),
+    ).rejects.toThrow('article import failed');
+
+    expect(category.importFromBackup).toHaveBeenCalledTimes(1);
+    expect(rss.pauseRssFeed).toHaveBeenCalledTimes(1);
+    expect(rss.resumeRssFeed).toHaveBeenCalledTimes(1);
   });
 });

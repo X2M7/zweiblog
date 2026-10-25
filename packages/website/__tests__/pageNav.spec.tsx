@@ -16,7 +16,7 @@ describe("page navigation presentation", () => {
       />,
     );
 
-    const links = [...html.matchAll(/<a[^>]*>[\s\S]*?<\/a>/g)].map(
+    const links = Array.from(html.matchAll(/<a[^>]*>[\s\S]*?<\/a>/g)).map(
       ([link]) => link,
     );
     const currentLink = links.find((link) =>

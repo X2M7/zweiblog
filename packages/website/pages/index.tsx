@@ -5,7 +5,8 @@ import PostCard from "../components/PostCard";
 import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getIndexPageProps } from "../utils/getPageProps";
-import { revalidate } from "../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../utils/requestPageProps";
 import Comments from "../components/Comments";
 import Head from "next/head";
 import { getArticlesKeyWord } from "../utils/keywords";
@@ -84,12 +85,7 @@ const Home = (props: IndexPageProps) => {
 };
 
 export default Home;
-export async function getStaticProps(): Promise<{
-  props: IndexPageProps;
-  revalidate?: number;
-}> {
-  return {
-    props: await getIndexPageProps(),
-    ...revalidate,
-  };
+export async function getServerSideProps({ res }: GetServerSidePropsContext): Promise<{ props: IndexPageProps }> {
+  preventPageCaching(res);
+  return { props: await getIndexPageProps() };
 }

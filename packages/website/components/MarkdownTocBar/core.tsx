@@ -45,8 +45,9 @@ export default function (props: {
         }
       }
     }
+    if (!top || !topEl) return;
     setCurrIndex(top.index);
-    updateHash(top.text);
+    updateHash(topEl.id);
   }, 100);
 
   
@@ -95,6 +96,7 @@ export default function (props: {
           const el: any = getEl(each, items);
 
           if (el) {
+            updateHash(el.id);
             let to = el.offsetTop - props.headingOffset;
             if (to <= 100) {
               to = 0;

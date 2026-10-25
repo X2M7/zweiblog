@@ -8,7 +8,7 @@ import { customContainer } from './customContainer';
 import 'katex/dist/katex.min.css';
 import { customCodeBlock } from './codeBlock';
 import { LinkTarget } from './linkTarget';
-import { Heading } from './heading';
+import { Heading, useHeadingNamespace } from './heading';
 import { Img } from './img';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { useSiteLanguage } from '../../utils/siteLanguage';
@@ -16,9 +16,10 @@ import { useSiteConfig } from '../../utils/siteConfig';
 import { safeCustomPageIframe } from './safeIframe';
 import { ExternalLatexTheme } from './externalLatex';
 import { katexStrictMode } from './katexOptions';
-export default function ({ content }: { content: string }) {
+export default function ({ content, articleId }: { content: string; articleId?: number }) {
   const { language } = useSiteLanguage();
   const { baseUrl } = useSiteConfig();
+  const headingNamespace = useHeadingNamespace(articleId);
   const plugins = useMemo(() => [
     gfm(),
     highlight(),
@@ -31,11 +32,11 @@ export default function ({ content }: { content: string }) {
     customContainer(language),
     customCodeBlock(language),
     LinkTarget(language),
-    Heading(),
+    Heading(headingNamespace),
     Img(),
     ExternalLatexTheme(),
     safeCustomPageIframe(baseUrl),
-  ], [baseUrl, language]);
+  ], [baseUrl, language, headingNamespace]);
   return (
     <div className="markdown-body">
       <Viewer

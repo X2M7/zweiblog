@@ -14,8 +14,6 @@ import { config } from 'src/config';
 import { formatBytes } from 'src/utils/size';
 import { ImgMeta } from 'src/types/img';
 import { isProd } from 'src/utils/isProd';
-import compressing from 'compressing';
-import dayjs from 'dayjs';
 import { checkOrCreate, checkOrCreateByFilePath } from 'src/utils/checkFolder';
 import { readDirs } from 'src/utils/readFileList';
 import { checkOrCreateFile } from 'src/utils/checkFile';
@@ -333,6 +331,7 @@ async function createCustomPageZip(projectDirectory: string, archivePath: string
 @Injectable()
 export class LocalProvider {
   private activeCustomPageExports = 0;
+  private activeImageExports = 0;
 
   private getStorageRoot(type: StaticType) {
     return path.join(config.staticPath, StoragePath[type] || StoragePath.img);
@@ -391,7 +390,11 @@ export class LocalProvider {
     }
 
     const stagingName = `.${path.basename(destination)}.upload-${randomUUID()}`;
-    const stagingPath = resolvePathWithinRoot(pageRoot, path.dirname(normalizedFilePath), stagingName);
+    const stagingPath = resolvePathWithinRoot(
+      pageRoot,
+      path.dirname(normalizedFilePath),
+      stagingName,
+    );
     await fs.promises.rename(temporary.path, stagingPath);
     try {
       await fs.promises.chmod(stagingPath, 0o600).catch(() => undefined);
@@ -400,7 +403,9 @@ export class LocalProvider {
       } catch (error) {
         // POSIX replaces an existing regular file atomically. Windows may
         // reject that operation, so preserve the old file while replacing it.
-        if (!['EEXIST', 'EPERM', 'ENOTEMPTY'].includes((error as NodeJS.ErrnoException).code || '')) {
+        if (
+          !['EEXIST', 'EPERM', 'ENOTEMPTY'].includes((error as NodeJS.ErrnoException).code || '')
+        ) {
           throw error;
         }
         const backupPath = resolvePathWithinRoot(
@@ -658,38 +663,50 @@ export class LocalProvider {
       console.log('删除实际文件失败：', fileName, '可能是更新版本后没映射静态文件目录导致的');
     }
   }
-  async exportAllImg() {
-    const src = path.join(config.staticPath, 'img');
-    const dst = path.join(
-      config.staticPath,
-      'export',
-      `export-img-${dayjs().format('YYYY-MM-DD')}.zip`,
-    );
-    const dstSrc = `/static/export/export-img-${dayjs().format('YYYY-MM-DD')}.zip`;
-
-    const compressPromise = new Promise((resolve, reject) => {
-      compressing.zip
-        .compressDir(src, dst)
-        .then((v) => {
-          resolve(v);
-        })
-        .catch((e) => {
-          reject(e);
-        });
-    });
+  async exportAllImg(): Promise<CustomPageArchive> {
+    // Hold the slot through download completion, not only ZIP generation.
+    if (this.activeImageExports >= 1) {
+      throw new ConflictException('已有图片导出正在处理，请等待下载完成。');
+    }
+    this.activeImageExports += 1;
+    let exportDirectory: string;
     try {
-      const r = await Promise.all([compressPromise]);
-      console.log(r);
-      return {
-        success: true,
-        path: dstSrc,
-      };
-    } catch (err) {
-      console.log(err);
-      return {
-        success: false,
-        error: err,
-      };
+      exportDirectory = createCustomPageExportTempDirectory();
+    } catch (error) {
+      this.activeImageExports -= 1;
+      throw error;
+    }
+    let cleanupPromise: Promise<void> | undefined;
+    const cleanup = () => {
+      if (!cleanupPromise) {
+        cleanupPromise = removeCustomPageExportTempDirectory(exportDirectory)
+          .then(() => {
+            this.activeImageExports -= 1;
+          })
+          .catch((error) => {
+            cleanupPromise = undefined;
+            throw error;
+          });
+      }
+      return cleanupPromise;
+    };
+    try {
+      const sourceRoot = this.getStorageRoot('img');
+      const snapshot = path.join(exportDirectory, 'img');
+      const archivePath = path.join(exportDirectory, 'images.zip');
+      await fs.promises.mkdir(snapshot, { mode: 0o700 });
+      // The same bounded, link-free snapshot used by custom-page exports:
+      // at most 10,000 entries, 256 MiB per file and 512 MiB in total.
+      await copyCustomPageTreeWithoutLinks(sourceRoot, sourceRoot, snapshot, {
+        entries: 0,
+        files: 0,
+        uncompressedBytes: 0,
+      });
+      await createCustomPageZip(snapshot, archivePath);
+      return { archivePath, cleanup };
+    } catch (error) {
+      await cleanup();
+      throw error;
     }
   }
 }

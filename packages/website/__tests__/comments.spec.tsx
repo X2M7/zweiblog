@@ -128,8 +128,8 @@ describe('local comment API', () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: '{}' });
 
     const file = new File(['image'], 'example.webp', { type: 'image/webp' });
-    await expect(uploadCommentImage(file)).resolves.toBe('/static/comment/example.webp');
-    expect(fetchMock.mock.calls[1][0]).toBe('/api/public/comment/image');
+    await expect(uploadCommentImage(file, '/post/1')).resolves.toBe('/static/comment/example.webp');
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/public/comment/image?path=%2Fpost%2F1');
     expect(fetchMock.mock.calls[1][1]?.body).toBeInstanceOf(FormData);
     expect((fetchMock.mock.calls[1][1]?.body as FormData).get('file')).toMatchObject({
       name: 'example.webp',

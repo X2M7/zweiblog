@@ -1,6 +1,7 @@
 import StaticForm from '@/components/StaticForm';
 import WatchMarkForm from '@/components/WaterMarkForm';
-import { exportAllImgs, scanImgsOfArticles } from '@/services/zwei-blog/api';
+import { scanImgsOfArticles } from '@/services/zwei-blog/api';
+import { downloadImageArchive } from '@/services/zwei-blog/imageExport';
 import { Alert, Button, Card, message, Modal, Table, Typography } from 'antd';
 import { useState } from 'react';
 
@@ -86,13 +87,9 @@ export default function () {
           onClick={async () => {
             setExporting(true);
             try {
-              const { data } = await exportAllImgs();
-              const link = document.createElement('a');
-              link.href = data;
-              link.download = data.split('/').pop();
-              link.click();
-              setExporting(false);
+              await downloadImageArchive();
             } catch (err) {
+              message.error(err?.message || '图片导出失败，请稍后重试。');
             } finally {
               setExporting(false);
             }

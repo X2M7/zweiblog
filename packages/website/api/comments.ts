@@ -186,10 +186,10 @@ export async function likeComment(id: string) {
   );
 }
 
-export async function uploadCommentImage(file: File): Promise<string> {
+export async function uploadCommentImage(file: File, path: string): Promise<string> {
   const form = new FormData();
   form.append("file", file, file.name);
-  const response = await fetch("/api/public/comment/image", {
+  const response = await fetch(`/api/public/comment/image?path=${encodeURIComponent(normalizeCommentPath(path))}`, {
     method: "POST",
     credentials: "same-origin",
     body: form,

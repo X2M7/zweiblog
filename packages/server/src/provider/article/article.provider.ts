@@ -115,7 +115,7 @@ export class ArticleProvider {
       if (decomposedClaim !== claim) namespace.push({ pathname: decomposedClaim });
     }
     const numericPathname = Number(pathname);
-    if (pathname && Number.isFinite(numericPathname)) {
+    if (pathname && Number.isSafeInteger(numericPathname) && numericPathname >= 0) {
       // Article routes resolve pathname before falling back to the numeric id.
       // Prevent a custom pathname from shadowing another article's stable id.
       namespace.push({ id: numericPathname });
@@ -401,35 +401,27 @@ export class ArticleProvider {
     let article = await this.getByPathName(pathname, 'list');
     if (!article) {
       // 这是通过 id 的吧。
-      article = await this.getById(Number(pathname), 'list');
+      const numericId = Number(pathname);
+      article =
+        Number.isSafeInteger(numericId) && numericId >= 0
+          ? await this.getById(numericId, 'list')
+          : null;
       if (!article) {
         return;
       }
     }
-    const oldViewer = article.viewer || 0;
-    const oldVIsited = article.visited || 0;
-    const newViewer = oldViewer + 1;
-    const newVisited = isNew ? oldVIsited + 1 : oldVIsited;
-    const nowTime = new Date();
     await this.articleModel.updateOne(
       { id: article.id },
-      { visited: newVisited, viewer: newViewer, lastVisitedTime: nowTime },
+      { $inc: { viewer: 1, visited: isNew ? 1 : 0 }, $set: { lastVisitedTime: new Date() } },
     );
   }
 
   async updateViewer(id: number, isNew: boolean) {
     const article = await this.getById(id, 'list');
-    if (!article) {
-      return;
-    }
-    const oldViewer = article.viewer || 0;
-    const oldVIsited = article.visited || 0;
-    const newViewer = oldViewer + 1;
-    const newVisited = isNew ? oldVIsited + 1 : oldVIsited;
-    const nowTime = new Date();
+    if (!article) return;
     await this.articleModel.updateOne(
-      { id: id },
-      { visited: newVisited, viewer: newViewer, lastVisitedTime: nowTime },
+      { id: article.id },
+      { $inc: { viewer: 1, visited: isNew ? 1 : 0 }, $set: { lastVisitedTime: new Date() } },
     );
   }
 
@@ -682,6 +674,43 @@ export class ArticleProvider {
       : articles;
   }
 
+  /** Public exports must apply category protection before receiving any body. */
+  async getAllForPublicFeed(): Promise<Record<string, any>[]> {
+    const articles = await this.getAll('public', false, false);
+    const records = articles.map((article) => this.articleRecord(article));
+    const categoryNames = Array.from(
+      new Set(
+        records
+          .map((article) => article.category)
+          .filter((name): name is string => typeof name === 'string' && Boolean(name.trim())),
+      ),
+    );
+    // Query all referenced categories, not just private ones: a missing
+    // category cannot safely establish that its former articles are public.
+    const categories = categoryNames.length
+      ? await this.categoryModal
+          .find({ name: { $in: categoryNames } }, { name: 1, private: 1, _id: 0 })
+          .lean()
+          .exec()
+      : [];
+    const categoriesByName = new Map(categories.map((category) => [category.name, category]));
+
+    return records.map((article) => {
+      // Legacy uncategorized articles remain public. A nonempty reference
+      // must resolve successfully; failures above propagate to the publisher.
+      const hasCategory =
+        typeof article.category === 'string'
+          ? Boolean(article.category.trim())
+          : article.category !== undefined && article.category !== null;
+      const category = categoriesByName.get(article.category);
+      if (article.private || (hasCategory && (!category || category.private))) {
+        return this.protectedPublicArticle(article);
+      }
+      delete article.password;
+      return article;
+    });
+  }
+
   /** Only call from the AdminGuard-protected backup controller. */
   async exportForBackup(): Promise<Article[]> {
     return this.articleModel
@@ -913,13 +942,45 @@ export class ArticleProvider {
     return resData;
   }
 
+  async getViewerTarget(id: number | string) {
+    const byPath = await this.getByPathName(String(id), 'list');
+    const numericId = Number(id);
+    const article =
+      byPath ||
+      (Number.isSafeInteger(numericId) && numericId >= 0
+        ? await this.getById(numericId, 'list')
+        : null);
+    if (!article) return null;
+    if (article.hidden) {
+      const siteInfo = await this.metaProvider.getSiteInfo();
+      if (!siteInfo?.allowOpenHiddenPostByUrl || siteInfo.allowOpenHiddenPostByUrl === 'false') {
+        return null;
+      }
+    }
+    return article;
+  }
+
+  async hasViewerTaxonomy(kind: 'category' | 'tag', name: string) {
+    if (kind === 'category') return Boolean(await this.categoryModal.exists({ name }));
+    return Boolean(
+      await this.articleModel.exists({
+        tags: name,
+        hidden: { $ne: true },
+        deleted: { $ne: true },
+      }),
+    );
+  }
+
   async getByIdOrPathname(id: string | number, view: ArticleView) {
     const articleByPathname = await this.getByPathName(String(id), view);
 
     if (articleByPathname) {
       return articleByPathname;
     }
-    return await this.getById(Number(id), view);
+    const numericId = Number(id);
+    return Number.isSafeInteger(numericId) && numericId >= 0
+      ? await this.getById(numericId, view)
+      : null;
   }
 
   async getByPathName(pathname: string, view: ArticleView): Promise<Article> {
@@ -953,9 +1014,7 @@ export class ArticleProvider {
         view === 'list' ? this.listLookupView : this.getView(view),
       )
       .exec();
-    return view === 'list' && article
-      ? (this.publicListArticle(article) as Article)
-      : article;
+    return view === 'list' && article ? (this.publicListArticle(article) as Article) : article;
   }
 
   async getById(id: number, view: ArticleView): Promise<Article> {
@@ -981,14 +1040,9 @@ export class ArticleProvider {
         view === 'list' ? this.listLookupView : this.getView(view),
       )
       .exec();
-    return view === 'list' && article
-      ? (this.publicListArticle(article) as Article)
-      : article;
+    return view === 'list' && article ? (this.publicListArticle(article) as Article) : article;
   }
-  async getByIdWithPassword(id: number | string, password: string): Promise<any> {
-    if (!isValidContentPasswordLength(password)) {
-      return null;
-    }
+  async resolvePasswordTarget(id: number | string) {
     let pathname: string;
     try {
       pathname = this.normalizeArticlePathname(String(id));
@@ -1007,7 +1061,7 @@ export class ArticleProvider {
     const numericId = Number(id);
     const article: any =
       articleByPathname ||
-      (Number.isFinite(numericId)
+      (Number.isSafeInteger(numericId) && numericId >= 0
         ? await this.articleModel
             .findOne({
               id: numericId,
@@ -1031,6 +1085,24 @@ export class ArticleProvider {
       .findOne({ name: article.category })
       .select('+password')
       .exec();
+    return {
+      article,
+      category,
+      identity: category?.private
+        ? `category:${String(category._id)}`
+        : `article:${String(article._id)}`,
+    };
+  }
+
+  async getByIdWithPassword(
+    id: number | string,
+    password: string,
+    resolvedTarget?: Awaited<ReturnType<ArticleProvider['resolvePasswordTarget']>>,
+  ): Promise<any> {
+    if (!isValidContentPasswordLength(password)) return null;
+    const target = resolvedTarget || (await this.resolvePasswordTarget(id));
+    if (!target) return null;
+    const { article, category } = target;
     const categoryProtectsArticle = Boolean(category?.private);
     const articleProtectsItself = Boolean(article.private);
     const protectedRecord = categoryProtectsArticle

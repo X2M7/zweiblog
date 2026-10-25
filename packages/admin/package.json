@@ -67,7 +67,7 @@
     "js-sha256": "^0.9.0",
     "katex": "^0.18.4",
     "lodash": "^4.18.1",
-    "moment": "^2.29.4",
+    "moment": "^2.31.0",
     "monaco-editor": "^0.34.1",
     "pinyin-match": "^1.2.5",
     "rc-resize-observer": "^1.4.0",

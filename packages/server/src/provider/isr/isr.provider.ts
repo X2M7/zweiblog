@@ -14,6 +14,17 @@ export interface ActiveConfig {
 const BILINGUAL_STATIC_PATH =
   /^\/(?:post\/[^/?#]+|page\/[^/?#]+|category(?:\/[^?#]+)?|tag(?:\/[^?#]+)?|timeline|about|link)\/?$/u;
 
+// These routes now check current article visibility on every request. They
+// have no ISR cache to rebuild, including in delayed update mode.
+export function isRequestRenderedArticlePath(path: string): boolean {
+  return (
+    /^(?:\/|\/en\/?)$/.test(path) ||
+    /^(?:\/en)?\/(?:post\/[^/?#]+|page\/[^/?#]+|category(?:\/[^/?#]+)?|tag\/[^/?#]+|timeline)\/?$/u.test(
+      path,
+    )
+  );
+}
+
 /**
  * English pages are prerendered under an internal `/en` route and reached
  * through middleware rewrites. On-demand ISR therefore has to invalidate
@@ -52,18 +63,12 @@ export class ISRProvider {
     // ! 配置差的机器可能并发多了会卡，所以改成串行的。
 
     await this.activeUrls(this.urlList, false);
-    let postId: any = null;
-    const articleWithThisId = await this.articleProvider.getById(postId, 'list');
-    if (articleWithThisId) {
-      postId = articleWithThisId.pathname || articleWithThisId.id;
-    }
-    await this.activePath('post', postId || undefined);
-    await this.activePath('page');
-    await this.activePath('category');
-    await this.activePath('tag');
     this.logger.log('触发全量渲染完成！');
   }
   async activeAll(info?: string, delay?: number, activeConfig?: ActiveConfig) {
+    // RSS is a public export independent of website ISR. Revoke its old
+    // files now, before either debounce timer can leave private content live.
+    await this.rssProvider.generateRssFeed(info || '', delay);
     if (process.env['ZWEIBLOG_DISABLE_WEBSITE'] === 'true') {
       return;
     }
@@ -71,7 +76,6 @@ export class ISRProvider {
       clearTimeout(this.timer);
     }
     this.timer = setTimeout(() => {
-      this.rssProvider.generateRssFeed(info || '', delay);
       this.sitemapProvider.generateSiteMap(info || '', delay);
       this.activeWithRetry(() => {
         this.activeAllFn(info, activeConfig);
@@ -204,6 +208,7 @@ export class ISRProvider {
   }
 
   async activeUrl(url: string, log: boolean) {
+    if (isRequestRenderedArticlePath(url)) return;
     for (const target of getBilingualRevalidationPaths(url)) {
       try {
         await axios.get(encodeURI(this.base + target));

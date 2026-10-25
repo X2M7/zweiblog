@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { LoginSetting, defaultLoginSetting } from 'src/types/setting.dto';
 import { RateLimitProvider, rateLimitKeyHash } from '../rateLimit/rateLimit.provider';
 import { SettingProvider } from '../setting/setting.provider';
+import { loginCredentials } from './login.credentials';
 
 @Injectable()
 export class LoginGuard implements CanActivate {
@@ -45,32 +46,45 @@ export class LoginGuard implements CanActivate {
     return this.normalizeSetting(await this.settingProvider.getLoginSetting());
   }
 
-  private getIdentity(request: Request) {
+  private getIp(request: Request) {
     // req.ip is derived using the explicit trusted-proxy policy in main.ts.
-    const ip = String(request.ip || request.socket?.remoteAddress || 'unknown').trim().slice(0, 128);
-    const username = String(request.body?.username || '')
-      .normalize('NFKC')
+    return String(request.ip || request.socket?.remoteAddress || 'unknown')
+      .trim()
+      .slice(0, 128);
+  }
+
+  private getIdentity(request: Request) {
+    const username = loginCredentials(request)
+      .username.normalize('NFKC')
       .trim()
       .toLowerCase()
       .slice(0, 128);
-    return `${ip}\0${username}`;
+    return `${this.getIp(request)}\0${username}`;
   }
 
   async validateRequest(request: Request) {
+    loginCredentials(request);
+    // These abuse budgets are always active and precede both settings lookup
+    // and username-specific buckets. Disabling account retry limiting below
+    // does not disable the fixed IP/site request and storage protections.
+    await this.consumeLimit('login-global', 'site', 300, 60);
+    await this.consumeLimit('login-ip', this.getIp(request), 30, 60);
     const setting = await this.getSetting();
     if (!setting.enableMaxLoginRetry) return true;
 
-    const identity = this.getIdentity(request);
-    const result = await this.rateLimitProvider.consume(
+    await this.consumeLimit(
       'login',
-      identity,
+      this.getIdentity(request),
       setting.maxRetryTimes,
       setting.durationSeconds,
     );
+    return true;
+  }
+
+  private async consumeLimit(scope: string, identity: string, attempts: number, seconds: number) {
+    const result = await this.rateLimitProvider.consume(scope, identity, attempts, seconds);
     if (!result.allowed) {
-      this.logger.warn(
-        `登录限流已触发，标识=${rateLimitKeyHash('login', identity).slice(0, 12)}`,
-      );
+      this.logger.warn(`登录限流已触发，标识=${rateLimitKeyHash(scope, identity).slice(0, 12)}`);
       throw new HttpException(
         {
           statusCode: 429,
@@ -80,7 +94,6 @@ export class LoginGuard implements CanActivate {
         429,
       );
     }
-    return true;
   }
 
   async clearFailures(request: Request) {

@@ -166,7 +166,7 @@ export function SubTitle(props: {
             ></path>
           </svg>
         </span>
-        <PostViewer shouldAddViewer={props.type != "overview"} id={props.id} />
+        <PostViewer id={props.id} />
       </span>
       {props.enableComment != "false" && (
         <span className="inline-flex px-2 items-center">

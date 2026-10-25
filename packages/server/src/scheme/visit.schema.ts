@@ -6,6 +6,9 @@ export type VisitDocument = Visit & Document;
 @Schema()
 export class Visit extends Document {
   @Prop()
+  aggregate?: boolean;
+
+  @Prop()
   visited: number;
 
   @Prop()
@@ -30,3 +33,9 @@ export class Visit extends Document {
 }
 
 export const VisitSchema = SchemaFactory.createForClass(Visit);
+
+VisitSchema.index(
+  { pathname: 1 },
+  { name: 'visit_aggregate_path', unique: true, partialFilterExpression: { aggregate: true } },
+);
+VisitSchema.index({ pathname: 1, aggregate: -1, date: -1 });

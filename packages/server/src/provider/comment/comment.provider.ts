@@ -38,6 +38,7 @@ import { escapeRegexLiteral } from 'src/utils/safeRegex';
 import { buildPublicCommentTree, serializePublicComment } from 'src/utils/commentPublic';
 import { MetaProvider } from '../meta/meta.provider';
 import { SettingProvider } from '../setting/setting.provider';
+import { CommentImageProvider } from './commentImage.provider';
 import { CommentClientInfoProvider } from './clientInfo.provider';
 
 const PUBLIC_REPLY_LIMIT = 1_000;
@@ -99,6 +100,7 @@ export class CommentProvider {
     private readonly reactionModel?: Model<CommentReactionDocument>,
     @Optional()
     private readonly clientInfoProvider?: CommentClientInfoProvider,
+    @Optional() private readonly commentImageProvider?: CommentImageProvider,
   ) {}
 
   private async clientInfo(metadata?: CommentRequestMetadata) {
@@ -538,6 +540,7 @@ export class CommentProvider {
       throw error;
     }
     if (parent) await this.retainReplyOnlyWhileParentApproved(created, parent._id);
+    await this.commentImageProvider?.linkFromContent(input.content);
     return {
       comment: this.toPublic(created.toObject()),
       moderated: status !== 'approved',

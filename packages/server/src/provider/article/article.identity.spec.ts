@@ -395,3 +395,47 @@ describe('ArticleProvider article identity hardening', () => {
     );
   });
 });
+
+describe('missing article pathname fallback', () => {
+  it.each(['missing-slug', 'old-slug', 'NaN', 'Infinity', '-1', '1.5', '9007199254740992'])(
+    'returns 404 for %s without sending an invalid numeric lookup to MongoDB',
+    async (id) => {
+      const { provider, articleModel } = makeProvider();
+      articleModel.findOne.mockImplementation((query: any) => {
+        if (Object.prototype.hasOwnProperty.call(query, 'id'))
+          throw new Error('Unexpected numeric fallback');
+        return queryResult(null);
+      });
+      await expect(provider.getByIdOrPathname(id, 'public')).resolves.toBeNull();
+      await expect(provider.getByIdOrPathnameWithPreNext(id, 'public')).rejects.toMatchObject({
+        status: 404,
+      });
+      await expect(provider.resolvePasswordTarget(id)).resolves.toBeNull();
+      await expect(provider.updateViewerByPathname(id, false)).resolves.toBeUndefined();
+      expect(articleModel.updateOne).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps valid numeric aliases working after a missing pathname lookup', async () => {
+    const { provider, articleModel } = makeProvider();
+    articleModel.findOne
+      .mockReturnValueOnce(queryResult(null))
+      .mockReturnValueOnce(queryResult({ id: 7, pathname: 'current-slug' }));
+    await expect(provider.getByIdOrPathname('007', 'public')).resolves.toMatchObject({ id: 7 });
+    expect(articleModel.findOne.mock.calls[1][0]).toMatchObject({ id: 7 });
+  });
+
+  it('serves the current slug while a renamed old slug produces 404', async () => {
+    const { provider, articleModel } = makeProvider();
+    articleModel.findOne.mockImplementation((query: any) =>
+      queryResult(query.pathname === 'new-slug' ? { id: 7, pathname: 'new-slug' } : null),
+    );
+    await expect(provider.getByIdOrPathname('new-slug', 'public')).resolves.toMatchObject({
+      id: 7,
+    });
+    await expect(provider.getByIdOrPathnameWithPreNext('old-slug', 'public')).rejects.toMatchObject(
+      { status: 404 },
+    );
+    expect(articleModel.findOne.mock.calls.every(([query]) => query.id === undefined)).toBe(true);
+  });
+});

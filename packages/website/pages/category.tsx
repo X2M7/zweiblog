@@ -4,7 +4,8 @@ import TimeLineItem from "../components/TimeLineItem";
 import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getCategoryPageProps } from "../utils/getPageProps";
-import { revalidate } from "../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../utils/requestPageProps";
 import { useSiteLanguage } from "../utils/siteLanguage";
 
 export interface CategoryPageProps {
@@ -55,12 +56,7 @@ const CategoryPage = (props: CategoryPageProps) => {
 };
 
 export default CategoryPage;
-export async function getStaticProps(): Promise<{
-  props: CategoryPageProps;
-  revalidate?: number;
-}> {
-  return {
-    props: await getCategoryPageProps(),
-    ...revalidate,
-  };
+export async function getServerSideProps({ res }: GetServerSidePropsContext): Promise<{ props: CategoryPageProps }> {
+  preventPageCaching(res);
+  return { props: await getCategoryPageProps() };
 }

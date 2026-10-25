@@ -17,6 +17,7 @@ import { useSiteLanguage } from "../../utils/siteLanguage";
 
 export default function (props: {
   id: number | string;
+  articleId?: number;
   title: string;
   updatedAt: Date;
   createdAt: Date;
@@ -161,7 +162,10 @@ export default function (props: {
             <>
               <div lang={contentLanguage}>
                 {showToc && <TocMobile content={calContent} />}
-                <Markdown content={calContent}></Markdown>
+                <Markdown
+                  content={calContent}
+                  articleId={props.type === "article" ? props.articleId : undefined}
+                ></Markdown>
               </div>
             </>
           )}

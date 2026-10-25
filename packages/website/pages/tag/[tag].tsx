@@ -1,11 +1,11 @@
-import { getPublicMeta } from "../../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../../components/AuthorCard";
 import Layout from "../../components/Layout";
 import TimeLineItem from "../../components/TimeLineItem";
 import { Article } from "../../types/article";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getTagPagesProps } from "../../utils/getPageProps";
-import { revalidate } from "../../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../../utils/requestPageProps";
 import Custom404 from "../404";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 export interface TagPagesProps {
@@ -64,23 +64,7 @@ const TagPages = (props: TagPagesProps) => {
 };
 
 export default TagPages;
-export async function getStaticPaths() {
-  const data = await getPublicMeta();
-  const paths = data.tags.map((tag) => ({
-    params: {
-      tag: tag,
-    },
-  }));
-  return {
-    paths,
-    fallback: "blocking",
-  };
-}
-export async function getStaticProps({
-  params,
-}: any): Promise<{ props: TagPagesProps; revalidate?: number }> {
-  return {
-    props: await getTagPagesProps(params.tag),
-    ...revalidate,
-  };
+export async function getServerSideProps({ params, res }: GetServerSidePropsContext): Promise<{ props: TagPagesProps }> {
+  preventPageCaching(res);
+  return { props: await getTagPagesProps(String(params.tag)) };
 }

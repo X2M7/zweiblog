@@ -35,6 +35,10 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
 
       - name: Test container configuration renderer
         run: node --test scripts/render-caddy-config.test.js

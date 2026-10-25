@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { createHash } from 'node:crypto';
 import { createViewerDto } from 'src/types/viewer.dto';
 import { Viewer, ViewerDocument } from 'src/scheme/viewer.schema';
 import dayjs from 'dayjs';
@@ -14,13 +15,19 @@ export class ViewerProvider {
   }
 
   async createOrUpdate(createViewerDto: createViewerDto) {
-    const { date } = createViewerDto;
+    const { date, viewer, visited } = createViewerDto;
     const oldData = await this.viewerModel.findOne({ date });
-    if (!oldData) {
-      const createdData = new this.viewerModel(createViewerDto);
-      return createdData.save();
-    } else {
-      return this.viewerModel.updateOne({ date }, createViewerDto);
+    // Reuse legacy records; new dates have a deterministic unique key so
+    // concurrent first visits cannot create duplicate daily snapshots.
+    const _id =
+      oldData?._id ||
+      new Types.ObjectId(createHash('sha256').update(`viewer:${date}`).digest('hex').slice(0, 24));
+    const update = { $max: { viewer, visited }, $setOnInsert: { date } };
+    try {
+      return await this.viewerModel.updateOne({ _id }, update, { upsert: true });
+    } catch (error: any) {
+      if (error?.code !== 11000) throw error;
+      return this.viewerModel.updateOne({ _id }, update);
     }
   }
 

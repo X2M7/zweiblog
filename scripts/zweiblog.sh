@@ -27,7 +27,6 @@ Get_Docker_URL="${ZWEIBLOG_DOCKER_INSTALL_HOST:-get.docker.com}"
 Get_Docker_Argu=" -s docker --mirror Aliyun"
 ZWEIBLOG_IMAGE="${ZWEIBLOG_IMAGE:-ghcr.io/x2m7/zweiblog:latest}"
 Docker_IMG="${ZWEIBLOG_IMAGE}"
-ZWEIBLOG_OLD_IMAGE="${ZWEIBLOG_OLD_IMAGE:-zweiblog:previous}"
 
 red='\033[0;31m'
 green='\033[0;32m'
@@ -83,16 +82,51 @@ existing_installation_uses_mongo_8() {
 }
 
 
-delete_old_images() {
-  echo -e "> 删除旧镜像"
-  docker rmi -f "${ZWEIBLOG_OLD_IMAGE}" >/dev/null 2>&1 || true
+# Use the same persistent image pin for start, restart and rollback.
+zweiblog_compose() {
+  local compose_file
+  local -a compose_args=()
+  for compose_file in docker-compose.yaml docker-compose.yml; do
+    if [[ -f "${ZWEIBLOG_BASE_PATH}/${compose_file}" ]]; then
+      compose_args=(-f "${ZWEIBLOG_BASE_PATH}/${compose_file}")
+      break
+    fi
+  done
+  [[ ${#compose_args[@]} -gt 0 ]] || { echo "找不到编排文件" >&2; return 1; }
+  for compose_file in docker-compose.override.yaml docker-compose.override.yml; do
+    if [[ -f "${ZWEIBLOG_BASE_PATH}/${compose_file}" ]]; then
+      compose_args+=(-f "${ZWEIBLOG_BASE_PATH}/${compose_file}")
+      break
+    fi
+  done
+  if [[ "${ZWEIBLOG_IGNORE_IMAGE_PIN:-0}" != 1 && -f "${ZWEIBLOG_BASE_PATH}/.zweiblog-image.yaml" ]]; then
+    compose_args+=(-f "${ZWEIBLOG_BASE_PATH}/.zweiblog-image.yaml")
+  fi
+  (cd -- "${ZWEIBLOG_BASE_PATH}" && docker-compose "${compose_args[@]}" "$@")
 }
 
-retag_old_images() {
-  echo -e "> 重命名旧镜像"
-  if [[ -n "${ZWEIBLOG_IMAGE}" ]]; then
-    docker tag "${ZWEIBLOG_IMAGE}" "${ZWEIBLOG_OLD_IMAGE}" >/dev/null 2>&1 || true
-  fi
+write_image_pin() {
+  local destination="$1" image_id="$2" temporary_file
+  [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 1
+  temporary_file=$(umask 077; mktemp "${ZWEIBLOG_BASE_PATH}/.image-pin.XXXXXX") || return 1
+  printf 'services:\n  zweiblog:\n    image: %s\n' "$image_id" > "$temporary_file" || {
+    rm -f -- "$temporary_file"; return 1;
+  }
+  mv -f -- "$temporary_file" "$destination"
+}
+
+wait_for_zweiblog() {
+  local container_id state deadline=$((SECONDS + 300))
+  while (( SECONDS < deadline )); do
+    container_id=$(zweiblog_compose ps -q zweiblog) || return 1
+    [[ -n "$container_id" ]] || return 1
+    state=$(docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}missing-healthcheck{{end}}' "$container_id") || return 1
+    [[ "$state" == 'running healthy' ]] && return 0
+    [[ "$state" == 'running starting' ]] || { echo "服务未通过健康检查：$state" >&2; return 1; }
+    sleep 5
+  done
+  echo "等待服务健康检查超时" >&2
+  return 1
 }
 
 pre_check() {
@@ -172,25 +206,44 @@ confirm() {
   fi
 }
 
-update_script() {
+update_script() (
   require_asset_base || return 1
-  echo -e "> 更新脚本"
-
-  curl -sL ${SCRIPT_URL} -o /tmp/zweiblog.sh
-  new_version=$(cat /tmp/zweiblog.sh | grep "ZWEIBLOG_SCRIPT_VERSION" | head -n 1 | awk -F "=" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
-  if [ ! -n "$new_version" ]; then
-    echo -e "脚本获取失败，请检查本机能否链接 ${SCRIPT_URL}"
+  umask 077
+  local temporary_dir artifact installed_tmp='' owner mode new_version
+  temporary_dir=$(mktemp -d /tmp/zweiblog-update.XXXXXX) || return 1
+  trap 'rm -rf -- "$temporary_dir"; [[ -z "$installed_tmp" ]] || rm -f -- "$installed_tmp"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  artifact="${temporary_dir}/zweiblog.sh"
+  echo "> 更新脚本"
+  if ! curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+    --connect-timeout 10 --max-time 120 "$SCRIPT_URL" -o "$artifact"; then
+    echo "脚本下载失败，保留当前脚本。" >&2
     return 1
   fi
-  echo -e "当前最新版本为: ${new_version}"
-  mv -f /tmp/zweiblog.sh ./zweiblog.sh && chmod a+x ./zweiblog.sh
-
-  echo -e "3s后执行新脚本"
-  sleep 3s
-  clear
-  exec ./zweiblog.sh
-  exit 0
-}
+  if [[ ! -s "$artifact" ]] || ! bash -n "$artifact"; then
+    echo "下载内容不是有效脚本，已中止更新。" >&2
+    return 1
+  fi
+  new_version=$(sed -n 's/^ZWEIBLOG_SCRIPT_VERSION="\([A-Za-z0-9._-]*\)"$/\1/p' "$artifact")
+  [[ -n "$new_version" && "$new_version" != *$'\n'* ]] || return 1
+  # Never install or execute a root script from the caller's working directory.
+  [[ ! -L "$ZWEIBLOG_BASE_PATH" ]] || return 1
+  mkdir -p -- "$ZWEIBLOG_BASE_PATH" || return 1
+  owner=$(stat -c %u -- "$ZWEIBLOG_BASE_PATH") || return 1
+  mode=$(stat -c %a -- "$ZWEIBLOG_BASE_PATH") || return 1
+  if [[ "$owner" != 0 ]] || (( (8#$mode & 0022) != 0 )); then
+    echo "安装目录必须由 root 拥有且不可被其他用户写入。" >&2
+    return 1
+  fi
+  installed_tmp=$(mktemp "${ZWEIBLOG_BASE_PATH}/.zweiblog-script.XXXXXX") || return 1
+  install -m 0700 -- "$artifact" "$installed_tmp" || return 1
+  cmp -s -- "$artifact" "$installed_tmp" || return 1
+  mv -f -- "$installed_tmp" "${ZWEIBLOG_BASE_PATH}/zweiblog.sh" || return 1
+  installed_tmp=''
+  echo "已安装版本 ${new_version}，正在运行同一份已校验的下载文件。"
+  bash "$artifact"
+)
 
 before_show_menu() {
   echo && echo -n -e "${yellow}* 按回车返回主菜单 *${plain}" && read temp
@@ -460,8 +513,8 @@ restart() {
   echo -e "> 重启服务"
 
   cd $ZWEIBLOG_BASE_PATH
-  docker-compose down
-  docker-compose up -d
+  zweiblog_compose down || return 1
+  zweiblog_compose up -d
   if [[ $? == 0 ]]; then
     echo -e "${green}ZweiBlog 重启成功${plain}"
     echo -e "默认管理面板地址：${yellow}域名:站点访问端口/admin${plain}"
@@ -474,36 +527,58 @@ restart() {
   fi
 }
 update() {
-  echo -e "> 更新服务"
-  retag_old_images
-
-  cd $ZWEIBLOG_BASE_PATH
-  docker-compose pull
-  docker-compose down
-  docker-compose up -d
-  if [[ $? == 0 ]]; then
-    echo -e "${green}ZweiBlog 更新并重启成功${plain}"
-    echo -e "默认管理面板地址：${yellow}域名:站点访问端口${plain}"
-  else
-    echo -e "${red}重启失败，可能是因为启动时间超过了两秒，请稍后查看日志信息${plain}"
+  local container_id previous_image target_image new_image retention_tag
+  echo "> 更新服务（仅更新应用镜像，MongoDB 版本保持不变）"
+  container_id=$(zweiblog_compose ps -q zweiblog) || return 1
+  [[ -n "$container_id" ]] || { echo "请先启动当前版本并确认健康后再更新。" >&2; return 1; }
+  previous_image=$(docker inspect --format '{{.Image}}' "$container_id") || return 1
+  target_image=$(ZWEIBLOG_IGNORE_IMAGE_PIN=1 zweiblog_compose config | awk '
+    /^  zweiblog:/ { in_service=1; next }
+    /^  [^ ]/ { in_service=0 }
+    in_service && /^    image:/ { print $2; exit }')
+  [[ -n "$target_image" ]] || return 1
+  # Capture a consistent pre-update backup before any new process can write.
+  backup 0 || { echo "备份失败，取消更新。" >&2; return 1; }
+  retention_tag="zweiblog:rollback-$(date +%Y%m%d%H%M%S)-${RANDOM}"
+  docker tag "$previous_image" "$retention_tag" || return 1
+  ZWEIBLOG_IGNORE_IMAGE_PIN=1 zweiblog_compose pull zweiblog || return 1
+  new_image=$(docker image inspect --format '{{.Id}}' "$target_image") || return 1
+  write_image_pin "${ZWEIBLOG_BASE_PATH}/.zweiblog-rollback.yaml" "$previous_image" || return 1
+  write_image_pin "${ZWEIBLOG_BASE_PATH}/.zweiblog-image.yaml" "$new_image" || return 1
+  if ! zweiblog_compose up -d --no-deps zweiblog || ! wait_for_zweiblog; then
+    echo "更新未通过健康检查，正在恢复上一应用镜像。" >&2
+    rollback 0 || echo "自动回滚未恢复健康，请检查服务日志和备份。" >&2
+    return 1
   fi
+  echo "更新完成，旧镜像保留为 ${retention_tag}。可运行 ./zweiblog.sh rollback 回滚应用。"
+  [[ $# != 0 ]] || before_show_menu
+  return 0
+}
 
-  delete_old_images
-
-  before_show_menu
-
+rollback() {
+  local previous_image
+  [[ -f "${ZWEIBLOG_BASE_PATH}/.zweiblog-rollback.yaml" ]] || {
+    echo "没有可用的上一次更新记录。" >&2; return 1;
+  }
+  previous_image=$(sed -n 's/^    image: \(sha256:[a-f0-9]\{64\}\)$/\1/p' "${ZWEIBLOG_BASE_PATH}/.zweiblog-rollback.yaml")
+  docker image inspect "$previous_image" >/dev/null || return 1
+  write_image_pin "${ZWEIBLOG_BASE_PATH}/.zweiblog-image.yaml" "$previous_image" || return 1
+  zweiblog_compose up -d --no-deps zweiblog && wait_for_zweiblog || return 1
+  echo "已恢复上一应用镜像；数据库保持现状。如涉及不兼容数据迁移，请在维护窗口恢复更新前备份。"
+  [[ $# != 0 ]] || before_show_menu
+  return 0
 }
 
 reset_https() {
     echo -e "> 重置 https 设置（需要先启动 zweiblog）"
-    cd $ZWEIBLOG_BASE_PATH && docker-compose exec zweiblog node /app/cli/resetHttps.js
+    cd "$ZWEIBLOG_BASE_PATH" && zweiblog_compose exec zweiblog node /app/cli/resetHttps.js
     before_show_menu
 }
 
 start_zweiblog() {
   echo -e "> 启动 ZweiBlog"
 
-  cd $ZWEIBLOG_BASE_PATH && docker-compose up -d
+  cd "$ZWEIBLOG_BASE_PATH" && zweiblog_compose up -d
   if [[ $? == 0 ]]; then
     echo -e "${green}ZweiBlog 启动成功${plain}"
   else
@@ -518,7 +593,7 @@ start_zweiblog() {
 stop_zweiblog() {
   echo -e "> 停止 ZweiBlog"
 
-  cd "$ZWEIBLOG_BASE_PATH" && docker-compose down
+  cd "$ZWEIBLOG_BASE_PATH" && zweiblog_compose down
   if [[ $? == 0 ]]; then
     echo -e "${green}ZweiBlog 停止成功${plain}"
   else
@@ -533,7 +608,7 @@ stop_zweiblog() {
 show_log() {
   echo -e "> 获取日志"
 
-  cd $ZWEIBLOG_BASE_PATH && docker-compose logs -f
+  cd "$ZWEIBLOG_BASE_PATH" && zweiblog_compose logs -f
 
   if [[ $# == 0 ]]; then
     before_show_menu
@@ -674,30 +749,145 @@ uninstall_zweiblog() {
   return 0
 }
 
-backup() {
-  echo -e "> 备份 zweiblog"
-  name="zweiblog-backup-$(date +"%Y%m%d%H%M%S").tar.gz"
-  cd "$ZWEIBLOG_BASE_PATH" || return 1
-  (umask 077 && tar czf "$name" ./data) || return 1
-  chmod 0600 "$name"
-  echo -e "${green}备份成功，文件名：${name}${plain} 所在路径：${ZWEIBLOG_BASE_PATH}"
-}
+backup() (
+  umask 077
+  local temporary_dir='' archive_name mongo_id mongo_state service running_output app_id image_id='' resume_needed=false
+  local -a running_services=() backup_entries=(data) snapshot_entries=()
+  cd -- "$ZWEIBLOG_BASE_PATH" || return 1
+  [[ -d data && ! -L data ]] || return 1
+  # Restore precisely the services that were running, including after a partial stop.
+  running_output=$(zweiblog_compose ps --services --filter status=running) || return 1
+  while IFS= read -r service; do
+    [[ -z "$service" ]] || running_services+=("$service")
+  done <<< "$running_output"
+  app_id=$(zweiblog_compose ps -q zweiblog) || return 1
+  if [[ -n "$app_id" ]]; then
+    image_id=$(docker inspect --format '{{.Image}}' "$app_id") || return 1
+    [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 1
+  fi
+  cleanup_backup() {
+    local result=$?
+    if $resume_needed; then
+      if ! zweiblog_compose start "${running_services[@]}"; then
+        echo "备份后恢复服务失败，请手动检查并启动服务。" >&2
+        result=1
+      fi
+    fi
+    [[ -z "$temporary_dir" ]] || rm -rf -- "$temporary_dir"
+    exit "$result"
+  }
+  trap cleanup_backup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  if (( ${#running_services[@]} > 0 )); then
+    resume_needed=true
+    zweiblog_compose stop --timeout 120 "${running_services[@]}" || return 1
+  fi
+  mongo_id=$(zweiblog_compose ps -a -q mongo) || return 1
+  [[ -n "$mongo_id" ]] || { echo "没有可验证的 MongoDB 容器，取消备份。" >&2; return 1; }
+  mongo_state=$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$mongo_id") || return 1
+  [[ "$mongo_state" == 'exited 0' ]] || {
+    echo "MongoDB 未正常停止，取消文件备份：${mongo_state}" >&2; return 1;
+  }
+  running_output=$(zweiblog_compose ps --services --filter status=running) || return 1
+  [[ -z "$running_output" ]] || return 1
+  for service in docker-compose.yaml docker-compose.yml docker-compose.override.yaml docker-compose.override.yml docker-compose.https.yml docker-compose.build.yml .env .zweiblog-image.yaml .zweiblog-rollback.yaml mongo-init.js mongo-healthcheck.js setup-mongo-secrets.sh; do
+    # Record the actually running image even on the first update, before an
+    # image pin exists. A latest tag alone cannot identify a restorable version.
+    [[ "$service" != .zweiblog-image.yaml || -z "$image_id" ]] || continue
+    [[ ! -f "$service" ]] || backup_entries+=("$service")
+  done
+  # The installer nests these inside data/, while the checked-in Compose
+  # defaults keep them beside data/. Preserve either standard layout.
+  for service in secrets log caddy; do
+    if [[ -e "$service" ]]; then
+      [[ -d "$service" && ! -L "$service" ]] || return 1
+      backup_entries+=("$service")
+    fi
+  done
+  temporary_dir=$(mktemp -d "${ZWEIBLOG_BASE_PATH}/.zweiblog-backup.XXXXXX") || return 1
+  archive_name="zweiblog-backup-$(date +%Y%m%d%H%M%S)-${temporary_dir##*.}.tar.gz"
+  if [[ -n "$image_id" ]]; then
+    printf 'services:\n  zweiblog:\n    image: %s\n' "$image_id" > "${temporary_dir}/.zweiblog-image.yaml" || return 1
+    snapshot_entries=(-C "$temporary_dir" .zweiblog-image.yaml)
+  fi
+  tar czf "${temporary_dir}/archive.tar.gz" "${backup_entries[@]}" "${snapshot_entries[@]}" || return 1
+  tar tzf "${temporary_dir}/archive.tar.gz" >/dev/null || return 1
+  mv -- "${temporary_dir}/archive.tar.gz" "${ZWEIBLOG_BASE_PATH}/${archive_name}" || return 1
+  if $resume_needed; then
+    zweiblog_compose start "${running_services[@]}" || return 1
+    resume_needed=false
+  fi
+  echo "备份成功：${ZWEIBLOG_BASE_PATH}/${archive_name}（包含数据库、文件和配置，权限 0600）"
+)
+
+restore_archive() (
+  umask 077
+  local backup_file="$1" temporary_dir='' entry name retained_dir='' running_output
+  local -a entries=(data secrets log caddy docker-compose.yaml docker-compose.yml docker-compose.override.yaml docker-compose.override.yml docker-compose.https.yml docker-compose.build.yml .env .zweiblog-image.yaml .zweiblog-rollback.yaml mongo-init.js mongo-healthcheck.js setup-mongo-secrets.sh)
+  local -a installed=() retained=()
+  [[ -f "$backup_file" && -d "$ZWEIBLOG_BASE_PATH" ]] || return 1
+  temporary_dir=$(mktemp -d "${ZWEIBLOG_BASE_PATH}/.zweiblog-restore.XXXXXX") || return 1
+  trap 'rm -rf -- "$temporary_dir"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  # Validate before stopping services. Links/devices and paths outside the
+  # backup format are rejected rather than extracted with root privileges.
+  tar tzf "$backup_file" > "${temporary_dir}/entries" || return 1
+  while IFS= read -r entry; do
+    entry="${entry#./}"
+    case "$entry" in
+      /*|*\\*|..|../*|*/../*|*/..) echo "备份包含不安全路径" >&2; return 1;;
+      data|data/|data/*|secrets|secrets/|secrets/*|log|log/|log/*|caddy|caddy/|caddy/*|docker-compose.yaml|docker-compose.yml|docker-compose.override.yaml|docker-compose.override.yml|docker-compose.https.yml|docker-compose.build.yml|.env|.zweiblog-image.yaml|.zweiblog-rollback.yaml|mongo-init.js|mongo-healthcheck.js|setup-mongo-secrets.sh) ;;
+      *) echo "备份包含未知路径：$entry" >&2; return 1;;
+    esac
+  done < "${temporary_dir}/entries"
+  tar tvzf "$backup_file" > "${temporary_dir}/types" || return 1
+  if ! awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" { exit 1 }' "${temporary_dir}/types"; then
+    echo "备份包含链接或特殊文件，拒绝自动恢复。" >&2; return 1
+  fi
+  mkdir "${temporary_dir}/contents" || return 1
+  tar xzf "$backup_file" -C "${temporary_dir}/contents" || return 1
+  [[ -d "${temporary_dir}/contents/data" ]] || return 1
+  if [[ -f "${ZWEIBLOG_BASE_PATH}/docker-compose.yaml" || -f "${ZWEIBLOG_BASE_PATH}/docker-compose.yml" ]]; then
+    zweiblog_compose stop --timeout 120 || return 1
+    running_output=$(zweiblog_compose ps --services --filter status=running) || return 1
+    [[ -z "$running_output" ]] || return 1
+  fi
+  retained_dir=$(mktemp -d "${ZWEIBLOG_BASE_PATH}/zweiblog-before-restore.XXXXXX") || return 1
+  restore_previous_files() {
+    local item
+    # Do not merge MongoDB directories. Retain the failed new files for review.
+    for item in "${installed[@]}"; do
+      mv -- "${ZWEIBLOG_BASE_PATH}/${item}" "${temporary_dir}/contents/${item}" || return 1
+    done
+    for item in "${retained[@]}"; do
+      mv -- "${retained_dir}/${item}" "${ZWEIBLOG_BASE_PATH}/${item}" || return 1
+    done
+  }
+  for name in "${entries[@]}"; do
+    if [[ -e "${ZWEIBLOG_BASE_PATH}/${name}" || -L "${ZWEIBLOG_BASE_PATH}/${name}" ]]; then
+      if ! mv -- "${ZWEIBLOG_BASE_PATH}/${name}" "${retained_dir}/${name}"; then
+        restore_previous_files; return 1
+      fi
+      retained+=("$name")
+    fi
+    if [[ -e "${temporary_dir}/contents/${name}" ]]; then
+      if ! mv -- "${temporary_dir}/contents/${name}" "${ZWEIBLOG_BASE_PATH}/${name}"; then
+        restore_previous_files; return 1
+      fi
+      installed+=("$name")
+    fi
+  done
+  echo "恢复成功，原数据保留在 ${retained_dir}；请核对配置与镜像版本后手动启动。"
+)
 
 restore() {
-  echo -e "> 恢复 zweiblog"
-  read -e -r -p "请输入备份文件名（含路径）: " path
-  # 检测空
-  if [ -z "$path" ]; then
-    echo -e "${red}输入为空${plain}"
-    exit 1
-  fi
-  # 停止 zweiblog
-  echo -e "> 停止 zweiblog 中..."
-  stop_zweiblog
-  # 覆盖解压到目标路径
-  echo -e "> 覆盖解压到目标路径中..."
-  tar xzvf $path -C $ZWEIBLOG_BASE_PATH
-  echo -e "${green}恢复成功${plain}，请手动启动 zweiblog"
+  local backup_file
+  echo "> 恢复 zweiblog（请使用自己保管的可信备份）"
+  read -e -r -p "请输入备份文件名（含路径）: " backup_file
+  [[ -n "$backup_file" ]] || return 1
+  restore_archive "$backup_file"
 }
 
 show_usage() {
@@ -709,7 +899,8 @@ show_usage() {
   echo "./zweiblog.sh start                      - 启动 ZweiBlog"
   echo "./zweiblog.sh stop                       - 停止 ZweiBlog"
   echo "./zweiblog.sh restart                    - 重启 ZweiBlog"
-  echo "./zweiblog.sh update                     - 更新 ZweiBlog"
+  echo "./zweiblog.sh update                     - 备份并更新应用镜像"
+  echo "./zweiblog.sh rollback                   - 恢复上一应用镜像"
   echo "./zweiblog.sh log                        - 查看 ZweiBlog 日志"
   echo "./zweiblog.sh uninstall                  - 卸载 ZweiBlog"
   echo "./zweiblog.sh reset_https                - 重置 https 设置"
@@ -735,6 +926,7 @@ show_menu() {
     ${green}9.${plain}  重置 https 设置
     ${green}10.${plain} 备份 ZweiBlog
     ${green}11.${plain} 恢复 ZweiBlog
+    ${green}12.${plain} 回滚应用镜像
     ————————————————-
     ${green}20.${plain} 更新此脚本
     ${green}30.${plain} 查看脚本使用说明
@@ -779,6 +971,9 @@ show_menu() {
   11)
     restore
     ;;
+  12)
+    rollback
+    ;;
   20)
     update_script
     ;;
@@ -812,6 +1007,9 @@ if [[ $# > 0 ]]; then
     ;;
   "update")
     update 0
+    ;;
+  "rollback")
+    rollback 0
     ;;
   "log")
     show_log 0

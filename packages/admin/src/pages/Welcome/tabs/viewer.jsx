@@ -10,6 +10,7 @@ import style from '../index.less';
 import NumSelect from '@/components/NumSelect';
 import { useNum } from '@/services/zwei-blog/useNum';
 import RcResizeObserver from 'rc-resize-observer';
+import { recentVisitHref } from './recentVisitHref';
 
 const Viewer = () => {
   const [data, setData] = useState();
@@ -34,7 +35,7 @@ const Viewer = () => {
     if (!data?.siteLastVisitedPathname) {
       return undefined;
     }
-    return data?.siteLastVisitedPathname;
+    return recentVisitHref(data?.siteLastVisitedPathname);
   }, [data]);
   const recentVisitTime = useMemo(() => {
     if (!data) {

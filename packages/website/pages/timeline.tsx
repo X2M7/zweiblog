@@ -4,7 +4,8 @@ import TimeLineItem from "../components/TimeLineItem";
 import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getTimeLinePageProps } from "../utils/getPageProps";
-import { revalidate } from "../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../utils/requestPageProps";
 import { useSiteLanguage } from "../utils/siteLanguage";
 export interface TimeLinePageProps {
   layoutProps: LayoutProps;
@@ -54,12 +55,7 @@ const TimeLine = (props: TimeLinePageProps) => {
 };
 
 export default TimeLine;
-export async function getStaticProps(): Promise<{
-  props: TimeLinePageProps;
-  revalidate?: number;
-}> {
-  return {
-    props: await getTimeLinePageProps(),
-    ...revalidate,
-  };
+export async function getServerSideProps({ res }: GetServerSidePropsContext): Promise<{ props: TimeLinePageProps }> {
+  preventPageCaching(res);
+  return { props: await getTimeLinePageProps() };
 }

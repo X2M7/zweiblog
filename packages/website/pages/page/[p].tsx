@@ -1,5 +1,4 @@
 import Head from "next/head";
-import { getPublicMeta } from "../../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../../components/AuthorCard";
 import Layout from "../../components/Layout";
 import PageNav from "../../components/PageNav";
@@ -10,7 +9,8 @@ import { getArticlePath } from "../../utils/getArticlePath";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getPagePagesProps } from "../../utils/getPageProps";
 import { getArticlesKeyWord } from "../../utils/keywords";
-import { revalidate } from "../../utils/loadConfig";
+import type { GetServerSidePropsContext } from "next";
+import { preventPageCaching } from "../../utils/requestPageProps";
 import Custom404 from "../404";
 import { hasEnglishArticle, localizeArticle } from "../../utils/articleLanguage";
 import { useSiteLanguage } from "../../utils/siteLanguage";
@@ -90,28 +90,7 @@ const PagePages = (props: PagePagesProps) => {
 
 export default PagePages;
 
-export async function getStaticPaths() {
-  const data = await getPublicMeta();
-  const total = Math.ceil(data.totalArticles / 5);
-  const paths = [];
-  for (let i = 1; i <= total; i++) {
-    paths.push({
-      params: {
-        p: String(i),
-      },
-    });
-  }
-  return {
-    paths,
-    fallback: "blocking",
-  };
-}
-
-export async function getStaticProps({
-  params,
-}: any): Promise<{ props: PagePagesProps; revalidate?: number }> {
-  return {
-    props: await getPagePagesProps(params.p),
-    ...revalidate,
-  };
+export async function getServerSideProps({ params, res }: GetServerSidePropsContext): Promise<{ props: PagePagesProps }> {
+  preventPageCaching(res);
+  return { props: await getPagePagesProps(String(params.p)) };
 }

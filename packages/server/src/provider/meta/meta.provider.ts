@@ -17,6 +17,7 @@ import { VisitProvider } from '../visit/visit.provider';
 import { ArticleProvider } from '../article/article.provider';
 import dayjs from 'dayjs';
 import { isTrue } from 'src/utils/isTrue';
+import { VisitSeed } from 'src/types/visit.dto';
 import { ViewerProvider } from '../viewer/viewer.provider';
 import { UpdateAboutDto } from 'src/types/about.dto';
 import {
@@ -57,44 +58,37 @@ export class MetaProvider {
     const newVisited = oldVisited;
     return { visited: newVisited, viewer: newViewer };
   }
-  async addViewer(isNew: boolean, pathname: string, isNewByPath: boolean) {
-    const old = await this.getAll();
-    const ov = old.viewer || 0;
-    const oldVisited = old.visited || 0;
-    const newViewer = ov + 1;
-    let newVisited = oldVisited;
-    let isNewVisitorByArticle = false;
-    if (isTrue(isNew)) {
-      newVisited += 1;
-    }
-    if (isTrue(isNewByPath)) {
-      isNewVisitorByArticle = true;
-    }
-    // 这个是 meta 的
-    await this.update({
-      viewer: newViewer,
-      visited: newVisited,
-    });
+  async addViewer(isNew: boolean, pathname: string, isNewByPath: boolean, seed?: VisitSeed) {
+    const isNewVisitorByArticle = isTrue(isNewByPath);
+    const current = await this.metaModel
+      .findOneAndUpdate({}, { $inc: { viewer: 1, visited: isTrue(isNew) ? 1 : 0 } }, { new: true })
+      .exec();
+    const newViewer = current.viewer;
+    const newVisited = current.visited;
     // 更新文章的
-    const r = /\/post\//;
-    const isArticlePath = r.test(pathname);
-    if (isArticlePath) {
+    if (seed && /^\/post\/[0-9]+$/.test(pathname)) {
+      // Public path resolution has already selected this immutable article ID.
+      await this.articleProvider.updateViewer(Number(pathname.slice('/post/'.length)), isNewByPath);
+    } else if (pathname.startsWith('/post/')) {
       await this.articleProvider.updateViewerByPathname(
         pathname.replace('/post/', ''),
         isNewByPath,
       );
     }
-    // 还需要增加每天的
-    this.viewProvider.createOrUpdate({
-      date: dayjs().format('YYYY-MM-DD'),
-      viewer: newViewer,
-      visited: newVisited,
-    });
-    //增加每个路径的。
-    this.visitProvider.add({
-      pathname: pathname,
-      isNew: isNewVisitorByArticle,
-    });
+    // The article counter reads the per-path visit record. Do not acknowledge
+    // this pageview before that record and the daily totals have been saved.
+    await Promise.all([
+      this.viewProvider.createOrUpdate({
+        date: dayjs().format('YYYY-MM-DD'),
+        viewer: newViewer,
+        visited: newVisited,
+      }),
+      this.visitProvider.add({
+        pathname: pathname,
+        isNew: isNewVisitorByArticle,
+        ...(seed ? { seed } : {}),
+      }),
+    ]);
     return { visited: newVisited, viewer: newViewer };
   }
 

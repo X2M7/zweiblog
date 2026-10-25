@@ -1,4 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { CommentImageRetentionInterceptor } from './provider/comment/commentImageRetention.interceptor';
+import { CommentImageUploadGuard } from './controller/comment/commentImageUpload.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -169,6 +172,7 @@ import { Tag, TagSchema } from './scheme/tag.schema';
     AdminCommentPurgeController,
   ],
   providers: [
+    { provide: APP_INTERCEPTOR, useClass: CommentImageRetentionInterceptor },
     AppService,
     ArticleProvider,
     CategoryProvider,
@@ -207,6 +211,7 @@ import { Tag, TagSchema } from './scheme/tag.schema';
     CommentProvider,
     CommentClientInfoProvider,
     CommentImageProvider,
+    CommentImageUploadGuard,
     CommentMaintenanceProvider,
     RateLimitProvider,
   ],

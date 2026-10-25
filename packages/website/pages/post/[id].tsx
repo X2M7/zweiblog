@@ -1,6 +1,5 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { getArticlesByOption } from "../../api/getArticles";
 import Layout from "../../components/Layout";
 import PostCard from "../../components/PostCard";
 import Toc from "../../components/Toc";
@@ -16,10 +15,9 @@ import {
 } from "../../utils/articleLanguage";
 import { getArticlePath } from "../../utils/getArticlePath";
 import { LayoutProps } from "../../utils/getLayoutProps";
-import { getPostPagesProps } from "../../utils/getPageProps";
 import { hasToc } from "../../utils/hasToc";
 import { getArticlesKeyWord } from "../../utils/keywords";
-import { revalidate } from "../../utils/loadConfig";
+import { getArticleServerSideProps } from "../../utils/requestPageProps";
 import Custom404 from "../404";
 import { useSiteLanguage } from "../../utils/siteLanguage";
 
@@ -155,6 +153,7 @@ const PostPages = (props: PostPagesProps) => {
         customCopyRightEn={props.article.copyrightEn || null}
         top={props.article.top || 0}
         id={getArticlePath(props.article)}
+        articleId={props.article.id}
         key={props.article.id}
         title={localized.title}
         updatedAt={new Date(props.article.updatedAt)}
@@ -206,28 +205,5 @@ const PostPages = (props: PostPagesProps) => {
 
 export default PostPages;
 
-export async function getStaticPaths() {
-  const data = await getArticlesByOption({
-    page: 1,
-    pageSize: -1,
-    toListView: true,
-  });
-  const paths = data.articles.map((article) => ({
-    params: {
-      id: String(getArticlePath(article)),
-    },
-  }));
-  return {
-    paths,
-    fallback: "blocking",
-  };
-}
-
-export async function getStaticProps({
-  params,
-}: any): Promise<{ props: PostPagesProps; revalidate?: number }> {
-  return {
-    props: await getPostPagesProps(params.id),
-    ...revalidate,
-  };
-}
+// Article permissions are checked for every HTML and Next data request.
+export const getServerSideProps = getArticleServerSideProps;

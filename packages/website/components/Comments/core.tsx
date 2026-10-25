@@ -567,7 +567,7 @@ function CommentPanel() {
     setUploading(true);
     setToolNotice(`${t("正在上传", "Uploading")} ${file.name}…`);
     try {
-      const src = await uploadCommentImage(file);
+      const src = await uploadCommentImage(file, path);
       if (uploadGeneration !== uploadGenerationRef.current) return;
       if (insertImage(src, imageAlt || file.name.replace(/\.[^.]+$/, ""))) {
         setImageAlt("");
