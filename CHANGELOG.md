@@ -11,6 +11,7 @@
 
 - `main` 更新自动执行完整测试、独立 MongoDB 集成测试、生产依赖审计和 amd64/arm64 容器启动检查，验证流程不发布镜像。
 - ARM 构建使用原生 runner，避免模拟器异常导致发布任务停滞。
+- 针对本轮 `ubuntu-latest` 新内核与 MongoDB 8.0 的兼容问题，容器与数据库验证改用 Ubuntu 24.04 runner；该标签不锁定内核，每次仍以实际数据库启动检查为准。
 
 ## [1.0.4](https://github.com/X2M7/zweiblog/compare/v1.0.3...v1.0.4) (2026-10-25)
 
