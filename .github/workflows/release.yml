@@ -48,8 +48,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test release helpers and container configuration renderer
-        run: node --test scripts/resolve-app-version.test.js scripts/release-version-chain.test.js scripts/render-caddy-config.test.js
+      - name: Test release, container, operations, PicGo, and request parser helpers
+        run: >-
+          node --test
+          scripts/resolve-app-version.test.js
+          scripts/release-version-chain.test.js
+          scripts/render-caddy-config.test.js
+          scripts/zweiblog-ops.test.cjs
+          scripts/picgo-runtime.test.cjs
+          scripts/request-parser-runtime.test.cjs
 
       - name: Check shell script syntax
         run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
@@ -91,7 +98,7 @@ jobs:
 
   publish:
     name: Build and publish to both registries (${{ matrix.platform }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs: verify
     permissions:
       contents: read
@@ -102,14 +109,13 @@ jobs:
         include:
           - platform: linux/amd64
             suffix: amd64
+            runner: ubuntu-24.04
           - platform: linux/arm64
             suffix: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
