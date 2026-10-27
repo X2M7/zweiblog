@@ -11,7 +11,7 @@
 
 - `main` 更新自动执行完整测试、独立 MongoDB 集成测试、生产依赖审计和 amd64/arm64 容器启动检查，验证流程不发布镜像。
 - ARM 构建使用原生 runner，避免模拟器异常导致发布任务停滞。
-- 针对本轮 Ubuntu 24.04 amd64 runner 新内核与 MongoDB 8.0 的兼容问题，x86 验证和构建改用 Ubuntu 22.04，ARM 保留原生 Ubuntu 24.04 runner；标签不锁定内核，每次仍以实际数据库启动检查为准。
+- 针对本轮 Ubuntu 24.04 两种架构 runner 新内核与 MongoDB 8.0 的兼容问题，验证和构建暂用原生 Ubuntu 22.04 runner；标签不锁定内核，每次仍以实际数据库启动检查为准。MongoDB 兼容修复发布并验证后需更新 runner，Ubuntu 22.04 runner 将于 2027-04-17 退役。
 
 ## [1.0.4](https://github.com/X2M7/zweiblog/compare/v1.0.3...v1.0.4) (2026-10-25)
 
