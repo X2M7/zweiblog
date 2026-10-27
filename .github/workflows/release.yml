@@ -20,7 +20,7 @@ env:
 jobs:
   verify:
     name: Run test suite
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     outputs:
       app_version: ${{ steps.app-version.outputs.value }}
     steps:
@@ -109,7 +109,7 @@ jobs:
         include:
           - platform: linux/amd64
             suffix: amd64
-            runner: ubuntu-24.04
+            runner: ubuntu-22.04
           - platform: linux/arm64
             suffix: arm64
             runner: ubuntu-24.04-arm
