@@ -272,6 +272,83 @@ actual_admin_hash="$(openssl dgst -sha256 "${temp_root}/admin.html" | awk '{prin
 [[ "${actual_admin_hash}" == "${expected_admin_hash}" ]] ||
   fail 'the external /admin/ response did not come from the bundled admin application'
 
+# Check the assets named by that exact generated HTML, not a separately guessed
+# bundle name. Read only regular files beneath /app/admin and request only the
+# corresponding /admin/ paths through the published Caddy listener.
+docker exec --interactive "${app_container}" node >"${temp_root}/admin-assets.tsv" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const adminRoot = '/app/admin';
+const html = fs.readFileSync(`${adminRoot}/index.html`, 'utf8');
+const assets = new Map();
+for (const match of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
+  const tag = match[0];
+  const attribute = (name) => {
+    const value = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'));
+    return value ? value[1] ?? value[2] : undefined;
+  };
+  const kind = match[1].toLowerCase() === 'script' ? 'js' : 'css';
+  if (kind === 'css' && !attribute('rel')?.toLowerCase().split(/\s+/).includes('stylesheet')) {
+    continue;
+  }
+  const reference = attribute(kind === 'js' ? 'src' : 'href');
+  if (reference === undefined) continue;
+  // External resources are never fetched by this smoke test.
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(reference)) continue;
+  if (!/^(?:\/admin\/|\.\/)?[a-z\d_.\/-]+$/i.test(reference) ||
+      reference.split('/').includes('..')) {
+    throw new Error(`unexpected generated admin asset reference: ${reference}`);
+  }
+  const url = new URL(reference, 'http://127.0.0.1/admin/');
+  if (!url.pathname.startsWith('/admin/') || path.extname(url.pathname) !== `.${kind}`) {
+    throw new Error(`admin ${kind} asset is not served under /admin/: ${reference}`);
+  }
+  const file = fs.realpathSync(path.join(adminRoot, url.pathname.slice('/admin/'.length)));
+  if (!file.startsWith(`${adminRoot}/`) || !fs.statSync(file).isFile()) {
+    throw new Error(`admin asset escaped the generated output directory: ${reference}`);
+  }
+  const bytes = fs.readFileSync(file);
+  if (bytes.length === 0) throw new Error(`empty generated admin asset: ${reference}`);
+  assets.set(url.pathname, { kind, hash: crypto.createHash('sha256').update(bytes).digest('hex') });
+}
+if (!['js', 'css'].every((kind) => [...assets.values()].some((asset) => asset.kind === kind))) {
+  throw new Error('generated admin HTML must reference local JavaScript and CSS bundles');
+}
+for (const [requestPath, { kind, hash }] of assets) {
+  process.stdout.write(`${kind}\t${requestPath}\t${hash}\n`);
+}
+NODE
+
+admin_asset_count=0
+while IFS=$'\t' read -r asset_kind asset_path expected_asset_hash; do
+  [[ "${asset_path}" =~ ^/admin/[a-zA-Z0-9_./-]+$ &&
+     "${expected_asset_hash}" =~ ^[a-f0-9]{64}$ ]] ||
+    fail 'generated admin asset manifest contains an invalid entry'
+  case "${asset_kind}" in
+    js) asset_content_type='(application|text)/javascript' ;;
+    css) asset_content_type='text/css' ;;
+    *) fail "unexpected admin asset kind: ${asset_kind}" ;;
+  esac
+  asset_headers="${temp_root}/admin-asset.headers"
+  asset_body="${temp_root}/admin-asset.body"
+  asset_status="$(curl --silent --show-error --max-time 30 \
+    --header 'Accept-Encoding: identity' --dump-header "${asset_headers}" \
+    --output "${asset_body}" --write-out '%{http_code}' \
+    "${external_base}${asset_path}")"
+  [[ "${asset_status}" == '200' ]] || fail "admin asset ${asset_path} returned ${asset_status}"
+  tr -d '\015' <"${asset_headers}" >"${asset_headers}.normalized"
+  grep -Eiq "^content-type:[[:space:]]*${asset_content_type}([[:space:]]*;.*)?$" \
+    "${asset_headers}.normalized" || fail "admin asset ${asset_path} has an unexpected Content-Type"
+  actual_asset_hash="$(openssl dgst -sha256 "${asset_body}" | awk '{print $NF}')"
+  [[ "${actual_asset_hash}" == "${expected_asset_hash}" ]] ||
+    fail "admin asset ${asset_path} differs from the bundled SHA-256"
+  admin_asset_count=$((admin_asset_count + 1))
+done <"${temp_root}/admin-assets.tsv"
+((admin_asset_count >= 2)) || fail 'admin JavaScript and CSS asset checks did not run'
+echo "Verified ${admin_asset_count} generated admin JavaScript/CSS assets through Caddy."
+
 route_marker="smoke_route_${run_suffix}"
 docker exec "${app_container}" node -e \
   "fetch('http://127.0.0.1:3000/api/public/category?marker=${route_marker}').then(async r=>{if(r.status>=500)throw new Error(String(r.status));process.stdout.write(await r.text())}).catch(e=>{console.error(e);process.exit(1)})" \
@@ -641,4 +718,4 @@ if access_log_contains "${smoke_token}"; then
   fail 'Caddy access log leaked a sensitive request token'
 fi
 
-echo 'Docker smoke test passed: health, listeners, Caddy routes, HTTPS-proxied English rewrites, multi-file HTML assets/PDF ranges, >10 MiB custom-page upload, and access-log redaction.'
+echo 'Docker smoke test passed: health, listeners, Caddy routes, admin JavaScript/CSS assets, HTTPS-proxied English rewrites, multi-file HTML assets/PDF ranges, >10 MiB custom-page upload, and access-log redaction.'

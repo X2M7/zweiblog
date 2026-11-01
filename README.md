@@ -522,6 +522,8 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
+`patches/` 中的版本化补丁修正 Umi 3 的 Webpack 5 HTML 生成接口和 gzip 体积判断，安装时由 pnpm 自动应用。升级 Umi 时应同步检查补丁，并验证后台 HTML、JS/CSS 路径和编辑器 worker；不要直接修改 `node_modules`。
+
 常用命令：
 
 ```bash

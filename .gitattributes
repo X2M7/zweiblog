@@ -6,6 +6,9 @@ Dockerfile text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# pnpm hashes patch bytes; empty unified-diff context lines contain one space.
+patches/*.patch text eol=lf whitespace=-blank-at-eol
+
 # Keep binary preview and documentation assets byte-for-byte unchanged.
 *.gif binary
 *.ico binary

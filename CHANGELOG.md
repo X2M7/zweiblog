@@ -10,11 +10,15 @@
 
 ### 安全修复
 
+- 将 follow-redirects 更新至 1.16.2、PicGo 的 Hono Node 适配器更新至 2.1.3，修复本轮生产依赖审计命中。
+- 使用 Node 内置文件操作清理服务器构建目录，移除生产 rimraf/glob 链；移除 PicGo 未使用的 ejs/jake/filelist/minimatch 链，并扩展真实上传回归检查。
 - 将 body-parser 更新至 2.4.0（开发依赖中的 1.x 同步至 1.20.9），修复压缩请求体异常导致进程退出的问题，并增加真实 HTTP 回归检查。
 - 将 multer 更新至 2.5.0、qs 更新至 6.16.1，消除新增生产依赖公告命中；当前上传配置未使用公告涉及的异步 fileFilter，也未发现 qs 的 comma 序列化调用。
 
 ### 持续验证
 
+- 更新 GitHub Actions 到使用 Node 24 的版本，应用构建继续使用 Node 22；容器构建和缓存同时纳入版本化依赖补丁。
+- 更新浏览器兼容数据，调整 Next 的 TypeScript 项目配置；后台构建改用 Webpack 5 资源处理接口及 CSS 压缩插件，并修正 Umi 的 gzip 体积判断。
 - `main` 更新自动执行完整测试、独立 MongoDB 集成测试、生产依赖审计和 amd64/arm64 容器启动检查，验证流程不发布镜像。
 - ARM 构建使用原生 runner，避免模拟器异常导致发布任务停滞。
 - 针对本轮 Ubuntu 24.04 两种架构 runner 新内核与 MongoDB 8.0 的兼容问题，验证和构建暂用原生 Ubuntu 22.04 runner；标签不锁定内核，每次仍以实际数据库启动检查为准。MongoDB 兼容修复发布并验证后需更新 runner，Ubuntu 22.04 runner 将于 2027-04-17 退役。

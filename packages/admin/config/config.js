@@ -1,11 +1,22 @@
 // https://umijs.org/config/
 import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin';
+import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import path from 'path';
 import { defineConfig } from 'umi';
 import defaultSettings from './defaultSettings';
 import proxy from './proxy';
 import routes from './routes';
 const { REACT_APP_ENV } = process.env;
+// Preserve Umi 3's browser defaults and this application's IE 11 target.
+// Babel, Autoprefixer, and CSS minification must use the same support floor.
+const browserTargets = {
+  chrome: 49,
+  firefox: 64,
+  safari: 10,
+  edge: 13,
+  ios: 10,
+  ie: 11,
+};
 export default defineConfig({
   hash: true,
   base: '/admin/',
@@ -24,9 +35,7 @@ export default defineConfig({
   dynamicImport: {
     loading: '@ant-design/pro-layout/es/PageLoading',
   },
-  targets: {
-    ie: 11,
-  },
+  targets: browserTargets,
   // umi routes: https://umijs.org/docs/routing
   routes,
   access: {},
@@ -43,9 +52,6 @@ export default defineConfig({
   title: false,
   ignoreMomentLocale: true,
   proxy: proxy[REACT_APP_ENV || 'dev'],
-  manifest: {
-    basePath: '/',
-  },
   // @ant-design/charts-util parses the React 18 entry even when its React 17
   // runtime branch is selected. Umi applies this top-level alias after its
   // built-in resolver aliases, so the compatibility shim remains reachable.
@@ -64,6 +70,30 @@ export default defineConfig({
   webpack5: {},
   exportStatic: {},
   chainWebpack(memo, { env, webpack, createCSSRule }) {
+    // Browser transpilation is configured by Umi's targets above. Explicitly
+    // retain ES5 webpack runtime output instead of inferring a second target
+    // from an unrelated package.json Browserslist configuration.
+    memo.target(['web', 'es5']);
+    // Umi 3 still supplies the webpack 4 spelling. Keep its fail-closed
+    // production behavior using the webpack 5 option.
+    if (memo.optimization.has('noEmitOnErrors')) {
+      const noEmitOnErrors = memo.optimization.get('noEmitOnErrors');
+      memo.optimization.delete('noEmitOnErrors');
+      memo.optimization.set('emitOnErrors', !noEmitOnErrors);
+    }
+    if (memo.plugins.has('optimize-css')) {
+      // Use webpack 5's processAssets hook while retaining CSS minification.
+      memo.plugin('optimize-css').use(CssMinimizerPlugin, [{
+        parallel: false,
+        minimizerOptions: {
+          preset: ['default', {
+            overrideBrowserslist: Object.entries(browserTargets).map(
+              ([browser, version]) => `${browser} >= ${version}`,
+            ),
+          }],
+        },
+      }]);
+    }
     memo
       .plugin('monaco-editor-webpack-plugin')
       .use(MonacoWebpackPlugin, [

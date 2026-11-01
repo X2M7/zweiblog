@@ -1,0 +1,93 @@
+diff --git a/lib/plugins/commands/build/applyHtmlWebpackPlugin.js b/lib/plugins/commands/build/applyHtmlWebpackPlugin.js
+--- a/lib/plugins/commands/build/applyHtmlWebpackPlugin.js
++++ b/lib/plugins/commands/build/applyHtmlWebpackPlugin.js
+@@ -97,7 +97,7 @@
+ 
+   class HtmlWebpackPlugin {
+     apply(compiler) {
+-      compiler.hooks.emit.tapPromise('UmiHtmlGeneration', /*#__PURE__*/function () {
++      const generateHtml = /*#__PURE__*/function () {
+         var _ref = _asyncToGenerator(function* (compilation) {
+           if (api.config.ssr) {
+             // waiting umi.server.js emited
+@@ -143,10 +143,15 @@
+                   file
+                 }
+               });
+-              compilation.assets[fixRoutePathInWindows(file)] = {
+-                source: () => content,
+-                size: () => content.length
+-              };
++              const outputFile = fixRoutePathInWindows(file);
++              if (compiler.webpack && compilation.emitAsset) {
++                compilation.emitAsset(outputFile, new compiler.webpack.sources.RawSource(content));
++              } else {
++                compilation.assets[outputFile] = {
++                  source: () => content,
++                  size: () => content.length
++                };
++              }
+             }
+           } catch (err) {
+             _iterator.e(err);
+@@ -160,7 +165,17 @@
+         return function (_x) {
+           return _ref.apply(this, arguments);
+         };
+-      }());
++      }();
++      if (compiler.webpack && compiler.webpack.Compilation) {
++        compiler.hooks.thisCompilation.tap('UmiHtmlGeneration', compilation => {
++          compilation.hooks.processAssets.tapPromise({
++            name: 'UmiHtmlGeneration',
++            stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT
++          }, () => generateHtml(compilation));
++        });
++      } else {
++        compiler.hooks.emit.tapPromise('UmiHtmlGeneration', generateHtml);
++      }
+     }
+ 
+   }
+diff --git a/lib/plugins/commands/buildDevUtils.js b/lib/plugins/commands/buildDevUtils.js
+--- a/lib/plugins/commands/buildDevUtils.js
++++ b/lib/plugins/commands/buildDevUtils.js
+@@ -272,7 +272,7 @@
+ 
+     const isMainBundle = a.name.indexOf('umi.') === 0;
+     const maxRecommendedSize = isMainBundle ? WARN_AFTER_BUNDLE_GZIP_SIZE : WARN_AFTER_CHUNK_GZIP_SIZE;
+-    const isLarge = maxRecommendedSize && a.size > maxRecommendedSize;
++    const isLarge = maxRecommendedSize && getGzippedSizeInBytes(a) > maxRecommendedSize;
+     return _objectSpread(_objectSpread({}, a), {}, {
+       suggested: isLarge && isJS(a.name)
+     });
+@@ -289,15 +289,15 @@
+     return b.size - a.size;
+   });
+ 
+-  function getGzippedSize(asset) {
++  function getGzippedSizeInBytes(asset) {
+     const filepath = (0, _path().resolve)((0, _path().join)(dir, asset.name));
+ 
+     if ((0, _fs().existsSync)(filepath)) {
+       const buffer = (0, _fs().readFileSync)(filepath);
+-      return filesize(_zlib().default.gzipSync(buffer).length);
+-    }
+-
+-    return filesize(0);
++      return _zlib().default.gzipSync(buffer).length;
++    }
++
++    return 0;
+   }
+ 
+   function makeRow(a, b, c) {
+@@ -305,7 +305,7 @@
+   }
+ 
+   ui.div(makeRow(_utils().chalk.cyan.bold(`File`), _utils().chalk.cyan.bold(`Size`), _utils().chalk.cyan.bold(`Gzipped`)) + `\n\n` + (orderedAssets === null || orderedAssets === void 0 ? void 0 : orderedAssets.map(asset => makeRow(/js$/.test(asset.name) ? asset.suggested ? // warning for large bundle
+-  _utils().chalk.yellow((0, _path().join)(dir, asset.name)) : _utils().chalk.green((0, _path().join)(dir, asset.name)) : _utils().chalk.blue((0, _path().join)(dir, asset.name)), filesize(asset.size), getGzippedSize(asset))).join(`\n`)));
++  _utils().chalk.yellow((0, _path().join)(dir, asset.name)) : _utils().chalk.green((0, _path().join)(dir, asset.name)) : _utils().chalk.blue((0, _path().join)(dir, asset.name)), filesize(asset.size), filesize(getGzippedSizeInBytes(asset)))).join(`\n`)));
+   console.log(`${ui.toString()}\n\n  ${_utils().chalk.gray(`Images and other types of assets omitted.`)}\n`);
+ 
+   if (orderedAssets === null || orderedAssets === void 0 ? void 0 : orderedAssets.some(asset => asset.suggested)) {

@@ -4,6 +4,7 @@ ENV EEE=production
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
+COPY ./patches/ ./patches/
 COPY ./packages/admin/ ./packages/admin/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -19,6 +20,7 @@ ENV NODE_OPTIONS=--max_old_space_size=4096
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
+COPY ./patches/ ./patches/
 COPY ./packages/server/ ./packages/server/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -34,6 +36,7 @@ FROM node:22-alpine AS RUNTIME_DEPS_BUILDER
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
+COPY ./patches/ ./patches/
 COPY ./packages/cli/ ./packages/cli/
 RUN corepack enable
 RUN corepack prepare pnpm@8.11.0 --activate
@@ -48,6 +51,7 @@ FROM node:22-alpine AS WEBSITE_BUILDER
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./tsconfig.base.json ./
+COPY ./patches/ ./patches/
 COPY ./packages/website ./packages/website
 ENV isBuild=t
 ARG ZWEI_BLOG_ALLOW_DOMAINS=""

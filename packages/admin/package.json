@@ -31,11 +31,6 @@
     "test:security": "vitest run src/components/Editor/security.spec.ts",
     "tsc": "tsc --noEmit"
   },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not ie <= 10"
-  ],
   "dependencies": {
     "@ant-design/icons": "^4.8.1",
     "@ant-design/plots": "^2.6.8",
@@ -83,6 +78,7 @@
     "@umijs/preset-react": "^2.1.7",
     "@umijs/route-utils": "2.2.2",
     "cross-env": "^7.0.3",
+    "css-minimizer-webpack-plugin": "8.0.0",
     "eslint": "^7.32.0",
     "monaco-editor-webpack-plugin": "^7.1.0",
     "react-dev-inspector": "^1.9.0",
@@ -93,6 +89,6 @@
     "vitest": "3.2.6"
   },
   "engines": {
-    "node": "^18.0.0 || >= 20.0.0"
+    "node": ">=20.9.0"
   }
 }

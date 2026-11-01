@@ -7,11 +7,21 @@ const { join, resolve } = require('node:path');
 // Run against the workspace by default, or against a real production deploy:
 // ZWEIBLOG_PICGO_SERVER_DIR=/tmp/server-prod node --test scripts/picgo-runtime.test.cjs
 // Keep the runtime exercise in a fresh process so no cached/hoisted development
-// dependency can hide a PicGo import of the removed glob dependency chain.
+// dependency can hide a PicGo import of the removed template/build/glob chains.
 async function exercisePicGo(serverDirectory, temporaryDirectory) {
   const Module = require('node:module');
   const forbiddenLoads = [];
-  const forbiddenPackage = /(?:^|[/\\])(?:globby|micromatch|braces)(?:[/\\]|$)/;
+  const forbiddenPackages = [
+    'globby',
+    'micromatch',
+    'braces',
+    'ejs',
+    'jake',
+    'filelist',
+    'minimatch',
+    'glob',
+  ];
+  const forbiddenPackage = new RegExp(`(?:^|[/\\\\])(?:${forbiddenPackages.join('|')})(?:[/\\\\]|$)`);
   const originalLoad = Module._load;
   Module._load = function (specifier, parent, isMain) {
     if (
@@ -26,7 +36,7 @@ async function exercisePicGo(serverDirectory, temporaryDirectory) {
 
   // Fail even if an optional dependency loader catches the rejected import.
   // Verify the guard itself before recording actual PicGo activity.
-  for (const name of ['globby', 'micromatch', 'braces']) {
+  for (const name of forbiddenPackages) {
     assert.throws(() => require(name), /Forbidden PicGo runtime dependency/);
   }
   forbiddenLoads.length = 0;
@@ -153,7 +163,7 @@ if (process.argv[2] === '--picgo-runtime-child') {
 } else {
   const { spawnSync } = require('node:child_process');
   const { test } = require('node:test');
-  test('PicGo initializes and uploads through a local plugin without glob dependencies', (t) => {
+  test('PicGo initializes and uploads without unused template/build/glob dependencies', (t) => {
     const temporaryDirectory = fs.mkdtempSync(join(tmpdir(), 'zweiblog-picgo-runtime-'));
     t.after(() => fs.rmSync(temporaryDirectory, { recursive: true, force: true }));
     const serverDirectory = resolve(

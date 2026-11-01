@@ -6,7 +6,7 @@
   "private": true,
   "license": "GPL-3.0-only",
   "scripts": {
-    "prebuild": "rimraf dist",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -58,7 +58,6 @@
     "picgo": "3.0.2",
     "pino": "^8.21.0",
     "reflect-metadata": "^0.1.13",
-    "rimraf": "^4.4.1",
     "rxjs": "^7.8.1",
     "sharp": "^0.35.5",
     "sitemap": "^7.1.1",

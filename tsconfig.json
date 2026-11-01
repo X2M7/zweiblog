@@ -6,9 +6,6 @@
       "path": "./packages/admin"
     },
     {
-      "path": "./packages/website"
-    },
-    {
       "path": "./packages/server"
     }
   ]
