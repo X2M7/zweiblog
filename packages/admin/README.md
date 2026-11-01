@@ -1,13 +1,19 @@
-# 后台管理面板
+# ZweiBlog 后台管理面板
 
-基于 `umi.js`
+后台使用 Umi。以下命令均在仓库根目录执行：
 
 ```bash
-cd packages/admin
-yarn
-yarn start
+pnpm install --frozen-lockfile
+pnpm dev:admin
 ```
 
-端口号为: `3002`，默认开启了 `https`，因为某些功能需要。
+开发页面为 `http://localhost:3002/admin/`，使用 HTTP。开发代理将 `/api/` 和 `/static/` 请求转发至 `http://localhost:3000`，需先按根目录说明启动后端。
 
-与后台的跨域代理已经做好了，浏览器打开即可。
+构建与测试：
+
+```bash
+pnpm build:admin
+pnpm --filter @zweiblog/admin test
+```
+
+生产部署使用仓库根目录的 [Dockerfile](../../Dockerfile)，步骤见 [README](../../README.md)。

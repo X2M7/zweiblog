@@ -238,7 +238,7 @@
                         { "file": { "try_files": ["{http.request.uri.path}", "/index.html"] } }
                       ]
                     },
-                    { "handle": [{ "handler": "file_server", "hide": ["./CaddyfileTemplate"] }] }
+                    { "handle": [{ "handler": "file_server" }] }
                   ]
                 }
               ]
@@ -495,7 +495,7 @@
                         { "file": { "try_files": ["{http.request.uri.path}", "/index.html"] } }
                       ]
                     },
-                    { "handle": [{ "handler": "file_server", "hide": ["./CaddyfileTemplate"] }] }
+                    { "handle": [{ "handler": "file_server" }] }
                   ]
                 }
               ]

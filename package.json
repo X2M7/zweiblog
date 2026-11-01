@@ -15,7 +15,6 @@
     "dev:admin": "pnpm --filter @zweiblog/admin dev",
     "docs:build": "pnpm run -r docs:build",
     "docs:dev": "pnpm run -r docs:dev",
-    "kill": "sudo bash scripts/kill-all.sh",
     "release": "standard-version",
     "release-note": "node scripts/releaseNote.js",
     "release-major": "standard-version --release-as major",

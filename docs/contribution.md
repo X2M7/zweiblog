@@ -12,9 +12,10 @@ order: 7
 
 本项目使用了 `JavaScript` 和 `TypeScript` 实现。
 
-如果你想参与 ZweiBlog 开发，可以进群哦：
+如果你想参与 ZweiBlog 开发，请通过本仓库交流或提交改动：
 
-- [ZweiBlog 开发群](https://jq.qq.com/?_wv=1027&k=mf2CguM8)
+- [问题与建议](https://github.com/X2M7/zweiblog/issues)
+- [提交代码改动](https://github.com/X2M7/zweiblog/pulls)
 
 ## 准备知识
 

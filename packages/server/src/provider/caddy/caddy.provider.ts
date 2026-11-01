@@ -17,7 +17,6 @@ export class CaddyProvider {
     });
   }
   async init() {
-    // this.subjects = await getDefaultSubjects();
     // this.logger.log(`默认 subjects:`, this.subjects);
     // await this.updateSubjects(this.subjects);
     const configInDB = await this.settingProvider.getHttpsSetting();
