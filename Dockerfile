@@ -32,9 +32,10 @@ RUN pnpm install --frozen-lockfile --filter @zweiblog/server...
 RUN pnpm --filter @zweiblog/server build
 # pnpm 8 deploy forces dependency resolution, including the development graph.
 # Install the locked production graph into a self-contained virtual store instead.
+# Keep /repo/out separate from the root importer's /out to avoid concurrent bin writes.
 RUN pnpm --filter @zweiblog/server install --prod --frozen-lockfile --offline \
-  --modules-dir ../../../out/server/node_modules \
-  --virtual-store-dir /out/server/node_modules/.pnpm
+  --modules-dir ../../out/server/node_modules \
+  --virtual-store-dir /repo/out/server/node_modules/.pnpm
 
 FROM node:22-alpine AS runtime_deps_builder
 WORKDIR /repo
@@ -50,9 +51,9 @@ RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter zweiblog-cli...
 RUN pnpm --filter zweiblog-cli install --prod --frozen-lockfile --offline \
-  --modules-dir ../../../out/cli/node_modules \
-  --virtual-store-dir /out/cli/node_modules/.pnpm \
-  && cp packages/cli/package.json packages/cli/resetHttps.js /out/cli/
+  --modules-dir ../../out/cli/node_modules \
+  --virtual-store-dir /repo/out/cli/node_modules/.pnpm \
+  && cp packages/cli/package.json packages/cli/resetHttps.js /repo/out/cli/
 
 FROM node:22-alpine AS website_builder
 WORKDIR /repo
@@ -88,10 +89,10 @@ RUN apk add --no-cache tzdata caddy nss-tools libwebp-tools libcap \
   && setcap cap_net_bind_service=+ep "$(command -v caddy)"
 
 WORKDIR /app/cli
-COPY --from=runtime_deps_builder /out/cli/ ./
+COPY --from=runtime_deps_builder /repo/out/cli/ ./
 
 WORKDIR /app/server
-COPY --from=server_builder /out/server/node_modules ./node_modules
+COPY --from=server_builder /repo/out/server/node_modules ./node_modules
 COPY --from=server_builder /repo/packages/server/dist/src/ ./
 
 WORKDIR /app/website
