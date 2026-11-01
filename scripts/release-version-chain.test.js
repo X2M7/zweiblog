@@ -31,10 +31,10 @@ test('release workflow validates one package version before every image build', 
 test('the Dockerfile injects the same version into Next and the runtime image', () => {
   const dockerfile = fs.readFileSync(path.join(repoRoot, 'Dockerfile'), 'utf8');
   const websiteStage = dockerfile.slice(
-    dockerfile.indexOf('FROM node:22-alpine AS WEBSITE_BUILDER'),
-    dockerfile.indexOf('FROM node:22-alpine AS RUNNER'),
+    dockerfile.indexOf('FROM node:22-alpine AS website_builder'),
+    dockerfile.indexOf('FROM node:22-alpine AS runner'),
   );
-  const runnerStage = dockerfile.slice(dockerfile.indexOf('FROM node:22-alpine AS RUNNER'));
+  const runnerStage = dockerfile.slice(dockerfile.indexOf('FROM node:22-alpine AS runner'));
 
   for (const stage of [websiteStage, runnerStage]) {
     assert.match(stage, /ARG ZWEI_BLOG_VERSIONS=dev/);

@@ -1,4 +1,4 @@
-FROM node:22-alpine AS ADMIN_BUILDER
+FROM node:22-alpine AS admin_builder
 ENV NODE_OPTIONS='--max_old_space_size=4096 --openssl-legacy-provider'
 ENV EEE=production
 WORKDIR /repo
@@ -15,7 +15,7 @@ RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/admin...
 RUN pnpm --filter @zweiblog/admin exec cross-env NODE_OPTIONS='--max-old-space-size=1536 --openssl-legacy-provider' umi build
 
-FROM node:22-alpine AS SERVER_BUILDER
+FROM node:22-alpine AS server_builder
 ENV NODE_OPTIONS=--max_old_space_size=4096
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
@@ -30,9 +30,13 @@ RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/server...
 RUN pnpm --filter @zweiblog/server build
-RUN pnpm --filter @zweiblog/server deploy --prod /out/server
+# pnpm 8 deploy forces dependency resolution, including the development graph.
+# Install the locked production graph into a self-contained virtual store instead.
+RUN pnpm --filter @zweiblog/server install --prod --frozen-lockfile --offline \
+  --modules-dir ../../../out/server/node_modules \
+  --virtual-store-dir /out/server/node_modules/.pnpm
 
-FROM node:22-alpine AS RUNTIME_DEPS_BUILDER
+FROM node:22-alpine AS runtime_deps_builder
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./
@@ -45,9 +49,12 @@ RUN pnpm config set registry https://registry.npmjs.org -g
 RUN pnpm config set fetch-retries 20 -g
 RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter zweiblog-cli...
-RUN pnpm --filter zweiblog-cli deploy --prod /out/cli
+RUN pnpm --filter zweiblog-cli install --prod --frozen-lockfile --offline \
+  --modules-dir ../../../out/cli/node_modules \
+  --virtual-store-dir /out/cli/node_modules/.pnpm \
+  && cp packages/cli/package.json packages/cli/resetHttps.js /out/cli/
 
-FROM node:22-alpine AS WEBSITE_BUILDER
+FROM node:22-alpine AS website_builder
 WORKDIR /repo
 RUN apk add --no-cache python3 make g++
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./.pnpmfile.cjs ./tsconfig.base.json ./
@@ -69,7 +76,7 @@ RUN pnpm config set fetch-timeout 600000 -g
 RUN pnpm install --frozen-lockfile --filter @zweiblog/theme-default...
 RUN CIRCLE_NODE_TOTAL=2 NODE_OPTIONS=--max-old-space-size=1536 pnpm --filter @zweiblog/theme-default build
 
-FROM node:22-alpine AS RUNNER
+FROM node:22-alpine AS runner
 LABEL org.opencontainers.image.source="https://github.com/X2M7/zweiblog" \
   org.opencontainers.image.title="ZweiBlog" \
   org.opencontainers.image.description="A self-hosted bilingual blog platform based on VanBlog"
@@ -81,18 +88,18 @@ RUN apk add --no-cache tzdata caddy nss-tools libwebp-tools libcap \
   && setcap cap_net_bind_service=+ep "$(command -v caddy)"
 
 WORKDIR /app/cli
-COPY --from=RUNTIME_DEPS_BUILDER /out/cli/ ./
+COPY --from=runtime_deps_builder /out/cli/ ./
 
 WORKDIR /app/server
-COPY --from=SERVER_BUILDER /out/server/node_modules ./node_modules
-COPY --from=SERVER_BUILDER /repo/packages/server/dist/src/ ./
+COPY --from=server_builder /out/server/node_modules ./node_modules
+COPY --from=server_builder /repo/packages/server/dist/src/ ./
 
 WORKDIR /app/website
-COPY --from=WEBSITE_BUILDER /repo/packages/website/.next/standalone/ ./
-COPY --from=WEBSITE_BUILDER /repo/packages/website/next.config.js ./packages/website/next.config.js
-COPY --from=WEBSITE_BUILDER /repo/packages/website/public ./packages/website/public
-COPY --from=WEBSITE_BUILDER /repo/packages/website/package.json ./packages/website/package.json
-COPY --from=WEBSITE_BUILDER /repo/packages/website/.next/static ./packages/website/.next/static
+COPY --from=website_builder /repo/packages/website/.next/standalone/ ./
+COPY --from=website_builder /repo/packages/website/next.config.js ./packages/website/next.config.js
+COPY --from=website_builder /repo/packages/website/public ./packages/website/public
+COPY --from=website_builder /repo/packages/website/package.json ./packages/website/package.json
+COPY --from=website_builder /repo/packages/website/.next/static ./packages/website/.next/static
 
 ENV NODE_ENV=production
 ENV HOME=/home/zweiblog
@@ -103,7 +110,7 @@ ENV ZWEI_BLOG_LEGACY_WALINE_DB="waline"
 ENV ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE="false"
 
 WORKDIR /app/admin
-COPY --from=ADMIN_BUILDER /repo/packages/admin/dist/ ./
+COPY --from=admin_builder /repo/packages/admin/dist/ ./
 COPY caddyTemplate.json /app/caddyTemplate.json
 COPY ./scripts/render-caddy-config.js /app/render-caddy-config.js
 RUN ZWEI_BLOG_CADDY_HTTPS=off ZWEI_BLOG_CADDY_TRUSTED_PROXIES=127.0.0.1/32 \

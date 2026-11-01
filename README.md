@@ -524,6 +524,8 @@ pnpm build
 
 `patches/` 中的版本化补丁修正 Umi 3 的 Webpack 5 HTML 生成接口和 gzip 体积判断，安装时由 pnpm 自动应用。升级 Umi 时应同步检查补丁，并验证后台 HTML、JS/CSS 路径和编辑器 worker；不要直接修改 `node_modules`。
 
+后台构建将 Monaco TypeScript worker 的 62 份标准库文本完整拆为 `ts-libs.<SHA-256>.js`，首次加载 worker 时同步读取，便于独立缓存；代码和数据仍分别遵守 1 MiB gzip 体积预算。部署时应一起更新整个后台构建目录。此改造增加一次资源请求，不删减语言功能，也不代表总下载量减少。升级 Monaco 时需复核 `packages/admin/config/loaders/monaco-typescript-libs.cjs`，并运行 `node --test scripts/monaco-worker-build.test.cjs`；适配器遇到不符合预期的标准库结构会终止构建。
+
 常用命令：
 
 ```bash

@@ -7,6 +7,9 @@ import defaultSettings from './defaultSettings';
 import proxy from './proxy';
 import routes from './routes';
 const { REACT_APP_ENV } = process.env;
+const typescriptWorkerPath = require.resolve(
+  'monaco-editor/esm/vs/language/typescript/ts.worker.js',
+);
 // Preserve Umi 3's browser defaults and this application's IE 11 target.
 // Babel, Autoprefixer, and CSS minification must use the same support floor.
 const browserTargets = {
@@ -18,6 +21,7 @@ const browserTargets = {
   ie: 11,
 };
 export default defineConfig({
+  plugins: [path.resolve(__dirname, './plugins/monaco-library-assets.js')],
   hash: true,
   base: '/admin/',
   devServer: { https: false, port: 3002 },
@@ -70,6 +74,12 @@ export default defineConfig({
   webpack5: {},
   exportStatic: {},
   chainWebpack(memo, { env, webpack, createCSSRule }) {
+    memo.module
+      .rule('monaco-typescript-standard-libraries')
+      .test((resource) => resource === typescriptWorkerPath)
+      .enforce('pre')
+      .use('extract-standard-libraries')
+      .loader(path.resolve(__dirname, './loaders/monaco-typescript-libs.cjs'));
     // Browser transpilation is configured by Umi's targets above. Explicitly
     // retain ES5 webpack runtime output instead of inferring a second target
     // from an unrelated package.json Browserslist configuration.

@@ -274,15 +274,27 @@ actual_admin_hash="$(openssl dgst -sha256 "${temp_root}/admin.html" | awk '{prin
 
 # Check the assets named by that exact generated HTML, not a separately guessed
 # bundle name. Read only regular files beneath /app/admin and request only the
-# corresponding /admin/ paths through the published Caddy listener.
+# corresponding /admin/ paths through the published Caddy listener. Include the
+# TypeScript worker's independently cached standard-library bundle.
 docker exec --interactive "${app_container}" node >"${temp_root}/admin-assets.tsv" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { gzipSync } = require('node:zlib');
 
 const adminRoot = '/app/admin';
 const html = fs.readFileSync(`${adminRoot}/index.html`, 'utf8');
 const assets = new Map();
+const addAsset = (requestPath, kind) => {
+  const file = fs.realpathSync(path.join(adminRoot, requestPath.slice('/admin/'.length)));
+  if (!file.startsWith(`${adminRoot}/`) || !fs.statSync(file).isFile()) {
+    throw new Error(`admin asset escaped the generated output directory: ${requestPath}`);
+  }
+  const bytes = fs.readFileSync(file);
+  if (bytes.length === 0) throw new Error(`empty generated admin asset: ${requestPath}`);
+  assets.set(requestPath, { kind, hash: crypto.createHash('sha256').update(bytes).digest('hex') });
+  return bytes;
+};
 for (const match of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
   const tag = match[0];
   const attribute = (name) => {
@@ -305,16 +317,30 @@ for (const match of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
   if (!url.pathname.startsWith('/admin/') || path.extname(url.pathname) !== `.${kind}`) {
     throw new Error(`admin ${kind} asset is not served under /admin/: ${reference}`);
   }
-  const file = fs.realpathSync(path.join(adminRoot, url.pathname.slice('/admin/'.length)));
-  if (!file.startsWith(`${adminRoot}/`) || !fs.statSync(file).isFile()) {
-    throw new Error(`admin asset escaped the generated output directory: ${reference}`);
-  }
-  const bytes = fs.readFileSync(file);
-  if (bytes.length === 0) throw new Error(`empty generated admin asset: ${reference}`);
-  assets.set(url.pathname, { kind, hash: crypto.createHash('sha256').update(bytes).digest('hex') });
+  addAsset(url.pathname, kind);
 }
 if (!['js', 'css'].every((kind) => [...assets.values()].some((asset) => asset.kind === kind))) {
   throw new Error('generated admin HTML must reference local JavaScript and CSS bundles');
+}
+const libraryFiles = fs.readdirSync(adminRoot).filter((name) => /^ts-libs\.[a-f0-9]{64}\.js$/.test(name));
+if (libraryFiles.length !== 1) {
+  throw new Error('admin output must contain exactly one content-hashed TypeScript standard-library bundle');
+}
+const libraryName = libraryFiles[0];
+const workerBytes = addAsset('/admin/ts.worker.js', 'js');
+const libraryBytes = addAsset(`/admin/${libraryName}`, 'js');
+if (!workerBytes.toString('utf8').includes(libraryName)) {
+  throw new Error('TypeScript worker does not reference the generated standard-library bundle');
+}
+if (assets.get(`/admin/${libraryName}`).hash !== libraryName.slice('ts-libs.'.length, -'.js'.length)) {
+  throw new Error('TypeScript standard-library bundle filename does not match its SHA-256');
+}
+for (const [name, bytes] of [['ts.worker.js', workerBytes], [libraryName, libraryBytes]]) {
+  const gzipBytes = gzipSync(bytes).length;
+  if (gzipBytes > 1024 * 1024) {
+    throw new Error(`admin ${name} exceeds the 1 MiB gzip budget: ${gzipBytes} bytes`);
+  }
+  console.error(`Verified admin ${name}: ${gzipBytes} gzip bytes <= 1048576.`);
 }
 for (const [requestPath, { kind, hash }] of assets) {
   process.stdout.write(`${kind}\t${requestPath}\t${hash}\n`);
@@ -346,7 +372,7 @@ while IFS=$'\t' read -r asset_kind asset_path expected_asset_hash; do
     fail "admin asset ${asset_path} differs from the bundled SHA-256"
   admin_asset_count=$((admin_asset_count + 1))
 done <"${temp_root}/admin-assets.tsv"
-((admin_asset_count >= 2)) || fail 'admin JavaScript and CSS asset checks did not run'
+((admin_asset_count >= 4)) || fail 'admin JavaScript, CSS, worker, and standard-library asset checks did not run'
 echo "Verified ${admin_asset_count} generated admin JavaScript/CSS assets through Caddy."
 
 route_marker="smoke_route_${run_suffix}"
