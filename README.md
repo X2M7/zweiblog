@@ -505,6 +505,7 @@ sudo docker compose \
 | `ZWEI_BLOG_CADDY_TRUSTED_PROXIES` | 内置 Caddy 信任的外层代理 IP/CIDR | 无外层代理时留空；禁止全网段 |
 | `ZWEI_BLOG_TRUST_PROXY` | Express 信任的代理链 | 默认 `loopback`；反代时按上文加入同一精确地址 |
 | `ZWEI_BLOG_ENABLE_SWAGGER` | 在生产环境开放 Swagger | 默认关闭，不建议在公网长期开放 |
+| `ZWEI_BLOG_REVALIDATE_SECRET` | 后端调用前台缓存刷新接口的独立密钥 | 一体部署自动生成并传给前台；独立启动两个进程时设置相同的高强度随机值，不使用 `NEXT_PUBLIC_` 前缀 |
 | `ZWEI_BLOG_ALLOW_TRUSTED_CUSTOM_CODE` | 执行整站“定制化”中的自定义脚本 | 默认关闭；只运行完全信任的代码 |
 | `ZWEI_BLOG_PIPELINE_ALLOW_UNSAFE_EXECUTION` | 允许流水线执行脚本 | 默认关闭；生产环境必须显式设为 `true` |
 | `ZWEI_BLOG_PICGO_ALLOW_UNSAFE_PLUGIN_INSTALL` | 允许运行时安装 PicGo 插件 | 默认关闭；生产环境必须显式设为 `true` |
@@ -513,7 +514,7 @@ sudo docker compose \
 
 ## 本地开发
 
-Docker 是部署的首选方式。需要修改源码时，建议使用 Node.js 22 和仓库锁定的 pnpm 8.11.0：
+Docker 是部署的首选方式。需要修改源码时，建议使用 Node.js 22（至少 22.12.0）和仓库锁定的 pnpm 8.11.0：
 
 ```bash
 corepack enable
@@ -522,7 +523,7 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-`patches/` 中的版本化补丁修正 Umi 3 的 Webpack 5 HTML 生成接口和 gzip 体积判断，安装时由 pnpm 自动应用。升级 Umi 时应同步检查补丁，并验证后台 HTML、JS/CSS 路径和编辑器 worker；不要直接修改 `node_modules`。
+`patches/` 中的版本化补丁修正 Umi 3 的 Webpack 5 HTML 生成接口和 gzip 体积判断，并将旧 esbuild 加载器、CommonJS URL 解码调用和文档 Markdown 插件适配到安全版本，安装时由 pnpm 自动应用。升级相关工具时应同步检查补丁，并验证后台 HTML、JS/CSS 路径、编辑器 worker 和文档构建；不要直接修改 `node_modules`。
 
 后台构建将 Monaco TypeScript worker 的 62 份标准库文本完整拆为 `ts-libs.<SHA-256>.js`，首次加载 worker 时同步读取，便于独立缓存；代码和数据仍分别遵守 1 MiB gzip 体积预算。部署时应一起更新整个后台构建目录。此改造增加一次资源请求，不删减语言功能，也不代表总下载量减少。升级 Monaco 时需复核 `packages/admin/config/loaders/monaco-typescript-libs.cjs`，并运行 `node --test scripts/monaco-worker-build.test.cjs`；适配器遇到不符合预期的标准库结构会终止构建。
 
@@ -533,12 +534,17 @@ pnpm dev
 pnpm --filter @zweiblog/admin test
 pnpm --filter @zweiblog/server exec jest --runInBand
 pnpm --filter @zweiblog/theme-default exec vitest run
+pnpm security:audit
 ```
 
 本地开发还需要可用的 MongoDB，并通过 `ZWEI_BLOG_DATABASE_URL` 或安全的 `ZWEI_BLOG_DATABASE_URL_FILE` 提供连接。不要把开发数据库和生产数据库混用。
 
+后台静态预览使用 `pnpm --filter @zweiblog/admin serve`，仅监听 `127.0.0.1:8000`。独立启动前后台进程时，需要为两个进程配置相同的 `ZWEI_BLOG_REVALIDATE_SECRET`；由后端启动前台的默认方式会自动处理。缓存刷新接口只接受带密钥请求头的 POST 请求。
+
 ## 安全与隐私提示
 
+- 修改密码、通过恢复密钥重置密码或导入备份中的管理员凭据后，已有登录会话和 API Token 会立即失效，需要重新登录并重建集成凭据。
+- `pnpm security:audit` 要求生产依赖无已知漏洞、全部依赖无中危及以上漏洞。2026-11-09 审计仍发现开发/构建依赖中的 [elliptic 低危公告](https://github.com/advisories/GHSA-848j-6mx2-7j84) 和 [deepmerge 低危公告](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)，上游尚无修复版本；没有将它们加入忽略列表。后续需要迁移其依赖链，不能把当前结果理解为所有依赖已无漏洞。
 - 初始化完成后使用高强度管理员密码，并定期备份。
 - 早期 ZweiBlog 镜像的 Caddy 访问日志可能记录自定义 `Token` 请求头。若曾运行早期镜像或把访问日志发送给他人，应立即修改管理员密码以撤销现有登录会话，并在后台删除、重建所有 API Token；仅删除日志不能撤销已经泄露的凭据。
 - `secrets/`、`data/`、`log/`、`caddy/` 和 `.local-runtime/` 都不应提交到 Git；仓库的 [`.gitignore`](./.gitignore) 已排除默认运行目录，提交前仍应检查 `git status`。

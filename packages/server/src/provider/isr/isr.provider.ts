@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { Article } from 'src/scheme/article.schema';
 import { sleep } from 'src/utils/sleep';
+import { getRevalidationSecret } from 'src/utils/revalidationSecret';
 import { ArticleProvider } from '../article/article.provider';
 import { RssProvider } from '../rss/rss.provider';
 import { SettingProvider } from '../setting/setting.provider';
@@ -40,7 +41,7 @@ export function getBilingualRevalidationPaths(url: string): string[] {
 @Injectable()
 export class ISRProvider {
   urlList = ['/', '/category', '/tag', '/timeline', '/about', '/link'];
-  base = 'http://127.0.0.1:3001/api/revalidate?path=';
+  base = 'http://127.0.0.1:3001/api/revalidate';
   logger = new Logger(ISRProvider.name);
   timer = null;
   constructor(
@@ -83,9 +84,19 @@ export class ISRProvider {
     }, 1000);
   }
 
+  private requestRevalidation(path: string) {
+    return axios.post(this.base, null, {
+      params: { path },
+      headers: { 'x-zweiblog-revalidate-secret': getRevalidationSecret() },
+      timeout: 5_000,
+      maxRedirects: 0,
+      proxy: false,
+    });
+  }
+
   async testConn() {
     try {
-      await axios.get(encodeURI(this.base + '/'));
+      await this.requestRevalidation('/');
       return true;
     } catch {
       return false;
@@ -211,7 +222,7 @@ export class ISRProvider {
     if (isRequestRenderedArticlePath(url)) return;
     for (const target of getBilingualRevalidationPaths(url)) {
       try {
-        await axios.get(encodeURI(this.base + target));
+        await this.requestRevalidation(target);
         if (log) {
           this.logger.log(`触发增量渲染成功！ ${target}`);
         }

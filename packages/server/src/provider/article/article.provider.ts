@@ -348,15 +348,16 @@ export class ArticleProvider {
     });
   }
   async searchArticlesByLink(link: string) {
-    const artciles = await this.articleModel.find(
+    const safeLink = escapeRegexLiteral(link, 2048);
+    return this.articleModel.find(
       {
         $and: [
           {
             $or: [
-              { content: { $regex: link, $options: 'i' } },
-              { contentEn: { $regex: link, $options: 'i' } },
-              { summary: { $regex: link, $options: 'i' } },
-              { summaryEn: { $regex: link, $options: 'i' } },
+              { content: { $regex: safeLink, $options: 'i' } },
+              { contentEn: { $regex: safeLink, $options: 'i' } },
+              { summary: { $regex: safeLink, $options: 'i' } },
+              { summaryEn: { $regex: safeLink, $options: 'i' } },
             ],
           },
           {
@@ -365,8 +366,7 @@ export class ArticleProvider {
         ],
       },
       this.listView,
-    );
-    return artciles;
+    ).limit(100).maxTimeMS(2_000).exec();
   }
   async getAllImageLinks() {
     const res = [];

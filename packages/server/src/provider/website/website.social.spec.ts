@@ -1,3 +1,4 @@
+import { getRevalidationSecret } from 'src/utils/revalidationSecret';
 import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
 import { createWebsiteProcessEnvironment, WebsiteProvider } from './website.provider';
@@ -144,6 +145,7 @@ describe('WebsiteProvider child process environment', () => {
       HOSTNAME: '127.0.0.1',
       ZWEI_BLOG_REVALIDATE: 'false',
     });
+    expect(options?.env?.ZWEI_BLOG_REVALIDATE_SECRET).toBe(getRevalidationSecret());
     expect(options?.env).not.toHaveProperty('ZWEI_BLOG_DATABASE_URL');
     expect(options?.env).not.toHaveProperty('NODE_OPTIONS');
   });

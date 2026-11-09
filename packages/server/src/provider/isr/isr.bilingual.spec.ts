@@ -3,7 +3,7 @@ import { getBilingualRevalidationPaths, ISRProvider } from './isr.provider';
 
 jest.mock('axios', () => ({
   __esModule: true,
-  default: { get: jest.fn() },
+  default: { post: jest.fn() },
 }));
 
 describe('ISRProvider bilingual invalidation', () => {
@@ -37,7 +37,7 @@ describe('ISRProvider bilingual invalidation', () => {
       const provider = makeProvider();
       await provider.activeUrl(path, true);
       await provider.activeUrl(path === '/' ? '/en' : `/en${path}`, true);
-      expect(axios.get).not.toHaveBeenCalled();
+      expect(axios.post).not.toHaveBeenCalled();
     },
   );
 
@@ -50,24 +50,40 @@ describe('ISRProvider bilingual invalidation', () => {
       { getISRSetting: jest.fn().mockResolvedValue({ mode: 'onDemand' }) } as any,
     );
     jest.spyOn(provider.logger, 'log').mockImplementation(() => undefined);
-    (axios.get as jest.Mock).mockResolvedValue({});
+    (axios.post as jest.Mock).mockResolvedValue({});
     await provider.activeAllFn('article permissions changed', { postId: 1 });
     expect(articleProvider.getById).not.toHaveBeenCalled();
     expect(articleProvider.getAll).not.toHaveBeenCalled();
-    expect(axios.get).toHaveBeenCalledTimes(6); // tag, about and link, both languages
+    expect(axios.post).toHaveBeenCalledTimes(6); // tag, about and link, both languages
   });
 
   it('attempts the English invalidation even when the Chinese request fails', async () => {
     const provider = makeProvider();
     jest.spyOn(provider.logger, 'error').mockImplementation(() => undefined);
-    const get = axios.get as jest.MockedFunction<typeof axios.get>;
+    const get = axios.post as jest.MockedFunction<typeof axios.post>;
     get.mockRejectedValueOnce(new Error('Chinese cache unavailable'));
     get.mockResolvedValueOnce({} as any);
 
     await provider.activeUrl('/about', false);
 
-    expect(get).toHaveBeenNthCalledWith(1, 'http://127.0.0.1:3001/api/revalidate?path=/about');
-    expect(get).toHaveBeenNthCalledWith(2, 'http://127.0.0.1:3001/api/revalidate?path=/en/about');
+    expect(get).toHaveBeenNthCalledWith(
+      1,
+      provider.base,
+      null,
+      expect.objectContaining({
+        params: { path: '/about' },
+        headers: { 'x-zweiblog-revalidate-secret': expect.any(String) },
+        timeout: 5_000,
+        maxRedirects: 0,
+        proxy: false,
+      }),
+    );
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      provider.base,
+      null,
+      expect.objectContaining({ params: { path: '/en/about' } }),
+    );
   });
 
   it.each([false, true])(

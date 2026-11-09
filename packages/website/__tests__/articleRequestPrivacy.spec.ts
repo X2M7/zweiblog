@@ -135,8 +135,9 @@ describe('request-time article privacy', () => {
     async (path) => {
       for (const target of [path, path === '/' ? '/en' : `/en${path}`]) {
         expect(isRequestRenderedArticlePath(target)).toBe(true);
-        const res = { revalidate: vi.fn(), json: vi.fn() };
-        await revalidate({ query: { path: target } }, res);
+        vi.stubEnv('ZWEI_BLOG_REVALIDATE_SECRET', 'privacy-regression-test-secret');
+    const res = { setHeader: vi.fn(), revalidate: vi.fn(), json: vi.fn() };
+        await revalidate({ method: 'POST', headers: { 'x-zweiblog-revalidate-secret': 'privacy-regression-test-secret' }, query: { path: target } }, res);
         expect(res.revalidate).not.toHaveBeenCalled();
         expect(res.json).toHaveBeenCalledWith({ revalidated: false, requestRendered: true });
       }
@@ -145,8 +146,9 @@ describe('request-time article privacy', () => {
 
   it('still revalidates pages containing no article content', async () => {
     expect(isRequestRenderedArticlePath('/about')).toBe(false);
-    const res = { revalidate: vi.fn().mockResolvedValue(undefined), json: vi.fn() };
-    await revalidate({ query: { path: '/about' } }, res);
+    vi.stubEnv('ZWEI_BLOG_REVALIDATE_SECRET', 'privacy-regression-test-secret');
+    const res = { setHeader: vi.fn(), revalidate: vi.fn().mockResolvedValue(undefined), json: vi.fn() };
+    await revalidate({ method: 'POST', headers: { 'x-zweiblog-revalidate-secret': 'privacy-regression-test-secret' }, query: { path: '/about' } }, res);
     expect(res.revalidate).toHaveBeenCalledWith('/about');
     expect(res.json).toHaveBeenCalledWith({ revalidated: true });
   });

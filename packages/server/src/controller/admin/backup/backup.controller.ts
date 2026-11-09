@@ -32,6 +32,7 @@ import { assertBackupFileSize, backupUploadOptions } from 'src/utils/uploadLimit
 import { CommentProvider } from 'src/provider/comment/comment.provider';
 import { CommentMaintenanceProvider } from 'src/provider/comment/commentMaintenance.provider';
 import { RssProvider } from 'src/provider/rss/rss.provider';
+import { TokenProvider } from 'src/provider/token/token.provider';
 
 @ApiTags('backup')
 @UseGuards(...AdminGuard)
@@ -53,6 +54,7 @@ export class BackupController {
     private readonly commentProvider: CommentProvider,
     private readonly commentMaintenanceProvider: CommentMaintenanceProvider,
     private readonly rssProvider: RssProvider,
+    private readonly tokenProvider: TokenProvider,
   ) {}
 
   @Get('export')
@@ -184,6 +186,9 @@ export class BackupController {
       };
       await this.draftProvider.importDrafts(drafts);
       await this.userProvider.importFromBackup(user);
+      // Restoring a password must revoke existing sessions and API tokens,
+      // including when a later part of this non-transactional restore fails.
+      await this.tokenProvider.disableAll();
       await this.metaProvider.update(meta);
       await this.settingProvider.importSetting(setting);
       await this.staticProvider.importItems(staticItems);

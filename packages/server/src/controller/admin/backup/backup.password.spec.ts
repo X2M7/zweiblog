@@ -64,6 +64,7 @@ const makeController = () => {
   };
   const resumeRssFeed = jest.fn().mockResolvedValue(undefined);
   const rss: any = { pauseRssFeed: jest.fn(() => resumeRssFeed), resumeRssFeed };
+  const tokens = { disableAll: jest.fn().mockResolvedValue(undefined) };
   const controller = new BackupController(
     article,
     category,
@@ -78,11 +79,42 @@ const makeController = () => {
     comment,
     maintenance,
     rss,
+    tokens as any,
   );
-  return { controller, article, category, tag, comment, rss };
+  return { controller, article, category, tag, comment, rss, tokens, user, meta };
 };
 
 describe('backup password round trip', () => {
+  it.each([false, true])(
+    'revokes sessions after credential restore even if later writes fail: %s',
+    async (fail) => {
+      const { controller, tokens, user, meta } = makeController();
+      if (fail) meta.update.mockRejectedValue(new Error('metadata write failed'));
+      const file = {
+        buffer: Buffer.from(
+          JSON.stringify({
+            articles: [],
+            drafts: [],
+            categories: [],
+            comments: [],
+            user: {},
+            meta: {},
+            setting: {},
+          }),
+        ),
+      } as any;
+      const result = controller.importAll(file);
+      if (fail) await expect(result).rejects.toThrow('metadata write failed');
+      else await result;
+      expect(tokens.disableAll).toHaveBeenCalledTimes(1);
+      expect(tokens.disableAll.mock.invocationCallOrder[0]).toBeGreaterThan(
+        user.importFromBackup.mock.invocationCallOrder[0],
+      );
+      expect(tokens.disableAll.mock.invocationCallOrder[0]).toBeLessThan(
+        meta.update.mock.invocationCallOrder[0],
+      );
+    },
+  );
   it('uses the dedicated hash-preserving exports', async () => {
     const { controller } = makeController();
     const response: any = {

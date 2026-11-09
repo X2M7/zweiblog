@@ -71,6 +71,7 @@ jobs:
           scripts/request-parser-runtime.test.cjs
           scripts/monaco-worker-build.test.cjs
           scripts/runtime-packaging.test.cjs
+          scripts/markdown-compat-runtime.test.cjs
 
       - name: Check shell script syntax
         run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
@@ -83,6 +84,16 @@ jobs:
 
       - name: Test website
         run: pnpm --filter @zweiblog/theme-default exec vitest run
+
+      - name: Build documentation
+        run: pnpm --filter docs docs:build
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
+      - name: Audit development and build dependencies
+        # Two unpatched low-severity build-tool advisories are documented in README.
+        run: pnpm audit --audit-level=moderate
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1

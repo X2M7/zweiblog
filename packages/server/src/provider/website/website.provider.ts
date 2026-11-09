@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
 import { getSocialValueKind } from 'src/types/social.dto';
+import { getRevalidationSecret } from 'src/utils/revalidationSecret';
 import { MetaProvider } from '../meta/meta.provider';
 import { SettingProvider } from '../setting/setting.provider';
 
@@ -185,7 +186,10 @@ export class WebsiteProvider {
     this.logger.log(JSON.stringify(loadEnvs, null, 2));
     if (this.ctx == null) {
       this.ctx = spawn(cmd, args, {
-        env: createWebsiteProcessEnvironment(process.env, loadEnvs),
+        env: {
+          ...createWebsiteProcessEnvironment(process.env, loadEnvs),
+          ZWEI_BLOG_REVALIDATE_SECRET: getRevalidationSecret(),
+        },
         cwd: path.join(path.resolve(process.cwd(), '..'), 'website'),
         detached: true,
         shell: process.platform === 'win32',

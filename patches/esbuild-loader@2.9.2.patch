@@ -1,0 +1,15 @@
+diff --git a/dist/plugin.js b/dist/plugin.js
+--- a/dist/plugin.js
++++ b/dist/plugin.js
+@@ -6,7 +6,10 @@ class ESBuildPlugin {
+         let watching = false;
+         const safeStartService = async () => {
+             if (!compiler.$esbuildService) {
+-                compiler.$esbuildService = await esbuild_1.startService();
++                compiler.$esbuildService = {
++                    transform: esbuild_1.transform,
++                    stop: esbuild_1.stop,
++                };
+             }
+         };
+         compiler.hooks.thisCompilation.tap('esbuild', compilation => {

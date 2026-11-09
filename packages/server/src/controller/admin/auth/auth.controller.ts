@@ -104,13 +104,10 @@ export class AuthController {
         name: body.name,
         password: body.password,
       });
+      await this.tokenProvider.disableAll();
     } finally {
       await this.initProvider.initRestoreKey();
     }
-    setTimeout(() => {
-      // 在前端清理 localStore 之后
-      this.tokenProvider.disableAll();
-    }, 1000);
 
     return {
       statusCode: 200,
@@ -126,10 +123,7 @@ export class AuthController {
       return { statusCode: 401, message: '演示站禁止修改账号密码！' };
     }
     const data = await this.userProvider.updateUser(updateUserDto);
-    setTimeout(() => {
-      // 在前端清理 localStore 之后
-      this.tokenProvider.disableAll();
-    }, 1000);
+    await this.tokenProvider.disableAll();
     return {
       statusCode: 200,
       data,

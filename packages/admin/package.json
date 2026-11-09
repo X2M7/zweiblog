@@ -18,7 +18,7 @@
     "lint:style": "stylelint --fix \"src/**/*.less\" --syntax less",
     "prepare": "echo 'pre'",
     "prettier": "prettier -c --write \"src/**/*\"",
-    "serve": "umi-serve",
+    "serve": "serve -s dist -l tcp://127.0.0.1:8000",
     "start": " cross-env MOCK=none UMI_ENV=dev PORT=3002 umi dev",
     "start:dev": "cross-env REACT_APP_ENV=dev MOCK=none UMI_ENV=dev umi dev",
     "start:no-mock": "cross-env MOCK=none UMI_ENV=dev umi dev",
@@ -85,10 +85,10 @@
     "stylelint": "^13.13.1",
     "typescript": "^4.9.5",
     "umi": "^3.5.41",
-    "umi-serve": "^1.9.11",
-    "vitest": "3.2.6"
+    "vitest": "4.1.12",
+    "serve": "14.2.7"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": "^20.19.0 || >=22.12.0"
   }
 }
