@@ -18,6 +18,39 @@ function renderMarkdown(value: string) {
 }
 
 describe('article presentation style compatibility', () => {
+  it.each([
+    'color: red;',
+    'color:#f00',
+    'COLOR: #FF0000 ;',
+    'color: #a1B2c3; display:inline;',
+  ])('preserves acronym highlighting with %s', (style) => {
+    const html = renderMarkdown(`<span style="${style}">p</span>rint`);
+
+    expect(html).toContain(`<span style="${style}">p</span>rint`);
+  });
+
+  it.each([
+    'color:#ff',
+    'color:#fffff',
+    'color:redxxx',
+    'color:url(https://example.com/image)',
+    'color:expression(alert(1))',
+    'color:red; position:fixed; inset:0',
+    'color:red; background:url(https://example.com/image)',
+  ])('still removes unsupported or unsafe color styles: %s', (style) => {
+    const html = renderMarkdown(`<span style="${style}">p</span>rint`);
+
+    expect(html).toContain('<span>p</span>rint');
+    expect(html).not.toContain('style=');
+  });
+
+  it('keeps color outside the iframe style policy', () => {
+    const html = renderMarkdown('<iframe src="/c/latex" style="color:red"></iframe>');
+
+    expect(html).toContain('<iframe');
+    expect(html).not.toContain('style=');
+  });
+
   it('keeps common flow layout styles and legacy display attributes', () => {
     const html = renderMarkdown(`
 <div align="center" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px;">

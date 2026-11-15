@@ -29,6 +29,8 @@ const SAFE_PRESENTATION_LENGTH_OR_AUTO = `(?:auto|${SAFE_PRESENTATION_LENGTH})`;
 const SAFE_PRESENTATION_BOX = `${SAFE_PRESENTATION_LENGTH_OR_AUTO}(?:\\s+${SAFE_PRESENTATION_LENGTH_OR_AUTO}){0,3}`;
 const SAFE_PRESENTATION_RADIUS = `${SAFE_PRESENTATION_LENGTH}(?:\\s+${SAFE_PRESENTATION_LENGTH}){0,3}`;
 const SAFE_PRESENTATION_DECLARATION = [
+  // Keep text colors consistent with the published article allowlist.
+  String.raw`color\s*:\s*(?:red|#[0-9a-f]{3}(?:[0-9a-f]{3})?)`,
   String.raw`display\s*:\s*(?:block|inline|inline-block|flex|inline-flex|grid)`,
   `(?:width|min-width|max-width|height|min-height|max-height)\\s*:\\s*${SAFE_PRESENTATION_LENGTH_OR_AUTO}`,
   `(?:margin|padding)\\s*:\\s*${SAFE_PRESENTATION_BOX}`,
