@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.7](https://github.com/X2M7/zweiblog/compare/v1.0.6...v1.0.7) (2026-11-15)
+## [1.0.8](https://github.com/X2M7/zweiblog/compare/v1.0.6...v1.0.8) (2026-11-15)
 
 ### 修复
 
@@ -8,16 +8,22 @@
 - 保留完整的样式白名单校验，继续过滤不支持的声明、CSS 函数和覆盖页面的定位样式；iframe 使用独立的原有规则。
 - 增加真实渲染回归测试，覆盖颜色保留、大小写与多声明兼容、无效颜色及危险样式过滤、iframe 隔离。
 
+### 依赖更新
+
+- 将 Mongoose 更新至 7.8.13，修复本轮审计命中的查询过滤及原型属性处理问题。参见 [Mongoose 安全公告](https://github.com/advisories/GHSA-gg4r-jv3p-qx3c)。
+- 将 Hono 更新至 4.13.16、其 Node 适配器更新至 2.1.6，修复本轮审计命中的路由、中间件及请求处理问题。参见 [Hono 安全公告](https://github.com/advisories/GHSA-4m76-xfj5-7975)和 [Node 适配器安全公告](https://github.com/advisories/GHSA-qv5m-9pm6-hqp3)。
+
 ### Docker 镜像
 
-- `ghcr.io/x2m7/zweiblog:v1.0.7`
-- `ccr.ccs.tencentyun.com/x2m7/zweiblog:v1.0.7`
+- `ghcr.io/x2m7/zweiblog:v1.0.8`
+- `ccr.ccs.tencentyun.com/x2m7/zweiblog:v1.0.8`
 - 发布流程验证测试及容器启动后，发布 `linux/amd64` 和 `linux/arm64` 镜像，并核对两个仓库的清单摘要；`latest` 跟随本次正式发布。
 
 ### 使用说明
 
 - 更新运行中的镜像后，原有 `<span style="color: red;">文字</span>` 写法即可保留颜色，无需重新编辑文章。
 - 本次不涉及数据库结构迁移。其他颜色可使用三位或六位十六进制写法；`rgb()`、`var()` 和 `!important` 不在本次支持范围内。
+- `v1.0.7` 标签的构建被依赖审计拦截，未发布镜像；本次使用新标签保留原构建记录。
 
 ## [1.0.6](https://github.com/X2M7/zweiblog/compare/v1.0.5...v1.0.6) (2026-11-09)
 
