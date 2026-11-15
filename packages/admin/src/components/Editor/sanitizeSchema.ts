@@ -1,3 +1,5 @@
+import { PRESENTATION_STYLE_TAGS, SAFE_PRESENTATION_STYLE } from './presentationStyle';
+
 type AttributeRule = string | [string, ...unknown[]] | RegExp;
 
 export type MarkdownSanitizeSchema = {
@@ -23,75 +25,6 @@ const SAFE_CUSTOM_PAGE_IFRAME_SRC =
   /^\/c\/(?!\.{1,2}(?:\/|[?#]|$))[^/\\?#\s<>"'`%]+(?:\/(?!\.{1,2}(?:\/|[?#]|$))[^/\\?#\s<>"'`%]+)*\/?(?:\?(?:[^#\\\s<>"'`%]|%[0-9a-f]{2})*)?(?:#(?:[^\\\s<>"'`%]|%[0-9a-f]{2})*)?$/i;
 const SAFE_IFRAME_STYLE =
   /^(?:\s*(?:(?:display\s*:\s*(?:block|inline-block))|(?:(?:width|min-width|max-width|height|min-height|max-height)\s*:\s*(?:0|\d+(?:\.\d+)?(?:px|%|rem|em|vw|vh)))|(?:border\s*:\s*(?:0|none))|(?:border-radius\s*:\s*(?:0|\d+(?:\.\d+)?(?:px|%|rem|em)))|(?:overflow(?:-x|-y)?\s*:\s*(?:auto|hidden|scroll|visible)))\s*;?)+$/i;
-
-const SAFE_PRESENTATION_LENGTH = String.raw`(?:0|(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|rem|em|vw|vh|vmin|vmax|ch|ex))`;
-const SAFE_PRESENTATION_LENGTH_OR_AUTO = `(?:auto|${SAFE_PRESENTATION_LENGTH})`;
-const SAFE_PRESENTATION_BOX = `${SAFE_PRESENTATION_LENGTH_OR_AUTO}(?:\\s+${SAFE_PRESENTATION_LENGTH_OR_AUTO}){0,3}`;
-const SAFE_PRESENTATION_RADIUS = `${SAFE_PRESENTATION_LENGTH}(?:\\s+${SAFE_PRESENTATION_LENGTH}){0,3}`;
-const SAFE_PRESENTATION_DECLARATION = [
-  // Keep text colors consistent with the published article allowlist.
-  String.raw`color\s*:\s*(?:red|#[0-9a-f]{3}(?:[0-9a-f]{3})?)`,
-  String.raw`display\s*:\s*(?:block|inline|inline-block|flex|inline-flex|grid)`,
-  `(?:width|min-width|max-width|height|min-height|max-height)\\s*:\\s*${SAFE_PRESENTATION_LENGTH_OR_AUTO}`,
-  `(?:margin|padding)\\s*:\\s*${SAFE_PRESENTATION_BOX}`,
-  `(?:margin|padding)-(?:top|right|bottom|left|inline|inline-start|inline-end|block|block-start|block-end)\\s*:\\s*${SAFE_PRESENTATION_LENGTH_OR_AUTO}`,
-  `border-radius\\s*:\\s*${SAFE_PRESENTATION_RADIUS}`,
-  String.raw`border(?:-(?:top|right|bottom|left))?\s*:\s*(?:0|none)`,
-  String.raw`overflow(?:-x|-y)?\s*:\s*(?:auto|hidden|scroll|visible|clip)`,
-  String.raw`text-align\s*:\s*(?:left|right|center|justify|start|end)`,
-  String.raw`vertical-align\s*:\s*(?:baseline|top|middle|bottom|text-top|text-bottom)`,
-  String.raw`object-fit\s*:\s*(?:contain|cover|fill|none|scale-down)`,
-  String.raw`object-position\s*:\s*(?:left|right|top|bottom|center)(?:\s+(?:left|right|top|bottom|center))?`,
-  String.raw`float\s*:\s*(?:left|right|none)`,
-  String.raw`clear\s*:\s*(?:left|right|both|none)`,
-  String.raw`box-sizing\s*:\s*(?:border-box|content-box)`,
-  String.raw`white-space\s*:\s*(?:normal|nowrap|pre|pre-wrap|pre-line|break-spaces)`,
-  `gap\\s*:\\s*${SAFE_PRESENTATION_LENGTH}(?:\\s+${SAFE_PRESENTATION_LENGTH})?`,
-  String.raw`flex-direction\s*:\s*(?:row|row-reverse|column|column-reverse)`,
-  String.raw`flex-wrap\s*:\s*(?:nowrap|wrap|wrap-reverse)`,
-  String.raw`justify-content\s*:\s*(?:start|end|center|space-between|space-around|space-evenly)`,
-  String.raw`align-items\s*:\s*(?:start|end|center|stretch|baseline)`,
-  String.raw`aspect-ratio\s*:\s*(?:auto|(?:\d+(?:\.\d+)?|\.\d+)(?:\s*\/\s*(?:\d+(?:\.\d+)?|\.\d+))?)`,
-].join('|');
-const SAFE_PRESENTATION_STYLE = new RegExp(
-  `^\\s*(?:${SAFE_PRESENTATION_DECLARATION})(?:\\s*;\\s*(?:${SAFE_PRESENTATION_DECLARATION}))*\\s*;?\\s*$`,
-  'i',
-);
-
-const PRESENTATION_STYLE_TAGS = [
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'p',
-  'div',
-  'span',
-  'center',
-  'img',
-  'figure',
-  'figcaption',
-  'blockquote',
-  'pre',
-  'code',
-  'ol',
-  'ul',
-  'li',
-  'dl',
-  'dt',
-  'dd',
-  'table',
-  'thead',
-  'tbody',
-  'tfoot',
-  'tr',
-  'th',
-  'td',
-  'caption',
-  'details',
-  'summary',
-];
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -200,7 +133,7 @@ function addSafePresentationStyles(
   return safeAttributes;
 }
 
-/** Keep ByteMD's default allowlist plus legacy `center` and safe `/c` embeds. */
+/** Keep ByteMD's default allowlist plus legacy `center`/`u` and safe `/c` embeds. */
 export function sanitizeMarkdownSchema<T extends MarkdownSanitizeSchema>(
   schema: T,
   siteBaseUrl?: string,
@@ -224,6 +157,7 @@ export function sanitizeMarkdownSchema<T extends MarkdownSanitizeSchema>(
     new Set([
       ...(schema.tagNames || []).filter((name) => !FORBIDDEN_TAGS.has(name.toLowerCase())),
       'center',
+      'u',
       'iframe',
     ]),
   );

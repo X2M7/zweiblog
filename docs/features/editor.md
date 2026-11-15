@@ -81,6 +81,43 @@ ZweiBlog 后台内置了 [bytemd](https://github.com/bytedance/bytemd)（掘金�
 
   ![快捷键提示](https://pic.mereith.com/img/cabe5cdfddeedbd6e592f7aaea2f4afc.clipboard-2022-08-29.png)
 
+## HTML 样式白名单
+
+文章、关于页和友情链接页中的内嵌 HTML 可以使用下列行内样式，后台预览与前台使用相同规则。评论仍按 Markdown 格式处理，不开放原生 HTML。iframe 保持单独的尺寸和边框规则。
+
+| 用途 | 支持的属性和值示例 |
+| --- | --- |
+| 颜色和纯色背景 | `color`、`background-color`、纯色 `background`；标准命名颜色、`transparent`、`currentColor`、3/4/6/8 位十六进制、数字形式的 `rgb()/rgba()/hsl()/hsla()` |
+| 字体和行距 | `font-size`、`font-weight`、`font-style`、`font-variant:small-caps`、`line-height`、`letter-spacing`、`word-spacing`；`font-family` 支持通用字体族及 Arial、Helvetica、Verdana、Georgia、Tahoma，可用逗号组合 |
+| 文字排版 | `text-align`、`text-indent`、`text-decoration` 及其 line/style/color/thickness 子属性、`text-transform`、`vertical-align`、`white-space`、`overflow-wrap`、`word-break`、`hyphens`、`text-overflow` |
+| 边框和圆角 | `border:1px solid #ddd`、四边的 border 子属性、`border-color/style/width`、`border-radius` 及四个角的圆角；边框简写按宽度、线型、颜色的顺序书写 |
+| 尺寸和间距 | width/height、inline-size/block-size 及 min/max 变体；margin/padding 和四边、逻辑方向变体；`box-sizing`、`overflow`、`aspect-ratio` |
+| Flex 布局 | `display:flex/inline-flex`、`flex`、`flex-basis/grow/shrink/direction/wrap/flow`、`order`、justify/align 的 content/items/self 属性、gap/row-gap/column-gap |
+| Grid 布局 | `display:grid/inline-grid`、`grid-template-columns/rows`、`grid-auto-columns/rows/flow`、`grid-column/row` 及 start/end；支持数字 fr、`minmax()` 和 1–12 次的 `repeat()`，每个模板最多 12 项，不支持嵌套或自动重复 |
+| 图片、列表和表格 | `object-fit/position`、`float`、`clear`、`list-style-type/position`、`table-layout`、`border-collapse/spacing`、`caption-side`、`empty-cells` |
+| 公式箭头 | `transform:rotate(90deg)` 等 0/90/180/270/360 度旋转，支持对应负角度 |
+
+例如，使用两列卡片和文字强调：
+
+```html
+<div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem;">
+  <div style="background-color:#eef6ff; border:1px solid #93c5fd; border-radius:8px; padding:1rem;">
+    <strong style="color:navy; font-size:1.25rem;">第一张卡片</strong>
+    <p style="line-height:1.8;">正常排版的正文。</p>
+  </div>
+  <div style="background-color:rgb(240 253 244); border:1px solid seagreen; padding:1rem;">
+    <mark style="background-color:#fef08a; color:#333;">重点内容</mark>
+    <u style="text-decoration-color:teal;">带颜色的下划线</u>
+  </div>
+</div>
+```
+
+这些样式也适用于 `strong`、`em`、`mark`、`u`、`small`、`sub`、`sup` 等正文标签。一般长度使用非负值，可用 px、rem、em、%、vw、vh、vmin、vmax、ch、ex；边框宽度和字间距等属性不接受百分比。数字最多 4 位整数、3 位小数；每个 style 属性最多 4096 字符、64 条声明。
+
+任意一条声明不符合规则时，会移除该元素的整个 style 属性。URL、背景图片、CSS 变量、`calc()`、`!important`、CSS 注释和转义、定位及 z-index、动画、缩放和平移均不在本白名单内。RGB/HSL 只接受直接数字和百分比，不接受相对颜色或嵌套表达式。需要完整网页布局时，可使用隔离的自定义页面。
+
+颜色语法可参考 [MDN 命名颜色](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/named-color)和 [RGB 颜色](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value/rgb)，Grid 数值写法可参考 [MDN 网格列定义](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid-template-columns)。本文列出的子集才是 ZweiBlog 实际支持的范围。
+
 ## 更多功能
 
 ### 导入

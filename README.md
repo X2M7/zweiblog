@@ -72,6 +72,7 @@ ZweiBlog 已经加入与上游不同的数据字段、接口和交互，不应�
 ### 基础能力
 
 - Markdown 写作、代码高亮、TeX、Mermaid、Emoji、目录与图片上传。
+- 内嵌 HTML 支持颜色、字体、边框、纯色背景及常用 Flex/Grid 排版，前台与编辑器预览使用一致的[样式白名单](./docs/features/editor.md#html-样式白名单)。
 - 文章、草稿、分类、标签、置顶、加密、搜索、时间线、RSS 与 Sitemap。
 - 响应式前台和后台、深色模式、多种首页布局及移动端适配。
 - 内置图床，也可配置 OSS 或 PicGo；上传支持 PNG/APNG、JPEG、GIF、WebP、AVIF、BMP、TIFF、SVG 及可解码的 HEIC/HEIF，并支持压缩和水印。SVG 与弱浏览器兼容格式会安全转换为 WebP；HEIC/HEIF 能否解码取决于服务器图像编解码器。

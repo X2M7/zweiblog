@@ -1,3 +1,5 @@
+import { PRESENTATION_STYLE_TAGS, SAFE_PRESENTATION_STYLE } from './presentationStyle';
+
 type AttributeRule = string | [string, ...unknown[]] | RegExp;
 
 export type MarkdownSanitizeSchema = {
@@ -31,53 +33,6 @@ const SAFE_CUSTOM_PAGE_IFRAME_SRC =
 // generated URLs, or other CSS that could cover the blog UI.
 const SAFE_IFRAME_STYLE =
   /^(?:\s*(?:(?:display\s*:\s*(?:block|inline-block))|(?:(?:width|min-width|max-width|height|min-height|max-height)\s*:\s*(?:0|\d+(?:\.\d+)?(?:px|%|rem|em|vw|vh)))|(?:border\s*:\s*(?:0|none))|(?:border-radius\s*:\s*(?:0|\d+(?:\.\d+)?(?:px|%|rem|em)))|(?:overflow(?:-x|-y)?\s*:\s*(?:auto|hidden|scroll|visible)))\s*;?)+$/i;
-
-const SAFE_PRESENTATION_LENGTH = String.raw`(?:0|(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|rem|em|vw|vh|vmin|vmax|ch|ex))`;
-const SAFE_PRESENTATION_LENGTH_OR_AUTO = `(?:auto|${SAFE_PRESENTATION_LENGTH})`;
-const SAFE_PRESENTATION_BOX = `${SAFE_PRESENTATION_LENGTH_OR_AUTO}(?:\\s+${SAFE_PRESENTATION_LENGTH_OR_AUTO}){0,3}`;
-const SAFE_PRESENTATION_RADIUS = `${SAFE_PRESENTATION_LENGTH}(?:\\s+${SAFE_PRESENTATION_LENGTH}){0,3}`;
-const SAFE_PRESENTATION_DECLARATION = [
-  // Allow literal text colors without accepting CSS functions or arbitrary styles.
-  String.raw`color\s*:\s*(?:red|#[0-9a-f]{3}(?:[0-9a-f]{3})?)`,
-  String.raw`display\s*:\s*(?:block|inline|inline-block|flex|inline-flex|grid)`,
-  `(?:width|min-width|max-width|height|min-height|max-height)\\s*:\\s*${SAFE_PRESENTATION_LENGTH_OR_AUTO}`,
-  `(?:margin|padding)\\s*:\\s*${SAFE_PRESENTATION_BOX}`,
-  `(?:margin|padding)-(?:top|right|bottom|left|inline|inline-start|inline-end|block|block-start|block-end)\\s*:\\s*${SAFE_PRESENTATION_LENGTH_OR_AUTO}`,
-  `border-radius\\s*:\\s*${SAFE_PRESENTATION_RADIUS}`,
-  String.raw`border(?:-(?:top|right|bottom|left))?\s*:\s*(?:0|none)`,
-  String.raw`overflow(?:-x|-y)?\s*:\s*(?:auto|hidden|scroll|visible|clip)`,
-  String.raw`text-align\s*:\s*(?:left|right|center|justify|start|end)`,
-  String.raw`vertical-align\s*:\s*(?:baseline|top|middle|bottom|text-top|text-bottom)`,
-  String.raw`object-fit\s*:\s*(?:contain|cover|fill|none|scale-down)`,
-  String.raw`object-position\s*:\s*(?:left|right|top|bottom|center)(?:\s+(?:left|right|top|bottom|center))?`,
-  String.raw`float\s*:\s*(?:left|right|none)`,
-  String.raw`clear\s*:\s*(?:left|right|both|none)`,
-  String.raw`box-sizing\s*:\s*(?:border-box|content-box)`,
-  String.raw`white-space\s*:\s*(?:normal|nowrap|pre|pre-wrap|pre-line|break-spaces)`,
-  `gap\\s*:\\s*${SAFE_PRESENTATION_LENGTH}(?:\\s+${SAFE_PRESENTATION_LENGTH})?`,
-  String.raw`flex-direction\s*:\s*(?:row|row-reverse|column|column-reverse)`,
-  String.raw`flex-wrap\s*:\s*(?:nowrap|wrap|wrap-reverse)`,
-  String.raw`justify-content\s*:\s*(?:start|end|center|space-between|space-around|space-evenly)`,
-  String.raw`align-items\s*:\s*(?:start|end|center|stretch|baseline)`,
-  // Diagram authors commonly rotate a short arrow between display equations.
-  // Limit this to quarter turns so articles cannot use scale, translate,
-  // matrix, perspective, or arbitrary rotations to obscure the surrounding UI.
-  String.raw`transform\s*:\s*rotate\(\s*-?(?:0|90|180|270|360)deg\s*\)`,
-  String.raw`aspect-ratio\s*:\s*(?:auto|(?:\d+(?:\.\d+)?|\.\d+)(?:\s*\/\s*(?:\d+(?:\.\d+)?|\.\d+))?)`,
-].join('|');
-const SAFE_PRESENTATION_STYLE = new RegExp(
-  `^\\s*(?:${SAFE_PRESENTATION_DECLARATION})(?:\\s*;\\s*(?:${SAFE_PRESENTATION_DECLARATION}))*\\s*;?\\s*$`,
-  'i',
-);
-
-// These elements participate in normal article flow. iframe intentionally
-// stays out of this list and keeps its smaller, dedicated style policy.
-const PRESENTATION_STYLE_TAGS = [
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'span', 'center',
-  'img', 'figure', 'figcaption', 'blockquote', 'pre', 'code',
-  'ol', 'ul', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody',
-  'tfoot', 'tr', 'th', 'td', 'caption', 'details', 'summary',
-];
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -224,7 +179,7 @@ function addSafePresentationStyles(
 }
 
 /**
- * Keep ByteMD's default allowlist intact and only add the legacy `center` tag.
+ * Keep ByteMD's default allowlist and add the legacy `center` and `u` tags.
  * The explicit removals also make this safe during hot reload if an older
  * callback has already mutated ByteMD's shared schema object.
  */
@@ -251,6 +206,7 @@ export function sanitizeMarkdownSchema<T extends MarkdownSanitizeSchema>(
     new Set([
       ...(schema.tagNames || []).filter((name) => !FORBIDDEN_TAGS.has(name.toLowerCase())),
       'center',
+      'u',
       'iframe',
     ]),
   );
