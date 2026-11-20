@@ -1,0 +1,39 @@
+.markdown-body .layer-viewer {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+}
+.layer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.layer-controls button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: .5rem .75rem;
+  cursor: pointer;
+}
+.layer-controls button[aria-pressed="true"] {
+  background: #2458a6;
+  border-color: #2458a6;
+  color: white;
+}
+.layer-controls button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.markdown-body .layer-panel { margin: 0; }
+.markdown-body .layer-panel[hidden] { display: none; }
+.markdown-body .layer-panel img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  margin: 0 auto;
+}

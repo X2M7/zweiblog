@@ -10,6 +10,7 @@ import { customCodeBlock } from './codeBlock';
 import { LinkTarget } from './linkTarget';
 import { Heading, useHeadingNamespace } from './heading';
 import { Img } from './img';
+import { Layers } from './layers';
 import { sanitizeMarkdownSchema } from './sanitizeSchema';
 import { useSiteLanguage } from '../../utils/siteLanguage';
 import { useSiteConfig } from '../../utils/siteConfig';
@@ -34,6 +35,7 @@ export default function ({ content, articleId }: { content: string; articleId?: 
     LinkTarget(language),
     Heading(headingNamespace),
     Img(),
+    Layers(language),
     ExternalLatexTheme(),
     safeCustomPageIframe(baseUrl),
   ], [baseUrl, language, headingNamespace]);
