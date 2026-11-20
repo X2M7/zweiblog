@@ -1,4 +1,5 @@
 import { PRESENTATION_STYLE_TAGS, SAFE_PRESENTATION_STYLE } from './presentationStyle';
+import { SAFE_BILIBILI_IFRAME_SRC, sanitizeBilibiliIframeProperties } from './bilibiliIframe';
 
 type AttributeRule = string | [string, ...unknown[]] | RegExp;
 
@@ -98,6 +99,7 @@ function getSafeIframeAttributes(siteBaseUrl?: string): AttributeRule[] {
     [
       'src',
       SAFE_CUSTOM_PAGE_IFRAME_SRC,
+      SAFE_BILIBILI_IFRAME_SRC,
       ...(absoluteSrcPattern ? [absoluteSrcPattern] : []),
     ],
     ['style', SAFE_IFRAME_STYLE],
@@ -105,6 +107,7 @@ function getSafeIframeAttributes(siteBaseUrl?: string): AttributeRule[] {
     ['scrolling', 'yes', 'no', 'auto'],
     ['frameBorder', '0'],
     ['allowFullScreen', true],
+    'title',
   ];
 }
 
@@ -133,6 +136,8 @@ export function sanitizeCustomPageIframeProperties(
   properties?: Record<string, unknown>,
   siteBaseUrl?: string,
 ): Record<string, unknown> | null {
+  const bilibili = sanitizeBilibiliIframeProperties(properties);
+  if (bilibili) return bilibili;
   const src = normalizeCustomPageIframeSrc(properties?.src, siteBaseUrl);
   if (!src) return null;
 
