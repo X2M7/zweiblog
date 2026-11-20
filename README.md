@@ -410,6 +410,38 @@ sudo docker compose up -d
 
 ## 升级与回滚
 
+### 交互式镜像更新
+
+已有 Compose 部署可使用 [`scripts/zweiblog-update.py`](./scripts/zweiblog-update.py)。需要 Linux、Python 3.9+、本机 Docker Engine、Compose v2，以及部署用户的 sudo 权限；无需安装 Python 第三方库。在仓库目录执行：
+
+```bash
+python3 scripts/zweiblog-update.py
+```
+
+也可以把这个单文件复制到服务器的 `~/zweiblog-update.py`，以后只执行 `python3 ~/zweiblog-update.py`。请以部署用户运行，不要在 Python 命令前加 `sudo`。默认部署目录为 `~/zweiblog/docker-compose`，数据目录为 `/var/zweiblog`；其他位置使用 `--compose-dir`、`--data-dir` 指定。
+
+菜单支持从腾讯云或 GHCR 更新 GitHub 最新正式版、回滚上一镜像、清理更早的博客镜像。更新流程为：
+
+1. 检查发布版本、源代码差异、镜像版本与提交；先拉取镜像并固定摘要，核对现有 Compose 配置和挂载。
+2. 暂停博客与原 MongoDB 容器，将数据、静态文件、凭据、Caddy 状态、日志、部署配置及 MongoDB 的 `configdb` 卷完整归档，校验归档后再启动原 MongoDB。
+3. 只替换博客容器，检查实际镜像、版本、健康状态与数据挂载。通过后记录当前版和更新前实际运行的上一版，再清理更早的 ZweiBlog 镜像。
+
+例如从 v1.0.6 更新到 v1.0.9 后保留这两个镜像；下一次成功更新后，再把 v1.0.9 作为上一版。同一镜像重复运行不会覆盖上一版记录。首次使用且已经运行最新版时，脚本不会猜测已有回滚标签的用途，也不会清理它们。
+
+清理仅限 `ccr.ccs.tencentyun.com/x2m7/zweiblog`、`ghcr.io/x2m7/zweiblog`、`zweiblog-local-rollback`、`zweiblog` 仓库。其他容器（包括已停止容器）仍引用的镜像、带其他仓库标签的镜像，以及无法确认来源的无标签镜像都会保留。因此存在这些引用时，可能保留超过两个镜像。脚本不执行 `prune`、不清理 MongoDB/NapCat 镜像、不删除卷或数据备份。
+
+完整备份保存在 `~/zweiblog-backups/before-版本-时间-随机标识/`，更新状态保存在 `~/.local/state/zweiblog-updater/`。备份包含凭据，目录仅限当前用户访问。`BACKUP_OK` 记录归档 SHA-256，`recovery.json` 记录原容器、挂载和配置。请另行保留异机备份，升级时暂勿同时手动修改 Compose、启动容器或运行其他写库任务。
+
+脚本会检查数据目录及纳入备份的外部挂载来源是否被其他容器可写挂载，并在停机前及冷备份前检查符号链接。备份源本身为符号链接、内部链接依赖未归档路径、链接损坏或目录无法完整读取时会停止，不会通过跟随链接扩大备份范围。特殊数据布局需要先人工整理和验证。
+
+更新失败会尝试恢复原镜像，并保留现有数据库内容；回滚镜像不会自动恢复旧数据库备份。中断时脚本会等待正在进行的命令结束再恢复，避免备份与数据库写入同时发生；断电或强制杀进程后，下一次运行会先要求恢复未完成事务。建议在 `tmux` 会话中操作，尤其是备份较大时。
+
+Compose 重建失败留下临时替换容器时，脚本仅自动清理由本次事务精确识别、且从未启动的容器，不使用强制删除或删除卷。遇到未知或已启动的额外容器会保留现场并停止，需人工核对后再恢复。
+
+自动更新仅允许同一主要、次要版本内的正式版。检测到后端源码或部署文件变化、配置漂移、版本差异不完整时会停止，需先审查兼容性；它不能保证任意未来版本均可无损回退。本脚本会短暂停机完成冷备份，不会自动升级 MongoDB 或拉取 Git 源码。可用 `python3 scripts/zweiblog-update.py --help` 查看路径参数。
+
+### 手动升级
+
 ZweiBlog 从 `v1.0.0` 开始使用语义化版本。源码版本以根目录 `package.json` 为唯一来源，发布标签必须使用匹配的 `vX.Y.Z`；容器构建会把这个版本写入前台页脚，因此 `latest` 镜像也会显示实际应用版本，而不是显示 `latest`。以后发布新版本时，先更新 `package.json`并推送源码，待需要的镜像或源码镜像站同步完成且测试通过后，再创建同名 Git 标签触发镜像发布。
 
 升级前先完成上面的完整备份，并记录当前源码提交与镜像版本。使用固定版本标签时，先从 Releases 选择要升级到的目标版本，并把 `.env` 中的 `ZWEIBLOG_IMAGE` 改为对应标签；仅执行 `pull` 不会把一个固定标签自动改成新版本。随后：
@@ -547,7 +579,7 @@ pnpm security:audit
 ## 安全与隐私提示
 
 - 修改密码、通过恢复密钥重置密码或导入备份中的管理员凭据后，已有登录会话和 API Token 会立即失效，需要重新登录并重建集成凭据。
-- `pnpm security:audit` 要求生产依赖无已知漏洞、全部依赖无中危及以上漏洞。2026-11-09 审计仍发现开发/构建依赖中的 [elliptic 低危公告](https://github.com/advisories/GHSA-848j-6mx2-7j84) 和 [deepmerge 低危公告](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)，上游尚无修复版本；没有将它们加入忽略列表。后续需要迁移其依赖链，不能把当前结果理解为所有依赖已无漏洞。
+- `pnpm security:audit` 要求生产依赖无已知漏洞、全部依赖无中危及以上漏洞。2026-11-20 审计生产依赖为 0 项告警，完整依赖树仍有开发/构建依赖中的 [elliptic 低危公告](https://github.com/advisories/GHSA-848j-6mx2-7j84)，上游尚无修复版本，未加入忽略列表。此前记录的 [deepmerge 公告](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)已被撤销。后续仍需处理 elliptic 的依赖链，不能把当前结果理解为所有依赖已无漏洞。
 - 初始化完成后使用高强度管理员密码，并定期备份。
 - 早期 ZweiBlog 镜像的 Caddy 访问日志可能记录自定义 `Token` 请求头。若曾运行早期镜像或把访问日志发送给他人，应立即修改管理员密码以撤销现有登录会话，并在后台删除、重建所有 API Token；仅删除日志不能撤销已经泄露的凭据。
 - `secrets/`、`data/`、`log/`、`caddy/` 和 `.local-runtime/` 都不应提交到 Git；仓库的 [`.gitignore`](./.gitignore) 已排除默认运行目录，提交前仍应检查 `git status`。

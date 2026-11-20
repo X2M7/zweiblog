@@ -76,6 +76,9 @@ jobs:
       - name: Check shell script syntax
         run: bash -n entrypoint.sh scripts/zweiblog.sh scripts/migrate-mongo.sh scripts/docker-smoke-test.sh docker-compose/setup-mongo-secrets.sh
 
+      - name: Test interactive updater and failure recovery
+        run: python3 -m unittest discover -s scripts -p 'test_zweiblog_update.py' -v
+
       - name: Test server
         run: pnpm --filter @zweiblog/server exec jest --runInBand
 
@@ -92,7 +95,7 @@ jobs:
         run: pnpm audit --prod
 
       - name: Audit development and build dependencies
-        # Two unpatched low-severity build-tool advisories are documented in README.
+        # Remaining unpatched low-severity build-tool advisories are documented in README.
         run: pnpm audit --audit-level=moderate
 
       - name: Set up Docker Buildx

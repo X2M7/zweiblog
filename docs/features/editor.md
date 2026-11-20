@@ -81,6 +81,28 @@ ZweiBlog 后台内置了 [bytemd](https://github.com/bytedance/bytemd)（掘金�
 
   ![快捷键提示](https://pic.mereith.com/img/cabe5cdfddeedbd6e592f7aaea2f4afc.clipboard-2022-08-29.png)
 
+## 嵌入 Bilibili 视频
+
+在文章、关于页或友情链接页的 Markdown 正文中粘贴下面这行 HTML，不要用代码块包裹：
+
+```html
+<iframe src="https://player.bilibili.com/player.html?bvid=BV1B7411m7LV" title="视频标题"></iframe>
+```
+
+将示例中的 `BV1B7411m7LV` 换成目标视频链接里的 BV 号，并填写视频标题。也可以粘贴 Bilibili「分享 → 嵌入代码」提供的 `player.bilibili.com/player.html` iframe；以 `//` 开头的播放器地址会自动转换为 HTTPS。普通视频页链接或 `b23.tv` 短链接不能直接作为 iframe 地址。
+
+后台预览与博客前台都会显示宽度自适应、比例为 16:9 的播放器。默认显示封面，点击播放器中的播放按钮开始播放，并支持全屏；即使原始嵌入代码设置了自动播放，ZweiBlog 也会关闭它。播放器使用懒加载，进入可视区域附近时可能提前请求 Bilibili，不代表点击前完全不加载。
+
+多 P 视频可添加 `&p=2` 指定第二集；有 `cid` 时以 `cid` 为准。还支持 `aid`、`cid`、`t`（起始秒数）和 `danmaku=0`（关闭弹幕）。参数含义见 [Bilibili 官方外链播放器文档](https://player.bilibili.com/)。播放可用性与清晰度由 Bilibili 决定。
+
+例如，可以在播放器下面加一个普通链接，便于读者打开原视频：
+
+```markdown
+[在 Bilibili 打开视频](https://www.bilibili.com/video/BV1B7411m7LV/)
+```
+
+此功能需重新构建、部署 website 和 admin 后生效。文章中嵌入的站内 `/c/` 自定义页面继续使用原有隔离规则；评论不支持 iframe，RSS 不嵌入播放器。
+
 ## HTML 样式白名单
 
 文章、关于页和友情链接页中的内嵌 HTML 可以使用下列行内样式，后台预览与前台使用相同规则。评论仍按 Markdown 格式处理，不开放原生 HTML。iframe 保持单独的尺寸和边框规则。

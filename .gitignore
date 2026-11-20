@@ -43,6 +43,10 @@ typings/
 # TypeScript cache
 *.tsbuildinfo
 
+# Python updater test cache
+__pycache__/
+*.py[cod]
+
 # Optional npm cache directory
 .npm
 
