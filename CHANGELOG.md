@@ -9,6 +9,11 @@
 - 图片在 4:3 区域内完整展示，支持键盘聚焦、Enter/空格操作和原有点击放大；无 JavaScript 时按顺序显示图片。
 - 增加真实 Markdown 渲染与交互回归测试，以及使用文档。后台编辑器暂不提供交互预览。
 
+### 依赖安全更新
+
+- 将 Next.js、bundle analyzer 和 ESLint 配套包从 15.5.28 更新至兼容补丁版 15.5.29，修复发布前生产依赖审计命中的 3 项中危告警。参见 [Next.js 15.5.29](https://github.com/vercel/next.js/releases/tag/v15.5.29)。
+- 更新后生产依赖审计为 0 项告警；完整依赖树无中危及以上告警，仍有原有开发依赖 elliptic 的 1 项低危公告。
+
 ### Docker 镜像与升级
 
 - `ghcr.io/x2m7/zweiblog:v1.0.10`
