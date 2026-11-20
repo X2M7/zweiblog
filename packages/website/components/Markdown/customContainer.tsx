@@ -22,6 +22,26 @@ const customContainerPlugin = (language: Language) => (tree) => {
       if (node.type == "containerDirective") {
         const { attributes, name: tagName } = node;
         const data = node.data ??= {};
+        if (tagName === "layers") {
+          data.hName = "div";
+          data.hProperties = { className: "layer-viewer" };
+          // Consecutive Markdown images form one paragraph. Give each image
+          // its own panel, while leaving paragraphs containing prose intact.
+          node.children = node.children.flatMap((child) => {
+            if (child.type !== "paragraph" || !child.children.every((item) =>
+              item.type === "image" || item.type === "imageReference" ||
+              item.type === "break" ||
+              (item.type === "text" && !item.value.trim())
+            )) return [child];
+            const images = child.children.filter((item) =>
+              item.type === "image" || item.type === "imageReference"
+            );
+            return images.length ? images.map((image) => ({
+              type: "paragraph", children: [image],
+            })) : [child];
+          });
+          return;
+        }
         const title = attributes?.title || CUSTOM_CONTAINER_TITLE[tagName]?.[language] || tagName;
         const cls = `custom-container ${tagName}`;
 

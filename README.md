@@ -71,6 +71,8 @@ ZweiBlog 已经加入与上游不同的数据字段、接口和交互，不应�
 
 ### 基础能力
 
+- **图片分层切换**：前台 Markdown 支持 `:::layers` 容器，用按钮切换不同图片图层；支持同文多组、共用图注与键盘操作。用法见[图片分层切换](./docs/features/layers.md)。后台编辑器暂不提供交互预览。
+
 - Markdown 写作、代码高亮、TeX、Mermaid、Emoji、目录与图片上传。
 - 内嵌 HTML 支持颜色、字体、边框、纯色背景及常用 Flex/Grid 排版，前台与编辑器预览使用一致的[样式白名单](./docs/features/editor.md#html-样式白名单)。
 - 文章、草稿、分类、标签、置顶、加密、搜索、时间线、RSS 与 Sitemap。

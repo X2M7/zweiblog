@@ -7,6 +7,7 @@ import "../styles/tip-card.css";
 import "../styles/loader.css";
 import "../styles/scrollbar.css";
 import "../styles/custom-container.css";
+import "../styles/layers.css";
 import "../styles/code-light.css";
 import "../styles/code-dark.css";
 import "../styles/zoom.css";
